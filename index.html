@@ -266,13 +266,13 @@
 <body>
 
 <header>
-  <h1 id="hTitle">Tasks</h1>
+  <h1 id="hTitle">Návyky</h1>
   <span class="date" id="hDate"></span>
 </header>
 
 <div class="pager" id="pager">
-  <div class="dot on" data-sec="0"></div>
-  <div class="dot" data-sec="1"></div>
+  <div class="dot" data-sec="0"></div>
+  <div class="dot on" data-sec="1"></div>
   <div class="dot" data-sec="2"></div>
 </div>
 
@@ -431,7 +431,7 @@
 var KEY = "habity.v2";
 var OLDKEY = "habity.v1";
 var GRID = 90;       // čtverečků na úkol (3 řádky × 30)
-var curSection = 0;  // 0..2 – aktivní pozice, sdílená pro Dnes i Přehled
+var curSection = 1;  // 0..2 – aktivní pozice, sdílená pro Dnes i Přehled (start na Návyky)
 
 var state = load();
 
