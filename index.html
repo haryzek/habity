@@ -20,7 +20,9 @@
     --text:#EDE6D8;
     --dim:#9A9081;
     --empty:#34302A;
+    --empty2:#46403A;   /* světlejší šedá – odlišení sousedního nesplněného subtasku */
     --done:#74955E;
+    --done2:#8FB179;    /* světlejší zelená – odlišení sousedního splněného subtasku */
     --missed:#BC5B43;
     --accent:#D9A441;
     --serif:Georgia,'Times New Roman',ui-serif,serif;
@@ -56,11 +58,11 @@
   }
   .pager .dot.on{background:var(--accent);transform:scale(1.15);}
 
-  /* ---- pages + swipe track ---- */
-  .page{display:none;overflow:hidden;}
+  /* ---- pages + swipe track (3 pozice: Tasks / 01 / 02) ---- */
+  .page{display:none;overflow:hidden;touch-action:pan-y;}
   .page.active{display:block;}
-  .track{display:flex;width:200%;transition:transform .25s ease;will-change:transform;}
-  .panel{width:50%;flex:0 0 50%;}
+  .track{display:flex;width:300%;transition:transform .25s ease;will-change:transform;}
+  .panel{width:33.3333%;flex:0 0 33.3333%;}
 
   /* ---- today cards ---- */
   .card{
@@ -77,12 +79,11 @@
     display:flex;align-items:center;justify-content:center;cursor:pointer;
     transition:all .12s ease;
   }
-
   .tg.yes.on{background:var(--done);border-color:var(--done);color:#16130E;}
   .tg.no.on{background:var(--missed);border-color:var(--missed);color:#16130E;}
   .tg:active{transform:scale(.92);}
 
-  /* ---- overview ---- */
+  /* ---- overview / progres ---- */
   .legend{
     display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--dim);
     margin:4px 0 18px;flex-wrap:wrap;
@@ -103,6 +104,47 @@
   }
   .cell.done{background:var(--done);}
   .cell.missed{background:var(--missed);}
+  /* odstíny pro proporční mřížku subtasků (ob jeden subtask) */
+  .cell.e0{background:var(--empty);}
+  .cell.e1{background:var(--empty2);}
+  .cell.d0{background:var(--done);}
+  .cell.d1{background:var(--done2);}
+
+  /* ---- TASKS – seznam (logika jako Dnes) ---- */
+  .taskc{
+    background:var(--surface);border:1px solid var(--border);border-radius:8px;
+    margin-bottom:6px;overflow:hidden;
+  }
+  .task-head{
+    display:flex;align-items:center;gap:8px;padding:11px 12px;cursor:pointer;
+  }
+  .task-head .name{font-family:var(--serif);font-size:16px;flex:1;min-width:0;word-break:break-word;}
+  .task-head .prio{font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0;}
+  .task-head .pct{font-family:var(--mono);font-size:12px;color:var(--done);flex-shrink:0;}
+  .task-head .chev{color:var(--dim);font-size:13px;flex-shrink:0;transition:transform .18s ease;}
+  .taskc.open .task-head .chev{transform:rotate(90deg);}
+  /* mini proužek progresu ve sbalené hlavičce */
+  .task-mini{display:flex;gap:1px;height:5px;margin:0 12px 10px;border-radius:3px;overflow:hidden;}
+  .task-mini i{display:block;height:100%;}
+  .task-body{display:none;padding:0 12px 8px;border-top:1px solid var(--border);}
+  .taskc.open .task-body{display:block;}
+  .sub{
+    display:flex;align-items:center;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);
+  }
+  .sub:last-child{border-bottom:none;}
+  .sub .box{
+    width:24px;height:24px;border-radius:6px;border:1px solid var(--border);
+    background:var(--surface2);color:var(--dim);font-size:13px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;transition:all .12s ease;
+  }
+  .sub.on .box{background:var(--done);border-color:var(--done);color:#16130E;}
+  .sub .sname{font-family:var(--serif);font-size:14px;flex:1;min-width:0;word-break:break-word;}
+  .sub.on .sname{color:var(--dim);text-decoration:line-through;}
+  .sub .sw{font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0;}
+  .task-edit{
+    text-align:center;color:var(--accent);font-family:var(--sans);font-size:13px;
+    padding:10px 0 4px;cursor:pointer;
+  }
 
   /* ---- empty state ---- */
   .empty-state{
@@ -147,6 +189,7 @@
     padding:22px 20px calc(26px + env(safe-area-inset-bottom));
     animation:slideup .2s ease;
   }
+  .sheet.tall{max-height:88vh;overflow-y:auto;}
   @keyframes slideup{from{transform:translateY(40px);opacity:.6;}to{transform:translateY(0);opacity:1;}}
   .sheet h2{font-family:var(--serif);font-weight:500;font-size:20px;margin:0 0 18px;}
   label{display:block;font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px;}
@@ -168,7 +211,25 @@
   .btn-danger{background:none;color:var(--missed);border:1px solid var(--missed);margin-top:10px;}
   .btn:active{transform:scale(.98);}
 
-  /* ---- detail view ---- */
+  /* ---- editace subtasků v sheetu ---- */
+  .subedit{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;}
+  .subedit-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .subedit-top input[type=text]{margin-bottom:0;font-size:16px;padding:10px 12px;}
+  .subedit-del{
+    background:none;border:none;color:var(--missed);font-size:20px;cursor:pointer;
+    flex-shrink:0;width:34px;height:34px;line-height:1;
+  }
+  .subedit-bot{display:flex;align-items:center;gap:12px;}
+  .subedit-bot .lab{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
+  .subedit-bot .sv{font-family:var(--mono);font-size:18px;color:var(--accent);width:24px;text-align:center;flex-shrink:0;}
+  .add-sub{
+    width:100%;border:1px dashed var(--border);background:none;color:var(--accent);
+    border-radius:12px;padding:13px;font-family:var(--sans);font-size:14px;cursor:pointer;margin-bottom:20px;
+  }
+  .sublabel{display:flex;align-items:baseline;justify-content:space-between;}
+  .sublabel .hint{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:none;letter-spacing:0;}
+
+  /* ---- detail view (návyky) ---- */
   .detail{
     position:fixed;inset:0;background:var(--bg);z-index:50;
     overflow-y:auto;display:none;
@@ -179,7 +240,7 @@
   .back{background:none;border:none;color:var(--accent);font-size:16px;cursor:pointer;padding:6px 0;font-family:var(--sans);}
   .detail-body{max-width:560px;margin:0 auto;}
   .detail-body h2{font-family:var(--serif);font-weight:500;font-size:24px;margin:10px 0 2px;}
-  .detail-body .sub{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:22px;}
+  .detail-body .sub{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:22px;display:block;padding:0;border:none;}
   .month-row{margin-bottom:14px;}
   .month-row .ml{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:5px;}
 
@@ -205,25 +266,35 @@
 <body>
 
 <header>
-  <h1 id="hTitle">Dnes 01</h1>
+  <h1 id="hTitle">Tasks</h1>
   <span class="date" id="hDate"></span>
 </header>
 
 <div class="pager" id="pager">
   <div class="dot on" data-sec="0"></div>
   <div class="dot" data-sec="1"></div>
+  <div class="dot" data-sec="2"></div>
 </div>
 
 <div class="wrap">
-  <!-- TODAY -->
+  <!-- TODAY (pozice: Tasks / Dnes 01 / Dnes 02) -->
   <section class="page active" id="pageToday">
     <div class="track" id="trackToday">
+      <!-- pos 0: TASKS -->
+      <div class="panel">
+        <div id="tasksList"></div>
+        <div class="empty-state" id="tasksEmpty" style="display:none">
+          Zatím žádný úkol.<br>Ťukni na <b style="color:var(--accent)">+</b> a přidej první.
+        </div>
+      </div>
+      <!-- pos 1: Dnes 01 -->
       <div class="panel">
         <div id="todayList0"></div>
         <div class="empty-state" id="todayEmpty0" style="display:none">
           Zatím žádné povinnosti.<br>Ťukni na <b style="color:var(--accent)">+</b> a přidej první.
         </div>
       </div>
+      <!-- pos 2: Dnes 02 -->
       <div class="panel">
         <div id="todayList1"></div>
         <div class="empty-state" id="todayEmpty1" style="display:none">
@@ -233,9 +304,19 @@
     </div>
   </section>
 
-  <!-- OVERVIEW -->
+  <!-- OVERVIEW (pozice: Progres / Přehled 01 / Přehled 02) -->
   <section class="page" id="pageOverview">
     <div class="track" id="trackOverview">
+      <!-- pos 0: PROGRES -->
+      <div class="panel">
+        <div class="legend">
+          <span><i style="background:var(--done)"></i>hotovo</span>
+          <span><i style="background:var(--empty)"></i>zbývá</span>
+        </div>
+        <div id="progresList"></div>
+        <div class="empty-state" id="progresEmpty" style="display:none">Žádné úkoly k zobrazení.</div>
+      </div>
+      <!-- pos 1: Přehled 01 -->
       <div class="panel">
         <div class="legend">
           <span><i style="background:var(--done)"></i>splněno</span>
@@ -245,6 +326,7 @@
         <div id="overviewList0"></div>
         <div class="empty-state" id="overviewEmpty0" style="display:none">Žádné návyky k zobrazení.</div>
       </div>
+      <!-- pos 2: Přehled 02 -->
       <div class="panel">
         <div class="legend">
           <span><i style="background:var(--done)"></i>splněno</span>
@@ -258,7 +340,7 @@
   </section>
 </div>
 
-<button class="fab" id="fab" aria-label="Přidat návyk">+</button>
+<button class="fab" id="fab" aria-label="Přidat">+</button>
 
 <nav class="tabs">
   <button class="tab active" data-page="Today"><span class="ic">✓</span>Dnes</button>
@@ -266,7 +348,7 @@
   <button class="tab" data-page="Settings"><span class="ic">⚙</span>Data</button>
 </nav>
 
-<!-- ADD / EDIT SHEET -->
+<!-- ADD / EDIT HABIT SHEET -->
 <div class="scrim" id="sheetScrim">
   <div class="sheet" id="sheet">
     <h2 id="sheetTitle">Nový návyk</h2>
@@ -280,6 +362,29 @@
     <button class="btn btn-primary" id="saveHabit">Uložit</button>
     <button class="btn btn-danger" id="deleteHabit" style="display:none">Smazat návyk</button>
     <button class="btn btn-ghost" id="cancelSheet">Zrušit</button>
+  </div>
+</div>
+
+<!-- ADD / EDIT TASK SHEET -->
+<div class="scrim" id="taskScrim">
+  <div class="sheet tall" id="taskSheet">
+    <h2 id="taskSheetTitle">Nový úkol</h2>
+    <label>Název úkolu</label>
+    <input type="text" id="taskName" placeholder="třeba Nový interiér" autocomplete="off">
+    <label>Priorita úkolu</label>
+    <div class="prio-row">
+      <input type="range" id="taskPrio" min="1" max="10" value="5">
+      <span class="prio-val" id="taskPrioVal">5</span>
+    </div>
+    <div class="sublabel">
+      <label>Kroky úkolu</label>
+      <span class="hint">náročnost 1–10 = délka proužku</span>
+    </div>
+    <div id="subRows"></div>
+    <button class="add-sub" id="addSub">+ další krok</button>
+    <button class="btn btn-primary" id="saveTask">Uložit</button>
+    <button class="btn btn-danger" id="deleteTask" style="display:none">Smazat úkol</button>
+    <button class="btn btn-ghost" id="cancelTask">Zrušit</button>
   </div>
 </div>
 
@@ -307,7 +412,7 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- DETAIL -->
+<!-- DETAIL (návyky) -->
 <div class="detail" id="detail">
   <div class="detail-head"><button class="back" id="detailBack">‹ Zpět</button><button class="back" id="detailEdit" style="margin-left:auto">Upravit</button></div>
   <div class="detail-body" id="detailBody"></div>
@@ -317,48 +422,66 @@
 "use strict";
 
 /* ---------- state ----------
-   Nová struktura v2: { sections: [ {habits,log}, {habits,log} ] }
-   0 = povinnosti (01), 1 = volnočasovky (02)                       */
+   v2 struktura:
+   {
+     sections: [ {habits,log}, {habits,log} ],   // 0=povinnosti(01), 1=volnočas(02)
+     tasks: [ {id,name,priority,createdAt, subtasks:[{id,name,weight,done}]} ]
+   }
+   Swipe pozice: 0 = Tasks/Progres, 1 = sekce 01, 2 = sekce 02            */
 var KEY = "habity.v2";
 var OLDKEY = "habity.v1";
-var curSection = 0; // aktivní sekce, sdílená pro obě stránky
+var GRID = 90;       // čtverečků na úkol (3 řádky × 30)
+var curSection = 0;  // 0..2 – aktivní pozice, sdílená pro Dnes i Přehled
 
 var state = load();
 
-function blankState(){ return { sections:[ {habits:[],log:{}}, {habits:[],log:{}} ] }; }
+function blankState(){ return { sections:[ {habits:[],log:{}}, {habits:[],log:{}} ], tasks:[] }; }
 
 function normalize(o){
   if(!o || typeof o!=="object") return blankState();
-  // nový formát se sekcemi
+  var s = blankState();
+  // sekce (nový formát)
   if(Array.isArray(o.sections)){
-    var s = blankState();
     for(var i=0;i<2;i++){
       var src = o.sections[i];
       if(src && Array.isArray(src.habits)) s.sections[i] = { habits:src.habits, log:(src.log&&typeof src.log==="object")?src.log:{} };
     }
-    return s;
+  } else if(Array.isArray(o.habits)){
+    // starý v1 -> sekce 01
+    s.sections[0] = { habits:o.habits, log:(o.log&&typeof o.log==="object")?o.log:{} };
   }
-  // starý formát v1: { habits, log } -> všechno do sekce 01
-  if(Array.isArray(o.habits)){
-    var s2 = blankState();
-    s2.sections[0] = { habits:o.habits, log:(o.log&&typeof o.log==="object")?o.log:{} };
-    return s2;
+  // tasks
+  if(Array.isArray(o.tasks)){
+    s.tasks = o.tasks.filter(function(t){ return t && typeof t==="object" && typeof t.name==="string"; })
+      .map(function(t){
+        return {
+          id: t.id || ("t"+Date.now()+Math.random().toString(36).slice(2,6)),
+          name: t.name,
+          priority: (typeof t.priority==="number") ? t.priority : 5,
+          createdAt: t.createdAt || Date.now(),
+          subtasks: Array.isArray(t.subtasks) ? t.subtasks.filter(function(st){ return st && typeof st.name==="string"; }).map(function(st){
+            return {
+              id: st.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
+              name: st.name,
+              weight: (typeof st.weight==="number" && st.weight>=1) ? st.weight : 5,
+              done: !!st.done
+            };
+          }) : []
+        };
+      });
   }
-  return blankState();
+  return s;
 }
 
 function load(){
-  // 1) zkus nový klíč
   try{
     var raw = localStorage.getItem(KEY);
     if(raw) return normalize(JSON.parse(raw));
   }catch(e){}
-  // 2) migrace ze starého v1 (původní data nepřepisujeme, jen čteme)
   try{
     var old = localStorage.getItem(OLDKEY);
     if(old){
       var migrated = normalize(JSON.parse(old));
-      // hned ulož pod nový klíč, ať se migruje jen jednou
       try{ localStorage.setItem(KEY, JSON.stringify(migrated)); }catch(e2){}
       return migrated;
     }
@@ -371,7 +494,7 @@ function save(){
   }
 }
 
-/* ---------- date helpers (lokální čas) ---------- */
+/* ---------- date helpers ---------- */
 function key(d){
   var y=d.getFullYear(), m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).slice(-2);
   return y+"-"+m+"-"+day;
@@ -385,10 +508,10 @@ function fmtLong(d){
   return days[d.getDay()]+" "+d.getDate()+". "+MONTHS[d.getMonth()]+" "+d.getFullYear();
 }
 
-/* ---------- log access (per-section) ---------- */
+/* ================= NÁVYKY (sekce 01/02) ================= */
 function getState(si, habitId, dateKey){
   var h = state.sections[si].log[habitId];
-  return (h && h[dateKey]) || null; // "done" | "missed" | null
+  return (h && h[dateKey]) || null;
 }
 function setState(si, habitId, dateKey, val){
   var log = state.sections[si].log;
@@ -403,8 +526,6 @@ function cycle(si, habitId, dateKey){
   setState(si, habitId, dateKey, next);
   return next;
 }
-
-/* ---------- habits (per-section) ---------- */
 function sortedHabits(si){
   return state.sections[si].habits.slice().sort(function(a,b){
     if(b.priority!==a.priority) return b.priority-a.priority;
@@ -417,7 +538,6 @@ function habitById(si, id){
   return null;
 }
 
-/* ---------- render: TODAY ---------- */
 function renderTodayPanel(si){
   var list = document.getElementById("todayList"+si);
   var empty = document.getElementById("todayEmpty"+si);
@@ -437,48 +557,31 @@ function renderTodayPanel(si){
         '<div class="tg no'+(st==="missed"?" on":"")+'">✕</div>'+
       '</div>';
     card.querySelector(".name").textContent = h.name;
-    card.querySelector(".name").onclick = function(){
-      deleteHabitById(si, h.id);
+    card.querySelector(".name").onclick = function(){ deleteHabitById(si, h.id); };
+    card.querySelector(".tg.yes").onclick = function(){
+      setState(si, h.id, tk, getState(si,h.id,tk)==="done"?null:"done"); renderTodayPanel(si);
     };
-    var yes = card.querySelector(".tg.yes");
-    var no = card.querySelector(".tg.no");
-    yes.onclick = function(){
-      setState(si, h.id, tk, getState(si,h.id,tk)==="done"?null:"done");
-      renderTodayPanel(si);
-    };
-    no.onclick = function(){
-      setState(si, h.id, tk, getState(si,h.id,tk)==="missed"?null:"missed");
-      renderTodayPanel(si);
+    card.querySelector(".tg.no").onclick = function(){
+      setState(si, h.id, tk, getState(si,h.id,tk)==="missed"?null:"missed"); renderTodayPanel(si);
     };
     list.appendChild(card);
   });
 }
-function renderToday(){ renderTodayPanel(0); renderTodayPanel(1); }
 
-/* ---------- render: OVERVIEW (3x30 = 90 dní) ---------- */
 function renderOverviewPanel(si){
   var list = document.getElementById("overviewList"+si);
   var empty = document.getElementById("overviewEmpty"+si);
   var hs = sortedHabits(si);
   list.innerHTML = "";
   empty.style.display = hs.length ? "none" : "block";
-  var t = today();
-  var tk = key(t);
-
+  var t = today(), tk = key(t);
   hs.forEach(function(h){
-    var block = document.createElement("div");
-    block.className = "hblock";
-
-    var head = document.createElement("div");
-    head.className = "hhead";
-
-    var grid = document.createElement("div");
-    grid.className = "grid";
+    var block = document.createElement("div"); block.className = "hblock";
+    var head = document.createElement("div"); head.className = "hhead";
+    var grid = document.createElement("div"); grid.className = "grid";
     var doneCount = 0;
     for(var i=89;i>=0;i--){
-      var d = addDays(t, -i);
-      var dk = key(d);
-      var st = getState(si, h.id, dk);
+      var d = addDays(t, -i), dk = key(d), st = getState(si, h.id, dk);
       if(st==="done") doneCount++;
       var cell = document.createElement("div");
       cell.className = "cell"+(st?(" "+st):"")+(dk===tk?" today":"");
@@ -492,105 +595,78 @@ function renderOverviewPanel(si){
       })(si, h.id, dk, cell);
       grid.appendChild(cell);
     }
-
     head.innerHTML =
-      '<span class="name"></span>'+
-      '<span class="prio">P'+h.priority+'</span>'+
-      '<span class="stat"></span>'+
-      '<span class="chev">›</span>';
+      '<span class="name"></span><span class="prio">P'+h.priority+'</span>'+
+      '<span class="stat"></span><span class="chev">›</span>';
     head.querySelector(".name").textContent = h.name;
     head.querySelector(".stat").textContent = doneCount+"/90";
     head.onclick = function(){ openDetail(si, h.id); };
-
-    block.appendChild(head);
-    block.appendChild(grid);
-    list.appendChild(block);
+    block.appendChild(head); block.appendChild(grid); list.appendChild(block);
   });
 }
-function renderOverview(){ renderOverviewPanel(0); renderOverviewPanel(1); }
 function renderHeadStat(head, si, habitId){
   var t = today(), c=0;
   for(var i=89;i>=0;i--){ if(getState(si, habitId, key(addDays(t,-i)))==="done") c++; }
   head.querySelector(".stat").textContent = c+"/90";
 }
 
-/* ---------- DETAIL: celá historie ---------- */
-var detailHabitId = null;
-var detailSection = 0;
+/* detail návyku */
+var detailHabitId = null, detailSection = 0;
 function openDetail(si, id){
-  detailSection = si;
-  detailHabitId = id;
-  var h = habitById(si, id);
-  if(!h) return;
+  detailSection = si; detailHabitId = id;
+  var h = habitById(si, id); if(!h) return;
   var body = document.getElementById("detailBody");
-
   var startD = today();
   var cd = new Date(h.createdAt); cd.setHours(0,0,0,0);
   if(cd < startD) startD = cd;
   var logObj = state.sections[si].log[id];
-  var logKeys = logObj ? Object.keys(logObj) : [];
-  logKeys.forEach(function(k){
+  (logObj ? Object.keys(logObj) : []).forEach(function(k){
     var p = k.split("-"); var d = new Date(+p[0], +p[1]-1, +p[2]);
     if(d < startD) startD = d;
   });
-
-  var t = today();
-  var tk = key(t);
+  var t = today(), tk = key(t);
   var totalDays = Math.round((t - startD)/86400000) + 1;
   var rows = Math.ceil(totalDays/30);
   var startOffset = rows*30 - 1;
-
-  var html = '<h2></h2><div class="sub"></div>';
+  var html = '<h2></h2><span class="sub"></span>';
   for(var r=0;r<rows;r++){
-    var rowStartOffset = startOffset - r*30;
-    var rowStart = addDays(t, -rowStartOffset);
-    html += '<div class="month-row"><div class="ml">'+fmtShort(rowStart)+'</div>'+
-            '<div class="grid" data-row="'+r+'"></div></div>';
+    var rowStart = addDays(t, -(startOffset - r*30));
+    html += '<div class="month-row"><div class="ml">'+fmtShort(rowStart)+'</div><div class="grid" data-row="'+r+'"></div></div>';
   }
   body.innerHTML = html;
   body.querySelector("h2").textContent = h.name;
   body.querySelector(".sub").textContent = "priorita "+h.priority+" · od "+fmtShort(startD)+" "+startD.getFullYear();
-
   body.querySelectorAll(".grid").forEach(function(g){
     var r = +g.dataset.row;
     for(var c=0;c<30;c++){
       var off = (startOffset - r*30) - c;
-      var d = addDays(t, -off);
-      var dk = key(d);
-      var inFuture = off < 0;
+      var d = addDays(t, -off), dk = key(d), inFuture = off < 0;
       var cell = document.createElement("div");
       var st = getState(si, id, dk);
       cell.className = "cell"+(st?(" "+st):"")+(dk===tk?" today":"");
       if(inFuture){ cell.style.visibility="hidden"; }
-      else {
-        (function(sIdx, dkey, cellEl){
-          cellEl.onclick = function(){
-            var nx = cycle(sIdx, id, dkey);
-            cellEl.className = "cell"+(nx?(" "+nx):"")+(dkey===tk?" today":"");
-          };
-        })(si, dk, cell);
-      }
+      else (function(sIdx, dkey, cellEl){
+        cellEl.onclick = function(){
+          var nx = cycle(sIdx, id, dkey);
+          cellEl.className = "cell"+(nx?(" "+nx):"")+(dkey===tk?" today":"");
+        };
+      })(si, dk, cell);
       g.appendChild(cell);
     }
   });
-
   document.getElementById("detail").classList.add("open");
 }
 document.getElementById("detailBack").onclick = function(){
-  document.getElementById("detail").classList.remove("open");
-  renderOverview();
+  document.getElementById("detail").classList.remove("open"); renderOverview();
 };
+document.getElementById("detailEdit").onclick = function(){ if(detailHabitId) openSheet(detailSection, detailHabitId); };
 
-/* ---------- ADD / EDIT sheet ---------- */
-var editingId = null;
-var editingSection = 0;
-var prioInput = document.getElementById("inPrio");
-var prioVal = document.getElementById("prioVal");
+/* habit sheet */
+var editingId = null, editingSection = 0;
+var prioInput = document.getElementById("inPrio"), prioVal = document.getElementById("prioVal");
 prioInput.oninput = function(){ prioVal.textContent = prioInput.value; };
-
 function openSheet(si, id){
-  editingSection = si;
-  editingId = id || null;
+  editingSection = si; editingId = id || null;
   var del = document.getElementById("deleteHabit");
   if(editingId){
     var h = habitById(si, editingId);
@@ -608,26 +684,299 @@ function openSheet(si, id){
   setTimeout(function(){ document.getElementById("inName").focus(); }, 100);
 }
 function closeSheet(){ document.getElementById("sheetScrim").classList.remove("open"); }
-
-document.getElementById("fab").onclick = function(){ openSheet(curSection, null); };
 document.getElementById("cancelSheet").onclick = closeSheet;
 document.getElementById("sheetScrim").onclick = function(e){ if(e.target===this) closeSheet(); };
-
 document.getElementById("saveHabit").onclick = function(){
   var name = document.getElementById("inName").value.trim();
   if(!name){ document.getElementById("inName").focus(); return; }
   var prio = +prioInput.value;
   if(editingId){
-    var h = habitById(editingSection, editingId);
-    h.name = name; h.priority = prio;
+    var h = habitById(editingSection, editingId); h.name = name; h.priority = prio;
   } else {
     state.sections[editingSection].habits.push({ id:"h"+Date.now()+Math.random().toString(36).slice(2,6), name:name, priority:prio, createdAt:Date.now() });
   }
   save(); closeSheet(); renderAll();
   if(document.getElementById("detail").classList.contains("open") && detailHabitId) openDetail(detailSection, detailHabitId);
 };
+function deleteHabitById(si, id){
+  var h = habitById(si, id); if(!h) return;
+  askConfirm('Smazat „'+h.name+'" a celou jeho historii?', "Smazat", function(){
+    state.sections[si].habits = state.sections[si].habits.filter(function(x){ return x.id!==id; });
+    delete state.sections[si].log[id];
+    save(); closeSheet();
+    document.getElementById("detail").classList.remove("open");
+    renderAll();
+  });
+}
+document.getElementById("deleteHabit").onclick = function(){ if(editingId) deleteHabitById(editingSection, editingId); };
 
-/* ---------- vlastní confirm + toast ---------- */
+/* ================= ÚKOLY (Tasks / Progres) ================= */
+function sortedTasks(){
+  return state.tasks.slice().sort(function(a,b){
+    if(b.priority!==a.priority) return b.priority-a.priority;
+    return a.createdAt-b.createdAt;
+  });
+}
+function taskById(id){
+  for(var i=0;i<state.tasks.length;i++) if(state.tasks[i].id===id) return state.tasks[i];
+  return null;
+}
+/* vážená proporce splněnosti (0..1) podle náročnosti */
+function taskProgress(task){
+  var tot=0, done=0;
+  task.subtasks.forEach(function(s){ tot+=s.weight; if(s.done) done+=s.weight; });
+  return tot>0 ? done/tot : 0;
+}
+/* rozdělení GRID čtverečků mezi subtasky metodou největších zbytků,
+   se zárukou min. 1 čtverečku na každý subtask (pokud se vejdou) */
+function cellCounts(subtasks){
+  var n = subtasks.length;
+  if(n===0) return [];
+  var sum = 0; subtasks.forEach(function(s){ sum += s.weight; });
+  if(sum<=0){ // bez vah – rovnoměrně
+    var base = Math.floor(GRID/n), arr=[]; for(var i=0;i<n;i++) arr.push(base);
+    var rem = GRID - base*n; for(var j=0;j<rem;j++) arr[j]++; return arr;
+  }
+  var raw = subtasks.map(function(s){ return s.weight/sum*GRID; });
+  var counts = raw.map(Math.floor);
+  var used = counts.reduce(function(a,b){ return a+b; }, 0);
+  var rem2 = GRID - used;
+  var order = raw.map(function(v,i){ return {i:i, frac:v-Math.floor(v)}; })
+                 .sort(function(a,b){ return b.frac-a.frac; });
+  for(var k=0;k<rem2;k++) counts[order[k % n].i]++;
+  // záruka min 1, pokud se vejde (n <= GRID)
+  if(n<=GRID){
+    for(var m=0;m<n;m++){
+      if(counts[m]===0){
+        // půjč 1 od největšího, který má >1
+        var bi=-1, bv=1;
+        for(var p=0;p<n;p++){ if(counts[p]>bv){ bv=counts[p]; bi=p; } }
+        if(bi>=0){ counts[bi]--; counts[m]++; }
+      }
+    }
+  }
+  return counts;
+}
+/* zobrazené pořadí subtasků: splněné vlevo (v původním pořadí), pak nesplněné */
+function displayOrder(task){
+  var done=[], todo=[];
+  task.subtasks.forEach(function(s){ (s.done?done:todo).push(s); });
+  return done.concat(todo);
+}
+
+/* --- TASKS panel (logika Dnes) --- */
+var expanded = {}; // id -> bool
+function renderTasksPanel(){
+  var list = document.getElementById("tasksList");
+  var empty = document.getElementById("tasksEmpty");
+  var ts = sortedTasks();
+  list.innerHTML = "";
+  empty.style.display = ts.length ? "none" : "block";
+
+  ts.forEach(function(task){
+    var pct = Math.round(taskProgress(task)*100);
+    var c = document.createElement("div");
+    c.className = "taskc" + (expanded[task.id] ? " open" : "");
+
+    var head = document.createElement("div");
+    head.className = "task-head";
+    head.innerHTML =
+      '<span class="chev">›</span>'+
+      '<span class="name"></span>'+
+      '<span class="prio">P'+task.priority+'</span>'+
+      '<span class="pct">'+pct+'%</span>';
+    head.querySelector(".name").textContent = task.name;
+    head.onclick = function(){
+      expanded[task.id] = !expanded[task.id];
+      renderTasksPanel();
+    };
+    c.appendChild(head);
+
+    // mini proužek progresu (proporční, v zobrazeném pořadí)
+    var ordered = displayOrder(task);
+    if(ordered.length){
+      var counts = cellCounts(ordered);
+      var mini = document.createElement("div");
+      mini.className = "task-mini";
+      ordered.forEach(function(s, oi){
+        var seg = document.createElement("i");
+        seg.style.flex = counts[oi];
+        seg.style.background = s.done
+          ? (oi%2 ? "var(--done2)" : "var(--done)")
+          : (oi%2 ? "var(--empty2)" : "var(--empty)");
+        mini.appendChild(seg);
+      });
+      c.appendChild(mini);
+    }
+
+    // tělo – subtasky k odškrtávání
+    var body = document.createElement("div");
+    body.className = "task-body";
+    if(task.subtasks.length===0){
+      var none = document.createElement("div");
+      none.style.cssText = "color:var(--dim);font-family:var(--serif);font-size:14px;padding:10px 2px;";
+      none.textContent = "Žádné kroky. Uprav úkol a přidej je.";
+      body.appendChild(none);
+    } else {
+      task.subtasks.forEach(function(s){
+        var row = document.createElement("div");
+        row.className = "sub" + (s.done?" on":"");
+        row.innerHTML = '<div class="box">'+(s.done?"✓":"")+'</div><span class="sname"></span><span class="sw">'+s.weight+'</span>';
+        row.querySelector(".sname").textContent = s.name;
+        row.onclick = function(){
+          s.done = !s.done; save();
+          renderTasksPanel(); // přerovnání proužku až po renderu
+        };
+        body.appendChild(row);
+      });
+    }
+    var edit = document.createElement("div");
+    edit.className = "task-edit";
+    edit.textContent = "Upravit úkol";
+    edit.onclick = function(){ openTaskSheet(task.id); };
+    body.appendChild(edit);
+
+    c.appendChild(body);
+    list.appendChild(c);
+  });
+}
+
+/* --- PROGRES panel (logika Přehled) – mřížka 3×30 na úkol --- */
+function renderProgresPanel(){
+  var list = document.getElementById("progresList");
+  var empty = document.getElementById("progresEmpty");
+  var ts = sortedTasks();
+  list.innerHTML = "";
+  empty.style.display = ts.length ? "none" : "block";
+
+  ts.forEach(function(task){
+    var block = document.createElement("div"); block.className = "hblock";
+    var head = document.createElement("div"); head.className = "hhead";
+    head.innerHTML = '<span class="name"></span><span class="prio">P'+task.priority+'</span><span class="stat"></span>';
+    head.querySelector(".name").textContent = task.name;
+    head.querySelector(".stat").textContent = Math.round(taskProgress(task)*100)+"%";
+    head.style.cursor = "default";
+    block.appendChild(head);
+
+    var grid = document.createElement("div"); grid.className = "grid";
+    var ordered = displayOrder(task);
+    if(ordered.length===0){
+      for(var e=0;e<GRID;e++){ var ec=document.createElement("div"); ec.className="cell e0"; grid.appendChild(ec); }
+    } else {
+      var counts = cellCounts(ordered);
+      ordered.forEach(function(s, oi){
+        var cls = s.done ? (oi%2?"d1":"d0") : (oi%2?"e1":"e0");
+        for(var j=0;j<counts[oi];j++){
+          var cell = document.createElement("div");
+          cell.className = "cell "+cls;
+          (function(sub){
+            cell.onclick = function(){
+              sub.done = !sub.done; save();
+              renderProgresPanel(); // přerovná splněné doleva
+            };
+          })(s);
+          grid.appendChild(cell);
+        }
+      });
+    }
+    block.appendChild(grid);
+    list.appendChild(block);
+  });
+}
+
+/* --- task sheet (velký, naráz) --- */
+var editingTaskId = null;
+var taskPrio = document.getElementById("taskPrio"), taskPrioVal = document.getElementById("taskPrioVal");
+taskPrio.oninput = function(){ taskPrioVal.textContent = taskPrio.value; };
+
+function makeSubRow(data){
+  data = data || {};
+  var row = document.createElement("div");
+  row.className = "subedit";
+  row.dataset.id = data.id || "";
+  row.dataset.done = data.done ? "1" : "";
+  var w = (typeof data.weight==="number") ? data.weight : 5;
+  row.innerHTML =
+    '<div class="subedit-top">'+
+      '<input type="text" class="s-name" placeholder="třeba Změřit pokoj" autocomplete="off">'+
+      '<button class="subedit-del" type="button">✕</button>'+
+    '</div>'+
+    '<div class="subedit-bot">'+
+      '<span class="lab">náročnost</span>'+
+      '<input type="range" class="s-weight" min="1" max="10" value="'+w+'">'+
+      '<span class="sv">'+w+'</span>'+
+    '</div>';
+  row.querySelector(".s-name").value = data.name || "";
+  var rng = row.querySelector(".s-weight"), sv = row.querySelector(".sv");
+  rng.oninput = function(){ sv.textContent = rng.value; };
+  row.querySelector(".subedit-del").onclick = function(){ row.remove(); };
+  return row;
+}
+function openTaskSheet(id){
+  editingTaskId = id || null;
+  var rows = document.getElementById("subRows");
+  rows.innerHTML = "";
+  var del = document.getElementById("deleteTask");
+  if(editingTaskId){
+    var t = taskById(editingTaskId);
+    document.getElementById("taskSheetTitle").textContent = "Upravit úkol";
+    document.getElementById("taskName").value = t.name;
+    taskPrio.value = t.priority; taskPrioVal.textContent = t.priority;
+    if(t.subtasks.length) t.subtasks.forEach(function(s){ rows.appendChild(makeSubRow(s)); });
+    else rows.appendChild(makeSubRow());
+    del.style.display = "block";
+  } else {
+    document.getElementById("taskSheetTitle").textContent = "Nový úkol";
+    document.getElementById("taskName").value = "";
+    taskPrio.value = 5; taskPrioVal.textContent = 5;
+    rows.appendChild(makeSubRow());
+    del.style.display = "none";
+  }
+  document.getElementById("taskScrim").classList.add("open");
+  document.getElementById("taskSheet").scrollTop = 0;
+  setTimeout(function(){ document.getElementById("taskName").focus(); }, 100);
+}
+function closeTaskSheet(){ document.getElementById("taskScrim").classList.remove("open"); }
+document.getElementById("addSub").onclick = function(){
+  document.getElementById("subRows").appendChild(makeSubRow());
+};
+document.getElementById("cancelTask").onclick = closeTaskSheet;
+document.getElementById("taskScrim").onclick = function(e){ if(e.target===this) closeTaskSheet(); };
+document.getElementById("saveTask").onclick = function(){
+  var name = document.getElementById("taskName").value.trim();
+  if(!name){ document.getElementById("taskName").focus(); return; }
+  var prio = +taskPrio.value;
+  // posbírej subtasky z řádků (přeskoč prázdné názvy)
+  var subs = [];
+  document.querySelectorAll("#subRows .subedit").forEach(function(row){
+    var sn = row.querySelector(".s-name").value.trim();
+    if(!sn) return;
+    subs.push({
+      id: row.dataset.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
+      name: sn,
+      weight: +row.querySelector(".s-weight").value,
+      done: row.dataset.done==="1"
+    });
+  });
+  if(editingTaskId){
+    var t = taskById(editingTaskId);
+    t.name = name; t.priority = prio; t.subtasks = subs;
+  } else {
+    state.tasks.push({ id:"t"+Date.now()+Math.random().toString(36).slice(2,6), name:name, priority:prio, createdAt:Date.now(), subtasks:subs });
+  }
+  save(); closeTaskSheet(); renderTasksPanel(); renderProgresPanel();
+};
+document.getElementById("deleteTask").onclick = function(){
+  if(!editingTaskId) return;
+  var t = taskById(editingTaskId); if(!t) return;
+  askConfirm('Smazat úkol „'+t.name+'" i všechny jeho kroky?', "Smazat", function(){
+    state.tasks = state.tasks.filter(function(x){ return x.id!==editingTaskId; });
+    delete expanded[editingTaskId];
+    save(); closeTaskSheet(); renderTasksPanel(); renderProgresPanel();
+  });
+};
+
+/* ---------- confirm + toast ---------- */
 var cfmCb = null;
 function askConfirm(msg, yesLabel, cb){
   document.getElementById("cfmMsg").textContent = msg;
@@ -636,9 +985,7 @@ function askConfirm(msg, yesLabel, cb){
   document.getElementById("cfmScrim").classList.add("open");
 }
 function closeConfirm(){ document.getElementById("cfmScrim").classList.remove("open"); cfmCb = null; }
-document.getElementById("cfmYes").onclick = function(){
-  var cb = cfmCb; closeConfirm(); if(cb) cb();
-};
+document.getElementById("cfmYes").onclick = function(){ var cb = cfmCb; closeConfirm(); if(cb) cb(); };
 document.getElementById("cfmNo").onclick = closeConfirm;
 document.getElementById("cfmScrim").onclick = function(e){ if(e.target===this) closeConfirm(); };
 function toast(msg){
@@ -648,139 +995,111 @@ function toast(msg){
   t._timer = setTimeout(function(){ t.classList.remove("show"); }, 2200);
 }
 
-function deleteHabitById(si, id){
-  var h = habitById(si, id);
-  if(!h) return;
-  askConfirm('Smazat „'+h.name+'" a celou jeho historii?', "Smazat", function(){
-    state.sections[si].habits = state.sections[si].habits.filter(function(x){ return x.id!==id; });
-    delete state.sections[si].log[id];
-    save(); closeSheet();
-    document.getElementById("detail").classList.remove("open");
-    renderAll();
-  });
-}
-document.getElementById("deleteHabit").onclick = function(){
-  if(editingId) deleteHabitById(editingSection, editingId);
-};
-
-/* edit z detailu */
-function editFromDetail(){ if(detailHabitId) openSheet(detailSection, detailHabitId); }
-document.getElementById("detailEdit").onclick = editFromDetail;
-
 /* ---------- SETTINGS / export-import ---------- */
 function openSettings(){ document.getElementById("setScrim").classList.add("open"); }
 function closeSettings(){ document.getElementById("setScrim").classList.remove("open"); }
 document.getElementById("setClose").onclick = closeSettings;
 document.getElementById("setScrim").onclick = function(e){ if(e.target===this) closeSettings(); };
-
 document.getElementById("btnExport").onclick = function(){
   var data = JSON.stringify(state, null, 2);
   var blob = new Blob([data], {type:"application/json"});
   var url = URL.createObjectURL(blob);
   var a = document.createElement("a");
-  var dk = key(today());
-  a.href = url; a.download = "habity-zaloha-"+dk+".json";
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
+  a.href = url; a.download = "habity-zaloha-"+key(today())+".json";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
 };
 document.getElementById("btnImport").onclick = function(){ document.getElementById("fileImport").click(); };
 document.getElementById("fileImport").onchange = function(e){
-  var file = e.target.files[0];
-  if(!file) return;
+  var file = e.target.files[0]; if(!file) return;
   var reader = new FileReader();
   reader.onload = function(){
     try{
       var obj = JSON.parse(reader.result);
-      // přijmi nový formát (sections) i starý v1 (habits/log)
       var ok = obj && typeof obj==="object" &&
-               (Array.isArray(obj.sections) || Array.isArray(obj.habits));
+               (Array.isArray(obj.sections) || Array.isArray(obj.habits) || Array.isArray(obj.tasks));
       if(!ok) throw new Error("bad");
-      askConfirm("Načíst zálohu? Přepíše to současná data v obou sekcích.", "Načíst", function(){
-        state = normalize(obj); save(); closeSettings(); renderAll();
+      askConfirm("Načíst zálohu? Přepíše to všechna data (úkoly i návyky).", "Načíst", function(){
+        state = normalize(obj); expanded = {}; save(); closeSettings(); renderAll();
         toast("Záloha načtena.");
       });
-    }catch(err){
-      toast("Tohle nevypadá jako platná záloha Habitů.");
-    }
+    }catch(err){ toast("Tohle nevypadá jako platná záloha Habitů."); }
     document.getElementById("fileImport").value = "";
   };
   reader.readAsText(file);
 };
 
-/* ---------- swipe mezi sekcemi ---------- */
-function currentPageEl(){
-  return document.getElementById("pageOverview").classList.contains("active")
-    ? document.getElementById("pageOverview")
-    : document.getElementById("pageToday");
-}
+/* ---------- swipe mezi pozicemi (0..2) ---------- */
 function currentPageName(){
   return document.getElementById("pageOverview").classList.contains("active") ? "Overview" : "Today";
 }
 function updateSectionUI(){
-  // posuň oba tracky na aktuální sekci
-  var tx = (curSection * -50) + "%";
-  var tT = document.getElementById("trackToday");
-  var tO = document.getElementById("trackOverview");
-  tT.style.transition = "transform .25s ease";
-  tO.style.transition = "transform .25s ease";
-  tT.style.transform = "translateX("+tx+")";
-  tO.style.transform = "translateX("+tx+")";
-  // pager tečky
+  var tx = (curSection * -(100/3)) + "%";
+  var tT = document.getElementById("trackToday"), tO = document.getElementById("trackOverview");
+  tT.style.transition = "transform .25s ease"; tO.style.transition = "transform .25s ease";
+  tT.style.transform = "translateX("+tx+")"; tO.style.transform = "translateX("+tx+")";
   document.querySelectorAll("#pager .dot").forEach(function(d){
     d.classList.toggle("on", +d.dataset.sec===curSection);
   });
-  // titulek
-  var base = currentPageName()==="Today" ? "Dnes" : "Přehled";
-  document.getElementById("hTitle").textContent = base + (curSection===0 ? " 01" : " 02");
+  var page = currentPageName();
+  var title;
+  if(curSection===0) title = (page==="Today" ? "Tasks" : "Progres");
+  else title = (page==="Today" ? "Dnes" : "Přehled") + (curSection===1 ? " 01" : " 02");
+  document.getElementById("hTitle").textContent = title;
 }
 
 function attachSwipe(pageEl, trackEl){
-  var x0=0,y0=0,dx=0,dy=0,dragging=false,decided=false,horizontal=false,w=0;
-  pageEl.addEventListener("touchstart", function(e){
-    if(e.touches.length!==1) return;
-    x0=e.touches[0].clientX; y0=e.touches[0].clientY;
-    dx=0; dy=0; dragging=true; decided=false; horizontal=false;
-    w=pageEl.clientWidth;
+  // Pointer events = myš i prst najednou. touch-action:pan-y nechá svislý scroll
+  // prohlížeči, vodorovná gesta chytám sám.
+  var x0=0,y0=0,dx=0,dy=0,dragging=false,decided=false,horizontal=false,w=0,pid=null;
+  var MAX = 2; // poslední pozice
+  pageEl.addEventListener("pointerdown", function(e){
+    if(e.pointerType==="mouse" && e.button!==0) return;
+    x0=e.clientX; y0=e.clientY; dx=0; dy=0;
+    dragging=true; decided=false; horizontal=false;
+    w=pageEl.clientWidth; pid=e.pointerId;
     trackEl.style.transition="none";
-  }, {passive:true});
-  pageEl.addEventListener("touchmove", function(e){
-    if(!dragging) return;
-    dx=e.touches[0].clientX-x0; dy=e.touches[0].clientY-y0;
-    if(!decided){
-      if(Math.abs(dx)>8 || Math.abs(dy)>8){
-        decided=true;
-        horizontal=Math.abs(dx)>Math.abs(dy);
-      }
+  });
+  pageEl.addEventListener("pointermove", function(e){
+    if(!dragging || e.pointerId!==pid) return;
+    dx=e.clientX-x0; dy=e.clientY-y0;
+    if(!decided && (Math.abs(dx)>8 || Math.abs(dy)>8)){
+      decided=true; horizontal=Math.abs(dx)>Math.abs(dy);
+      if(horizontal){ try{ pageEl.setPointerCapture(pid); }catch(_){} }
     }
     if(decided && horizontal){
-      e.preventDefault();
-      var base=-curSection*w;
-      var d=dx;
-      // odpor na okrajích (nelze dál než krajní sekce)
-      if((curSection===0 && d>0)||(curSection===1 && d<0)) d=d*0.3;
+      if(e.cancelable) e.preventDefault();
+      var base=-curSection*w, d=dx;
+      if((curSection===0 && d>0)||(curSection===MAX && d<0)) d=d*0.3; // odpor na okrajích
       trackEl.style.transform="translateX("+(base+d)+"px)";
     }
-  }, {passive:false});
-  function end(){
+  });
+  function end(e){
     if(!dragging) return; dragging=false;
+    try{ if(pid!==null) pageEl.releasePointerCapture(pid); }catch(_){}
+    pid=null;
     if(decided && horizontal){
       var threshold=w*0.22;
-      if(dx<-threshold && curSection===0) curSection=1;
-      else if(dx>threshold && curSection===1) curSection=0;
+      if(dx<-threshold && curSection<MAX) curSection++;
+      else if(dx>threshold && curSection>0) curSection--;
     }
     updateSectionUI();
   }
-  pageEl.addEventListener("touchend", end);
-  pageEl.addEventListener("touchcancel", end);
+  pageEl.addEventListener("pointerup", end);
+  pageEl.addEventListener("pointercancel", end);
 }
 attachSwipe(document.getElementById("pageToday"), document.getElementById("trackToday"));
 attachSwipe(document.getElementById("pageOverview"), document.getElementById("trackOverview"));
 
-// klik na pager tečku
 document.querySelectorAll("#pager .dot").forEach(function(d){
   d.onclick = function(){ curSection = +d.dataset.sec; updateSectionUI(); };
 });
+
+/* ---------- FAB (přidá do aktuální pozice) ---------- */
+document.getElementById("fab").onclick = function(){
+  if(curSection===0) openTaskSheet(null);
+  else openSheet(curSection-1, null); // pozice 1/2 -> habit sekce 0/1
+};
 
 /* ---------- tabs ---------- */
 document.querySelectorAll(".tab").forEach(function(tab){
@@ -791,13 +1110,17 @@ document.querySelectorAll(".tab").forEach(function(tab){
     document.getElementById("pageToday").classList.toggle("active", p==="Today");
     document.getElementById("pageOverview").classList.toggle("active", p==="Overview");
     document.getElementById("fab").style.display = "block";
-    if(p==="Today") renderToday(); else renderOverview();
-    updateSectionUI(); // sjednotí pozici tracku + titulek pro novou stránku
+    if(p==="Today"){ renderTasksPanel(); renderTodayPanel(0); renderTodayPanel(1); }
+    else { renderProgresPanel(); renderOverviewPanel(0); renderOverviewPanel(1); }
+    updateSectionUI();
   };
 });
 
 /* ---------- init ---------- */
-function renderAll(){ renderToday(); renderOverview(); }
+function renderAll(){
+  renderTasksPanel(); renderTodayPanel(0); renderTodayPanel(1);
+  renderProgresPanel(); renderOverviewPanel(0); renderOverviewPanel(1);
+}
 document.getElementById("hDate").textContent = fmtLong(today());
 renderAll();
 updateSectionUI();
