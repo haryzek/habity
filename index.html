@@ -184,6 +184,10 @@
   .scrim{
     position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60;
     display:none;align-items:flex-end;justify-content:center;
+    /* --kb = výška vysunuté klávesnice (nastavuje JS přes VisualViewport).
+       Odsune sheet nad klávesnici, ať nezmizí za ní. */
+    padding-bottom:var(--kb,0px);
+    transition:padding-bottom .18s ease;
   }
   .scrim.open{display:flex;}
   .sheet{
@@ -191,8 +195,10 @@
     border-radius:20px 20px 0 0;border:1px solid var(--border);border-bottom:none;
     padding:16px 18px calc(18px + env(safe-area-inset-bottom));
     animation:slideup .2s ease;
+    /* nikdy vyšší než viditelná plocha nad klávesnicí – jinak scroll uvnitř */
+    max-height:calc(var(--vvh,100vh) - 12px);overflow-y:auto;
   }
-  .sheet.tall{max-height:88vh;overflow-y:auto;}
+  .sheet.tall{max-height:calc(var(--vvh,100vh) - 12px);overflow-y:auto;}
   @keyframes slideup{from{transform:translateY(40px);opacity:.6;}to{transform:translateY(0);opacity:1;}}
   .sheet h2{font-family:var(--serif);font-weight:500;font-size:20px;margin:0 0 18px;}
   label{display:block;font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}
@@ -2194,6 +2200,24 @@ document.querySelectorAll(".tab").forEach(function(tab){
 
 /* ---------- nastavení (ozubené kolečko v headeru) ---------- */
 document.getElementById("btnSettings").onclick = openSettings;
+
+/* ---------- klávesnice: drž sheet nad její horní hranou ----------
+   VisualViewport se při vysunuté klávesnici zmenší; rozdíl vůči layout
+   viewportu = výška klávesnice. Uložíme do --kb (odsun sheetu) a --vvh
+   (max výška sheetu, ať se vejde nad klávesnici a případně scrolluje). */
+(function(){
+  var vv = window.visualViewport;
+  if(!vv) return;
+  var root = document.documentElement;
+  function apply(){
+    var kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    root.style.setProperty("--kb", kb+"px");
+    root.style.setProperty("--vvh", vv.height+"px");
+  }
+  vv.addEventListener("resize", apply);
+  vv.addEventListener("scroll", apply);
+  apply();
+})();
 
 /* ---------- init ---------- */
 function renderAll(){
