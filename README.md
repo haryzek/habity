@@ -1,3 +1,5 @@
+Ahoj osle!
+
 # HABITY — README pro pokračování (stav po překopání navigace + Free backlogy)
 
 Tohle čte Claude, který přebírá práci na appce **Habity** v nové konverzaci.
