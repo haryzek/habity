@@ -449,6 +449,51 @@
   .ovrow .ovl .ostat{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:auto;}
   .ovrow .ovl .ostat .og{color:var(--done);}
   .ovrow .ovl .ostat .or{color:var(--missed);}
+
+  /* ---- Free: tagy + trvání ---- */
+  .tag-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag-chip{
+    border:1px solid var(--border);background:var(--surface2);color:var(--dim);
+    border-radius:14px;padding:5px 11px;font-family:var(--sans);font-size:12px;cursor:pointer;
+    transition:all .12s ease;
+  }
+  .tag-chip:active{transform:scale(.95);}
+  .tag-chip.on{color:#15120E;font-weight:600;}
+  .tag-chip[data-g="0"]{border-color:#6E8FAE;}
+  .tag-chip[data-g="0"].on{background:#6E8FAE;border-color:#6E8FAE;}
+  .tag-chip[data-g="1"]{border-color:#8E7CC3;}
+  .tag-chip[data-g="1"].on{background:#8E7CC3;border-color:#8E7CC3;}
+  .tag-chip[data-g="2"]{border-color:#74955E;}
+  .tag-chip[data-g="2"].on{background:#74955E;border-color:#74955E;}
+  .tag-chip[data-g="3"]{border-color:#BC5B43;}
+  .tag-chip[data-g="3"].on{background:#BC5B43;border-color:#BC5B43;}
+  .tag-chip[data-g="4"]{border-color:#D9A441;}
+  .tag-chip[data-g="4"].on{background:#D9A441;border-color:#D9A441;}
+  .tag-chip[data-g="5"]{border-color:#4FA3A3;}
+  .tag-chip[data-g="5"].on{background:#4FA3A3;border-color:#4FA3A3;}
+  .tag-group{margin-bottom:10px;}
+  .tag-group .tgl{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+
+  .dslider{position:relative;height:26px;margin:4px 0 2px;}
+  .dslider input[type=range]{
+    position:absolute;left:0;right:0;top:0;width:100%;margin:0;height:26px;
+    background:none;pointer-events:none;-webkit-appearance:none;appearance:none;
+  }
+  .dslider input[type=range]::-webkit-slider-runnable-track{background:var(--border);height:4px;border-radius:2px;}
+  .dslider input[type=range]::-webkit-slider-thumb{
+    pointer-events:auto;-webkit-appearance:none;appearance:none;
+    width:18px;height:18px;border-radius:50%;background:var(--accent);margin-top:-7px;cursor:pointer;
+  }
+  .dslider input[type=range]::-moz-range-track{background:var(--border);height:4px;border-radius:2px;}
+  .dslider input[type=range]::-moz-range-thumb{
+    pointer-events:auto;width:18px;height:18px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;
+  }
+  .dur-labels{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;margin-bottom:12px;}
+
+  .free-filter{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 10px;margin-bottom:10px;}
+  .free-filter .tag-group{margin-bottom:8px;}
+  .free-filter .tag-chip{padding:4px 9px;font-size:11px;}
+  .free-filter .dur-labels{margin-bottom:2px;}
 </style>
 </head>
 <body>
@@ -555,11 +600,7 @@
   <section class="page" id="secVolno">
     <div class="track" id="trackVolno">
       <div class="panel">
-        <div class="wipbar" id="freeBacklogBar">
-          <select class="wip-sel" id="freeBacklogSelect" style="display:none"></select>
-          <button type="button" class="wip-sel fsel-trigger" id="freeBacklogSelectBtn" data-target="freeBacklogSelect" data-scope="free"></button>
-        </div>
-        <button class="blog-new" id="freeNewBacklog" type="button" style="margin-bottom:10px;">+ nový backlog</button>
+        <div class="free-filter" id="freeFilterBar"></div>
         <div id="todayList1"></div>
         <div class="empty-state" id="todayEmpty1" style="display:none">
           Zatím žádná volnočasovka.<br>Ťukni na <b style="color:var(--accent)">+</b> a přidej první.
@@ -596,10 +637,17 @@
       <input type="range" id="inPrio" min="1" max="10" value="5">
       <span class="prio-val" id="prioVal">5</span>
     </div>
-    <div id="habitBacklogWrap" style="display:none;margin-bottom:12px">
-      <select class="blog-pick" id="habitBacklog" style="display:none"></select>
-      <button type="button" class="blog-pick fsel-trigger" id="habitBacklogBtn" data-target="habitBacklog" data-scope="free"></button>
-      <button class="blog-new" id="habitNewBacklog" type="button">+ backlog</button>
+    <div id="habitTagsWrap" style="display:none;margin-bottom:14px">
+      <label>Tagy</label>
+      <div class="tag-chips" id="habitTagChips"></div>
+    </div>
+    <div id="habitDurationWrap" style="display:none">
+      <label>Doba trvání</label>
+      <div class="dslider" id="habitDurSlider">
+        <input type="range" id="habitDurMin" min="0" max="16" step="1" value="0">
+        <input type="range" id="habitDurMax" min="0" max="16" step="1" value="3">
+      </div>
+      <div class="dur-labels" id="habitDurLabels"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" id="saveHabit">Uložit</button>
@@ -756,9 +804,25 @@ var curSection = 2;  // 0..3 – aktivní sekce (Tasky/Úkoly/Návyky/Volno), vo
 var curView = 0;     // 0=Check, 1=Přehled – swipe pozice, GLOBÁLNÍ (sdílená napříč sekcemi)
 var WIP_PREVIEW_MIN = 5;
 
+var TAG_GROUPS = [
+  { name:"Prostředí", tags:["Uvnitř","Venku"] },
+  { name:"Vzdálenost", tags:["Doma","Okolí","Praha","100km",">100km","ČR","Sousedi","EU","Svět"] },
+  { name:"Společnost", tags:["Sám","Kámoš","Dav"] },
+  { name:"Energie", tags:["Klid","Pohyb","Intenz"] },
+  { name:"Mysl", tags:["Intel","Fokus","Výplach"] },
+  { name:"Smysl", tags:["Smysl","Nesmysl"] }
+];
+var DURATION_TICKS = ["0","5min","15min","30min","1h","2h","3h","6h","1d","3d","1t","2t","1m","3m","6m","1r","Delší"];
+
 var state = load();
 
-function blankState(){ return { sections:[ {habits:[],log:{}}, {habits:[],log:{},backlogs:["Free"]} ], tasks:[], backlogs:["Wip","Done"], utasks:[], daily:{} }; }
+function blankState(){
+  return {
+    sections:[ {habits:[],log:{}}, {habits:[],log:{}} ],
+    tasks:[], backlogs:["Wip","Done"], utasks:[], daily:{},
+    freeFilter:{ tags:{}, durationMin:0, durationMax:16 }
+  };
+}
 
 function normalize(o){
   if(!o || typeof o!=="object") return blankState();
@@ -770,28 +834,36 @@ function normalize(o){
       if(!src || !Array.isArray(src.habits)) continue;
       var log = (src.log && typeof src.log==="object") ? src.log : {};
       if(i===1){
-        // sekce Free: backlogy (Free vždy garantovaný a první)
-        var fbl = ["Free"];
-        if(Array.isArray(src.backlogs)){
-          src.backlogs.forEach(function(name){
-            if(typeof name==="string"){
-              var nm = name.trim();
-              if(nm && fbl.indexOf(nm)===-1) fbl.push(nm);
-            }
-          });
-        }
+        // sekce Free: tagy (max 1 z každé skupiny) + rozsah trvání
+        var validTags = {};
+        TAG_GROUPS.forEach(function(g){ g.tags.forEach(function(tg){ validTags[tg]=true; }); });
         var habits1 = src.habits.filter(function(h){ return h && typeof h==="object" && typeof h.name==="string"; })
           .map(function(h){
-            var bk = (typeof h.backlog==="string" && fbl.indexOf(h.backlog)>=0) ? h.backlog : "Free";
+            var seenGroups = {};
+            var tags = [];
+            if(Array.isArray(h.tags)){
+              h.tags.forEach(function(tg){
+                if(typeof tg!=="string" || !validTags[tg]) return;
+                var gi = TAG_GROUPS.findIndex(function(g){ return g.tags.indexOf(tg)>=0; });
+                if(seenGroups[gi]) return;
+                seenGroups[gi] = true;
+                tags.push(tg);
+              });
+            }
+            var dmin = (typeof h.durationMin==="number" && h.durationMin>=0 && h.durationMin<=16) ? Math.round(h.durationMin) : 0;
+            var dmax = (typeof h.durationMax==="number" && h.durationMax>=0 && h.durationMax<=16) ? Math.round(h.durationMax) : 3;
+            if(dmin>dmax){ var tmp=dmin; dmin=dmax; dmax=tmp; }
             return {
               id: h.id || ("h"+Date.now()+Math.random().toString(36).slice(2,6)),
               name: h.name,
               priority: (typeof h.priority==="number") ? h.priority : 5,
               createdAt: h.createdAt || Date.now(),
-              backlog: bk
+              tags: tags,
+              durationMin: dmin,
+              durationMax: dmax
             };
           });
-        s.sections[1] = { habits:habits1, log:log, backlogs:fbl };
+        s.sections[1] = { habits:habits1, log:log };
       } else {
         s.sections[0] = { habits:src.habits, log:log };
       }
@@ -880,6 +952,25 @@ function normalize(o){
       }
     });
   }
+
+  // filtr sekce Free (persistovaný, sdílený mezi Check a Přehled)
+  s.freeFilter = { tags:{}, durationMin:0, durationMax:16 };
+  if(o.freeFilter && typeof o.freeFilter==="object"){
+    if(o.freeFilter.tags && typeof o.freeFilter.tags==="object"){
+      TAG_GROUPS.forEach(function(g, gi){
+        var arr = o.freeFilter.tags[gi];
+        if(Array.isArray(arr)){
+          var sel = arr.filter(function(tg){ return typeof tg==="string" && g.tags.indexOf(tg)>=0; });
+          if(sel.length) s.freeFilter.tags[gi] = sel;
+        }
+      });
+    }
+    var fmin = (typeof o.freeFilter.durationMin==="number" && o.freeFilter.durationMin>=0 && o.freeFilter.durationMin<=16) ? Math.round(o.freeFilter.durationMin) : 0;
+    var fmax = (typeof o.freeFilter.durationMax==="number" && o.freeFilter.durationMax>=0 && o.freeFilter.durationMax<=16) ? Math.round(o.freeFilter.durationMax) : 16;
+    if(fmin>fmax){ var ftmp=fmin; fmin=fmax; fmax=ftmp; }
+    s.freeFilter.durationMin = fmin;
+    s.freeFilter.durationMax = fmax;
+  }
   return s;
 }
 
@@ -948,33 +1039,67 @@ function habitById(si, id){
   return null;
 }
 
-/* ---- backlogy pro sekci Free (jen Check, Přehled agreguje vše napříč) ---- */
-var freeBacklogCurrent = "Free";
-function renderFreeBacklogBar(){
-  var sel = document.getElementById("freeBacklogSelect");
-  if(!sel) return;
-  var bls = state.sections[1].backlogs || ["Free"];
-  if(bls.indexOf(freeBacklogCurrent)===-1) freeBacklogCurrent = "Free";
-  sel.innerHTML = "";
-  bls.forEach(function(name){
-    var o = document.createElement("option");
-    o.value = name; o.textContent = name;
-    if(name===freeBacklogCurrent) o.selected = true;
-    sel.appendChild(o);
-  });
-  fselSync("freeBacklogSelect");
+/* ---- Free: tagy + trvání ---- */
+function durationLabel(min,max){
+  if(min===max) return DURATION_TICKS[min];
+  return DURATION_TICKS[min]+"–"+DURATION_TICKS[max];
 }
-function fillHabitBacklogPicker(selected){
-  var sel = document.getElementById("habitBacklog");
-  if(!sel) return;
-  sel.innerHTML = "";
-  (state.sections[1].backlogs || ["Free"]).forEach(function(name){
-    var o = document.createElement("option");
-    o.value = name; o.textContent = name;
-    if(name===selected) o.selected = true;
-    sel.appendChild(o);
+function matchesFreeFilter(habit, filter){
+  for(var gi=0; gi<TAG_GROUPS.length; gi++){
+    var sel = filter.tags[gi];
+    if(!sel || !sel.length) continue;
+    var g = TAG_GROUPS[gi];
+    var habitTagInGroup = habit.tags.find(function(tg){ return g.tags.indexOf(tg)>=0; });
+    if(!habitTagInGroup) continue; // aktivita nemá tag z téhle skupiny -> projde
+    if(sel.indexOf(habitTagInGroup)===-1) return false;
+  }
+  var fMax = filter.durationMax>=16 ? Infinity : filter.durationMax;
+  var hMax = habit.durationMax>=16 ? Infinity : habit.durationMax;
+  if(!(habit.durationMin < fMax && hMax > filter.durationMin)) return false;
+  return true;
+}
+function renderFreeFilterBar(){
+  var wrap = document.getElementById("freeFilterBar");
+  if(!wrap) return;
+  var f = state.freeFilter;
+  wrap.innerHTML = "";
+  TAG_GROUPS.forEach(function(g, gi){
+    var box = document.createElement("div"); box.className = "tag-group";
+    var lab = document.createElement("div"); lab.className = "tgl"; lab.textContent = g.name;
+    var chips = document.createElement("div"); chips.className = "tag-chips";
+    g.tags.forEach(function(tg){
+      var sel = f.tags[gi] || [];
+      var chip = document.createElement("div");
+      chip.className = "tag-chip"+(sel.indexOf(tg)>=0?" on":"");
+      chip.dataset.g = gi;
+      chip.textContent = tg;
+      chip.onclick = function(){
+        var arr = f.tags[gi] ? f.tags[gi].slice() : [];
+        var idx = arr.indexOf(tg);
+        if(idx>=0) arr.splice(idx,1); else arr.push(tg);
+        if(arr.length) f.tags[gi] = arr; else delete f.tags[gi];
+        save(); renderFreeFilterBar(); renderTodayPanel(1); renderOverviewPanel(1);
+      };
+      chips.appendChild(chip);
+    });
+    box.appendChild(lab); box.appendChild(chips); wrap.appendChild(box);
   });
-  fselSync("habitBacklog");
+  var durBox = document.createElement("div");
+  var durLab = document.createElement("div"); durLab.className = "dur-labels";
+  durLab.textContent = durationLabel(f.durationMin, f.durationMax);
+  var slider = document.createElement("div"); slider.className = "dslider";
+  slider.innerHTML =
+    '<input type="range" min="0" max="16" step="1" value="'+f.durationMin+'" class="fdmin">'+
+    '<input type="range" min="0" max="16" step="1" value="'+f.durationMax+'" class="fdmax">';
+  var mi = slider.querySelector(".fdmin"), ma = slider.querySelector(".fdmax");
+  function apply(){
+    f.durationMin = +mi.value; f.durationMax = +ma.value;
+    durLab.textContent = durationLabel(f.durationMin, f.durationMax);
+    save(); renderTodayPanel(1); renderOverviewPanel(1);
+  }
+  mi.oninput = function(){ if(+mi.value > +ma.value) ma.value = mi.value; apply(); };
+  ma.oninput = function(){ if(+ma.value < +mi.value) mi.value = ma.value; apply(); };
+  durBox.appendChild(durLab); durBox.appendChild(slider); wrap.appendChild(durBox);
 }
 
 function renderTodayPanel(si){
@@ -982,8 +1107,8 @@ function renderTodayPanel(si){
   var empty = document.getElementById("todayEmpty"+si);
   var hs = sortedHabits(si);
   if(si===1){
-    renderFreeBacklogBar();
-    hs = hs.filter(function(h){ return h.backlog===freeBacklogCurrent; });
+    renderFreeFilterBar();
+    hs = hs.filter(function(h){ return matchesFreeFilter(h, state.freeFilter); });
   }
   list.innerHTML = "";
   empty.style.display = hs.length ? "none" : "block";
@@ -1015,6 +1140,7 @@ function renderOverviewPanel(si){
   var list = document.getElementById("overviewList"+si);
   var empty = document.getElementById("overviewEmpty"+si);
   var hs = sortedHabits(si);
+  if(si===1) hs = hs.filter(function(h){ return matchesFreeFilter(h, state.freeFilter); });
   list.innerHTML = "";
   empty.style.display = hs.length ? "none" : "block";
   var t = today(), tk = key(t);
@@ -1109,23 +1235,63 @@ document.getElementById("detailEdit").onclick = function(){ if(detailHabitId) op
 var editingId = null, editingSection = 0;
 var prioInput = document.getElementById("inPrio"), prioVal = document.getElementById("prioVal");
 prioInput.oninput = function(){ prioVal.textContent = prioInput.value; };
+var habitDurMin = document.getElementById("habitDurMin"), habitDurMax = document.getElementById("habitDurMax");
+var habitDurLabels = document.getElementById("habitDurLabels");
+function refreshHabitDurLabels(){ habitDurLabels.textContent = durationLabel(+habitDurMin.value, +habitDurMax.value); }
+habitDurMin.oninput = function(){ if(+habitDurMin.value > +habitDurMax.value) habitDurMax.value = habitDurMin.value; refreshHabitDurLabels(); };
+habitDurMax.oninput = function(){ if(+habitDurMax.value < +habitDurMin.value) habitDurMin.value = habitDurMax.value; refreshHabitDurLabels(); };
+var habitEditTags = [];
+function renderHabitTagChips(){
+  var wrap = document.getElementById("habitTagChips");
+  wrap.innerHTML = "";
+  TAG_GROUPS.forEach(function(g, gi){
+    g.tags.forEach(function(tg){
+      var chip = document.createElement("div");
+      chip.className = "tag-chip"+(habitEditTags.indexOf(tg)>=0?" on":"");
+      chip.dataset.g = gi;
+      chip.textContent = tg;
+      chip.onclick = function(){
+        var curInGroup = habitEditTags.find(function(t2){ return g.tags.indexOf(t2)>=0; });
+        if(curInGroup===tg){
+          habitEditTags.splice(habitEditTags.indexOf(tg),1);
+        } else {
+          if(curInGroup) habitEditTags.splice(habitEditTags.indexOf(curInGroup),1);
+          habitEditTags.push(tg);
+        }
+        renderHabitTagChips();
+      };
+      wrap.appendChild(chip);
+    });
+  });
+}
 function openSheet(si, id){
   editingSection = si; editingId = id || null;
   var del = document.getElementById("deleteHabit");
-  var bwrap = document.getElementById("habitBacklogWrap");
+  var tagsWrap = document.getElementById("habitTagsWrap");
+  var durWrap = document.getElementById("habitDurationWrap");
   if(editingId){
     var h = habitById(si, editingId);
     document.getElementById("inName").value = h.name;
     prioInput.value = h.priority; prioVal.textContent = h.priority;
     del.style.display = "block";
-    if(si===1){ bwrap.style.display = "block"; fillHabitBacklogPicker(h.backlog || "Free"); }
-    else bwrap.style.display = "none";
+    if(si===1){
+      tagsWrap.style.display = "block"; durWrap.style.display = "block";
+      habitEditTags = (h.tags||[]).slice();
+      renderHabitTagChips();
+      habitDurMin.value = h.durationMin; habitDurMax.value = h.durationMax;
+      refreshHabitDurLabels();
+    } else { tagsWrap.style.display = "none"; durWrap.style.display = "none"; }
   } else {
     document.getElementById("inName").value = "";
     prioInput.value = 5; prioVal.textContent = 5;
     del.style.display = "none";
-    if(si===1){ bwrap.style.display = "block"; fillHabitBacklogPicker(freeBacklogCurrent); }
-    else bwrap.style.display = "none";
+    if(si===1){
+      tagsWrap.style.display = "block"; durWrap.style.display = "block";
+      habitEditTags = [];
+      renderHabitTagChips();
+      habitDurMin.value = 0; habitDurMax.value = 3;
+      refreshHabitDurLabels();
+    } else { tagsWrap.style.display = "none"; durWrap.style.display = "none"; }
   }
   document.getElementById("sheetScrim").classList.add("open");
   setTimeout(function(){ document.getElementById("inName").focus(); }, 100);
@@ -1133,27 +1299,22 @@ function openSheet(si, id){
 function closeSheet(){ document.getElementById("sheetScrim").classList.remove("open"); }
 document.getElementById("cancelSheet").onclick = closeSheet;
 document.getElementById("sheetScrim").onclick = function(e){ if(e.target===this) closeSheet(); };
-document.getElementById("habitNewBacklog").onclick = function(){
-  var name = prompt("Název nového backlogu:");
-  if(!name) return;
-  name = name.trim();
-  if(!name) return;
-  if(!state.sections[1].backlogs) state.sections[1].backlogs = ["Free"];
-  if(state.sections[1].backlogs.indexOf(name)>=0){ toast("Backlog „"+name+"\" už existuje."); return; }
-  state.sections[1].backlogs.push(name); save();
-  fillHabitBacklogPicker(name);
-};
 document.getElementById("saveHabit").onclick = function(){
   var name = document.getElementById("inName").value.trim();
   if(!name){ document.getElementById("inName").focus(); return; }
   var prio = +prioInput.value;
-  var bk = (editingSection===1) ? (document.getElementById("habitBacklog").value || "Free") : null;
   if(editingId){
     var h = habitById(editingSection, editingId); h.name = name; h.priority = prio;
-    if(editingSection===1) h.backlog = bk;
+    if(editingSection===1){
+      h.tags = habitEditTags.slice();
+      h.durationMin = +habitDurMin.value; h.durationMax = +habitDurMax.value;
+    }
   } else {
     var nh = { id:"h"+Date.now()+Math.random().toString(36).slice(2,6), name:name, priority:prio, createdAt:Date.now() };
-    if(editingSection===1) nh.backlog = bk;
+    if(editingSection===1){
+      nh.tags = habitEditTags.slice();
+      nh.durationMin = +habitDurMin.value; nh.durationMax = +habitDurMax.value;
+    }
     state.sections[editingSection].habits.push(nh);
   }
   save(); closeSheet(); renderAll();
@@ -1779,24 +1940,6 @@ document.getElementById("wipSelect").onchange = function(){
 document.getElementById("blogBack").onclick = closeBlogView;
 document.getElementById("blogSelect").onchange = function(){ blogCurrent = this.value; renderBlogView(); };
 
-/* ---- backlog dropdown pro Free (Check) – jen filtr, žádný skok jinam ---- */
-document.getElementById("freeBacklogSelect").onchange = function(){
-  freeBacklogCurrent = this.value;
-  renderTodayPanel(1);
-};
-document.getElementById("freeNewBacklog").onclick = function(){
-  var name = prompt("Název nového backlogu:");
-  if(!name) return;
-  name = name.trim();
-  if(!name) return;
-  if(!state.sections[1].backlogs) state.sections[1].backlogs = ["Free"];
-  if(state.sections[1].backlogs.indexOf(name)>=0){ toast("Backlog „"+name+"\" už existuje."); return; }
-  state.sections[1].backlogs.push(name);
-  freeBacklogCurrent = name;
-  save();
-  renderTodayPanel(1);
-};
-
 /* ---- render router pro celou Check sekci ---- */
 function renderCheck(){
   if(document.getElementById("blogView").classList.contains("open")) renderBlogView();
@@ -2127,26 +2270,8 @@ function deleteTaskBacklog(name){
   }
   toast("Backlog „"+name+"“ smazán.");
 }
-function deleteFreeBacklog(name){
-  if(name==="Free") return;
-  state.sections[1].backlogs = (state.sections[1].backlogs || ["Free"]).filter(function(n){ return n!==name; });
-  state.sections[1].habits = state.sections[1].habits.filter(function(h){
-    if(h.backlog!==name) return true;
-    delete state.sections[1].log[h.id];
-    return false;
-  });
-  if(freeBacklogCurrent===name) freeBacklogCurrent = "Free";
-  save();
-  renderTodayPanel(1);
-  if(document.getElementById("sheetScrim").classList.contains("open") && editingSection===1){
-    var cur = document.getElementById("habitBacklog").value;
-    fillHabitBacklogPicker(cur===name ? "Free" : cur);
-  }
-  toast("Backlog „"+name+"“ smazán.");
-}
 var BACKLOG_SCOPES = {
-  tasks: { protectedNames:["Wip","Done"], del:deleteTaskBacklog },
-  free:  { protectedNames:["Free"], del:deleteFreeBacklog }
+  tasks: { protectedNames:["Wip","Done"], del:deleteTaskBacklog }
 };
 
 function fselOpen(selectId, title){
