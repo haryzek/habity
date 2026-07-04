@@ -496,6 +496,14 @@
   }
   .dur-labels{font-family:var(--mono);font-size:12px;color:var(--accent);text-align:center;margin-bottom:12px;}
 
+  .free-search-row{margin-bottom:8px;}
+  .free-search{
+    width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 12px;
+    -webkit-user-select:text;user-select:text;
+  }
+  .free-search::placeholder{color:var(--dim);}
+  .free-search:focus{outline:none;border-color:var(--accent);}
   .free-filter-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;}
   .ff-foot{
     display:flex;align-items:center;justify-content:space-between;
@@ -656,6 +664,9 @@
   <section class="page" id="secVolno">
     <div class="track" id="trackVolno">
       <div class="panel">
+        <div class="free-search-row">
+          <input type="text" id="freeSearch" class="free-search" placeholder="Hledat…" autocomplete="off">
+        </div>
         <div class="free-filter-row" id="freeFilterBar"></div>
         <div id="todayList1"></div>
         <div class="empty-state" id="todayEmpty1" style="display:none">
@@ -882,7 +893,7 @@ function blankState(){
     sections:[ {habits:[],log:{}}, {habits:[],log:{}} ],
     tasks:[], backlogs:["Wip","Done"], utasks:[], daily:{},
     taskBacklogSel:["Wip"],
-    freeFilter:{ tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false }
+    freeFilter:{ tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false, search:"" }
   };
 }
 
@@ -1024,7 +1035,7 @@ function normalize(o){
   }
 
   // filtr sekce Free (persistovaný, sdílený mezi Check a Přehled)
-  s.freeFilter = { tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false };
+  s.freeFilter = { tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false, search:"" };
   if(o.freeFilter && typeof o.freeFilter==="object"){
     if(o.freeFilter.tags && typeof o.freeFilter.tags==="object"){
       TAG_GROUPS.forEach(function(g, gi){
@@ -1043,6 +1054,7 @@ function normalize(o){
     var fm = (typeof o.freeFilter.funMin==="number" && o.freeFilter.funMin>=1 && o.freeFilter.funMin<=10) ? Math.round(o.freeFilter.funMin) : 1;
     s.freeFilter.funMin = fm;
     s.freeFilter.expanded = !!o.freeFilter.expanded;
+    if(typeof o.freeFilter.search==="string") s.freeFilter.search = o.freeFilter.search.slice(0,100);
   }
   return s;
 }
@@ -1117,6 +1129,29 @@ function durationLabel(min,max){
   if(min===max) return DURATION_TICKS[min];
   return DURATION_TICKS[min]+"–"+DURATION_TICKS[max];
 }
+function normSearchText(s){
+  return String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+}
+// decentně fuzzy: přímý substring má přednost, jinak fuzzy podsekvence znaků (překlepy/přeskočená písmena OK)
+function fuzzyWordMatch(word, text){
+  if(!word) return true;
+  if(text.indexOf(word)>=0) return true;
+  var ti=0;
+  for(var wi=0; wi<word.length; wi++){
+    var ch = word[wi];
+    var found = false;
+    while(ti<text.length){ if(text[ti]===ch){ found=true; ti++; break; } ti++; }
+    if(!found) return false;
+  }
+  return true;
+}
+function matchesFreeSearch(habit, search){
+  if(!search) return true;
+  var words = normSearchText(search).trim().split(/\s+/).filter(Boolean);
+  if(!words.length) return true;
+  var hay = normSearchText(habit.name) + " " + habit.tags.map(normSearchText).join(" ");
+  return words.every(function(w){ return fuzzyWordMatch(w, hay); });
+}
 function matchesFreeFilter(habit, filter){
   for(var gi=0; gi<TAG_GROUPS.length; gi++){
     var sel = filter.tags[gi];
@@ -1129,6 +1164,7 @@ function matchesFreeFilter(habit, filter){
   if(!(habit.durationMin < fMax && hMax > filter.durationMin)) return false;
   var funMin = (typeof filter.funMin==="number") ? filter.funMin : 1;
   if(habit.priority < funMin) return false;
+  if(!matchesFreeSearch(habit, filter.search)) return false;
   return true;
 }
 function freeFilterActiveCount(){
@@ -2751,6 +2787,12 @@ function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
   renderProgresPanel(); renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
 }
+var freeSearchEl = document.getElementById("freeSearch");
+freeSearchEl.value = state.freeFilter.search || "";
+freeSearchEl.oninput = function(){
+  state.freeFilter.search = freeSearchEl.value;
+  save(); refreshFreeLists();
+};
 document.getElementById("hDate").textContent = fmtLong(today());
 renderAll();
 updateUI();
