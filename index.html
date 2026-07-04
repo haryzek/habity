@@ -876,9 +876,10 @@ var curView = 0;     // 0=Check, 1=Přehled – swipe pozice, GLOBÁLNÍ (sdíle
 var WIP_PREVIEW_MIN = 5;
 
 var TAG_GROUPS = [
+  { name:"Plánování", tags:["Plan","No plan"], color:"#8A8A8A" },
   { name:"Prostředí", tags:["Uvnitř","Venku"], color:"#6E8FAE" },
   { name:"Společnost", tags:["Sám","Kámoš","Dav"], color:"#74955E" },
-  { name:"Energie", tags:["Klid","Pohyb","Intenz"], color:"#BC5B43" },
+  { name:"Energie", tags:["Klid","Pohyb","Intenz","Sport"], color:"#BC5B43" },
   { name:"Mysl", tags:["Intel","Fokus","Výplach"], color:"#4FA3A3" },
   { name:"Smysl", tags:["Smysl","Nesmysl"], color:"#D9A441" },
   { name:"Vzdálenost", tags:["Dom","Out","Okl","Ph","100","ČR","EU","O"], color:"#8E7CC3" }
@@ -1203,7 +1204,6 @@ function renderFreeFilterBar(){
     var sel = f.tags[gi] || [];
     var grp = document.createElement("div"); grp.className = "tag-group"; grp.dataset.g = gi;
     grp.style.setProperty("--tc", g.color);
-    var lab = document.createElement("div"); lab.className = "tgl"; lab.textContent = g.name;
     var chips = document.createElement("div"); chips.className = "tag-chips";
     g.tags.forEach(function(tg){
       var chip = document.createElement("div");
@@ -1219,7 +1219,7 @@ function renderFreeFilterBar(){
       };
       chips.appendChild(chip);
     });
-    grp.appendChild(lab); grp.appendChild(chips); body.appendChild(grp);
+    grp.appendChild(chips); body.appendChild(grp);
   });
 
   var funWrap = document.createElement("div");
