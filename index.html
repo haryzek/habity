@@ -470,18 +470,8 @@
   }
   .tag-chip:active{transform:scale(.95);}
   .tag-chip.on{color:#15120E;font-weight:600;}
-  .tag-chip[data-g="0"]{border-color:#6E8FAE;}
-  .tag-chip[data-g="0"].on{background:#6E8FAE;border-color:#6E8FAE;}
-  .tag-chip[data-g="1"]{border-color:#8E7CC3;}
-  .tag-chip[data-g="1"].on{background:#8E7CC3;border-color:#8E7CC3;}
-  .tag-chip[data-g="2"]{border-color:#74955E;}
-  .tag-chip[data-g="2"].on{background:#74955E;border-color:#74955E;}
-  .tag-chip[data-g="3"]{border-color:#BC5B43;}
-  .tag-chip[data-g="3"].on{background:#BC5B43;border-color:#BC5B43;}
-  .tag-chip[data-g="4"]{border-color:#D9A441;}
-  .tag-chip[data-g="4"].on{background:#D9A441;border-color:#D9A441;}
-  .tag-chip[data-g="5"]{border-color:#4FA3A3;}
-  .tag-chip[data-g="5"].on{background:#4FA3A3;border-color:#4FA3A3;}
+  .tag-chip{border-color:var(--tc,#6E8FAE);}
+  .tag-chip.on{background:var(--tc,#6E8FAE);border-color:var(--tc,#6E8FAE);}
   .tag-group{margin-bottom:10px;}
   .tag-group .tgl{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
 
@@ -875,13 +865,14 @@ var curView = 0;     // 0=Check, 1=Přehled – swipe pozice, GLOBÁLNÍ (sdíle
 var WIP_PREVIEW_MIN = 5;
 
 var TAG_GROUPS = [
-  { name:"Prostředí", tags:["Uvnitř","Venku"] },
-  { name:"Vzdálenost", tags:["Doma","Okolí","Praha","100km",">100km","ČR","Sousedi","EU","Svět"] },
-  { name:"Společnost", tags:["Sám","Kámoš","Dav"] },
-  { name:"Energie", tags:["Klid","Pohyb","Intenz"] },
-  { name:"Mysl", tags:["Intel","Fokus","Výplach"] },
-  { name:"Smysl", tags:["Smysl","Nesmysl"] }
+  { name:"Prostředí", tags:["Uvnitř","Venku"], color:"#6E8FAE" },
+  { name:"Společnost", tags:["Sám","Kámoš","Dav"], color:"#74955E" },
+  { name:"Energie", tags:["Klid","Pohyb","Intenz"], color:"#BC5B43" },
+  { name:"Mysl", tags:["Intel","Fokus","Výplach"], color:"#4FA3A3" },
+  { name:"Smysl", tags:["Smysl","Nesmysl"], color:"#D9A441" },
+  { name:"Vzdálenost", tags:["Dom","Okol","Pha","<100","ČR","Sous","EU","Svět"], color:"#8E7CC3" }
 ];
+var TAG_RENAME = { "Doma":"Dom", "Okolí":"Okol", "Praha":"Pha", "100km":"<100", "Sousedi":"Sous" };
 var DURATION_TICKS = ["0","5min","15min","30min","1h","2h","3h","6h","1d","3d","1t","2t","1m","3m","6m","1r","Delší"];
 
 var state = load();
@@ -914,6 +905,7 @@ function normalize(o){
             var tags = [];
             if(Array.isArray(h.tags)){
               h.tags.forEach(function(tg){
+                if(typeof tg==="string" && TAG_RENAME[tg]) tg = TAG_RENAME[tg];
                 if(typeof tg!=="string" || !validTags[tg]) return;
                 var gi = TAG_GROUPS.findIndex(function(g){ return g.tags.indexOf(tg)>=0; });
                 if(seenGroups[gi]) return;
@@ -1177,6 +1169,7 @@ function renderFreeFilterBar(){
   TAG_GROUPS.forEach(function(g, gi){
     var sel = f.tags[gi] || [];
     var grp = document.createElement("div"); grp.className = "tag-group"; grp.dataset.g = gi;
+    grp.style.setProperty("--tc", g.color);
     var lab = document.createElement("div"); lab.className = "tgl"; lab.textContent = g.name;
     var chips = document.createElement("div"); chips.className = "tag-chips";
     g.tags.forEach(function(tg){
@@ -1415,6 +1408,7 @@ function renderHabitTagChips(){
       var chip = document.createElement("div");
       chip.className = "tag-chip"+(habitEditTags.indexOf(tg)>=0?" on":"");
       chip.dataset.g = gi;
+      chip.style.setProperty("--tc", g.color);
       chip.textContent = tg;
       chip.onclick = function(){
         var idx = habitEditTags.indexOf(tg);
