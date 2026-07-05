@@ -908,20 +908,19 @@ function normalize(o){
       if(!src || !Array.isArray(src.habits)) continue;
       var log = (src.log && typeof src.log==="object") ? src.log : {};
       if(i===1){
-        // sekce Free: tagy (max 1 z každé skupiny) + rozsah trvání
+        // sekce Free: tagy (libovolný počet z každé skupiny) + rozsah trvání
         var validTags = {};
         TAG_GROUPS.forEach(function(g){ g.tags.forEach(function(tg){ validTags[tg]=true; }); });
         var habits1 = src.habits.filter(function(h){ return h && typeof h==="object" && typeof h.name==="string"; })
           .map(function(h){
-            var seenGroups = {};
+            var seenTags = {};
             var tags = [];
             if(Array.isArray(h.tags)){
               h.tags.forEach(function(tg){
                 if(typeof tg==="string" && TAG_RENAME[tg]) tg = TAG_RENAME[tg];
                 if(typeof tg!=="string" || !validTags[tg]) return;
-                var gi = TAG_GROUPS.findIndex(function(g){ return g.tags.indexOf(tg)>=0; });
-                if(seenGroups[gi]) return;
-                seenGroups[gi] = true;
+                if(seenTags[tg]) return;
+                seenTags[tg] = true;
                 tags.push(tg);
               });
             }
@@ -1481,13 +1480,7 @@ function renderHabitTagChips(){
       chip.textContent = tg;
       chip.onclick = function(){
         var idx = habitEditTags.indexOf(tg);
-        if(idx>=0){
-          habitEditTags.splice(idx,1);
-        } else {
-          // max 1 tag ze skupiny na aktivitu – nový výběr nahradí případný starý ze stejné skupiny
-          habitEditTags = habitEditTags.filter(function(t){ return g.tags.indexOf(t)<0; });
-          habitEditTags.push(tg);
-        }
+        if(idx>=0) habitEditTags.splice(idx,1); else habitEditTags.push(tg);
         renderHabitTagChips();
         persistHabitEditIfExisting();
       };
