@@ -1042,7 +1042,8 @@ function normalize(o){
       TAG_GROUPS.forEach(function(g, gi){
         var arr = o.freeFilter.tags[gi];
         if(Array.isArray(arr)){
-          var sel = arr.filter(function(tg){ return typeof tg==="string" && g.tags.indexOf(tg)>=0; });
+          var sel = arr.map(function(tg){ return (typeof tg==="string" && TAG_RENAME[tg]) ? TAG_RENAME[tg] : tg; })
+                       .filter(function(tg, idx, self){ return typeof tg==="string" && g.tags.indexOf(tg)>=0 && self.indexOf(tg)===idx; });
           if(sel.length) s.freeFilter.tags[gi] = sel;
         }
       });
