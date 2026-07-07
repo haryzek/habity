@@ -2644,6 +2644,7 @@ function pina(){
 
 /* 🗣️ hlasová odměna – náhodná hláška, systémový TTS hlas (cs-CZ pokud dostupný) */
 var PINA_LINES = ["Dej si piňu!","Šikovnej osel!","Král prdele!","Hustý, vole!","To je na piňu!","Híhá!"];
+var pinaLineIdx = 0;
 var pinaCsVoice = null, pinaVoicesReady = false;
 function loadPinaVoice(){
   if(!window.speechSynthesis) return;
@@ -2661,7 +2662,8 @@ if(window.speechSynthesis){
 function speakPina(){
   if(!window.speechSynthesis) return; // starý prohlížeč – prostě ticho, žádnej crash
   if(!pinaVoicesReady) loadPinaVoice();
-  var line = PINA_LINES[Math.floor(Math.random()*PINA_LINES.length)];
+  var line = PINA_LINES[pinaLineIdx];
+  pinaLineIdx = (pinaLineIdx + 1) % PINA_LINES.length; // cyklujeme, ať se hlášky nestřídají náhodně
   var u = new SpeechSynthesisUtterance(line);
   u.lang = "cs-CZ";
   if(pinaCsVoice) u.voice = pinaCsVoice;
