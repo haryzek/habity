@@ -274,7 +274,8 @@ protože po sesunutí už úkol není `date < dnešek`.
 
 Název · priorita (slider 1–10, default 1, barevný vertikální proužek
 `prioColor`: hue 210 chladná → 0 sytě červená) · termín (segmenty
-Backlog/Dnes/Zítra/Datum…) · opakování (8 segmentů) · **bouncer box** (zašedlý
+Backlog/Dnes/Zítra + vždy viditelný datepicker; vyplnění data zhasne
+segmenty, klik na segment datum vymaže) · opakování (8 segmentů) · **bouncer box** (zašedlý
 když none/daily; den v týdnu pro weekly/biweekly; datepicker pro monthly+) ·
 výběr backlogu (dropdown, bez Done) + „+ nový backlog" (přes prompt).
 
