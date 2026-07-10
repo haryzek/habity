@@ -563,7 +563,7 @@
 <body>
 
 <header>
-  <h1 id="hTitle">Návyky</h1>
+  <h1 id="hTitle">Tasks</h1>
   <div class="hright">
     <span class="date" id="hDate"></span>
     <button class="gear-btn" id="btnSettings" aria-label="Nastavení">⚙</button>
@@ -597,7 +597,7 @@
   </section>
 
   <!-- SEKCE: ÚKOLY (Check / Přehled úkolů) -->
-  <section class="page" id="secUkoly">
+  <section class="page active" id="secUkoly">
     <div class="track" id="trackUkoly">
       <div class="panel">
         <div class="checkDefault" id="checkDefault">
@@ -640,7 +640,7 @@
   </section>
 
   <!-- SEKCE: NÁVYKY (Check / Zvykání si) -->
-  <section class="page active" id="secNavyky">
+  <section class="page" id="secNavyky">
     <div class="track" id="trackNavyky">
       <div class="panel">
         <div id="todayList0"></div>
@@ -690,8 +690,8 @@
 
 <nav class="tabs">
   <button class="tab" data-sec="0"><span class="ic">▤</span>Progress</button>
-  <button class="tab" data-sec="1"><span class="ic">✓</span>Tasks</button>
-  <button class="tab active" data-sec="2"><span class="ic">↻</span>Habits</button>
+  <button class="tab active" data-sec="1"><span class="ic">✓</span>Tasks</button>
+  <button class="tab" data-sec="2"><span class="ic">↻</span>Habits</button>
   <button class="tab" data-sec="3"><span class="ic">☆</span>Free</button>
 </nav>
 
@@ -871,7 +871,7 @@
 var KEY = "habity.v2";
 var OLDKEY = "habity.v1";
 var GRID = 90;       // čtverečků na úkol (3 řádky × 30)
-var curSection = 2;  // 0..3 – aktivní sekce (Tasky/Úkoly/Návyky/Volno), volí se tabama dole
+var curSection = 1;  // 0..3 – aktivní sekce (Tasky/Úkoly/Návyky/Volno), volí se tabama dole
 var curView = 0;     // 0=Check, 1=Přehled – swipe pozice, GLOBÁLNÍ (sdílená napříč sekcemi)
 var WIP_PREVIEW_MIN = 5;
 
