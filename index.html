@@ -835,12 +835,10 @@
     <div class="set-row">
       <button class="btn btn-primary" id="btnExport">Exportovat zálohu (JSON)</button>
       <button class="btn btn-ghost" id="btnImport">Načíst zálohu ze souboru</button>
-      <button class="btn btn-ghost" id="btnMoveImport">Import Garmin dat (Move)</button>
       <button class="btn btn-danger" id="btnClearOv" style="margin-top:0">Vymazat historii úkolů</button>
       <button class="btn btn-ghost" id="setClose">Zavřít</button>
     </div>
     <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
-    <input type="file" id="moveImportFile" accept="application/json,.json" style="display:none">
   </div>
 </div>
 
@@ -3007,24 +3005,6 @@ function fetchMoveData(){
     .then(function(arr){ if(Array.isArray(arr) && arr.length) importMoveData(arr, true); })
     .catch(function(){});
 }
-
-(function(){
-  var btn = document.getElementById("btnMoveImport");
-  var file = document.getElementById("moveImportFile");
-  if(!btn || !file) return;
-  btn.onclick = function(){ file.click(); };
-  file.onchange = function(e){
-    var f = e.target.files && e.target.files[0];
-    if(!f) return;
-    var r = new FileReader();
-    r.onload = function(){
-      try{ importMoveData(JSON.parse(r.result)); closeSettings(); }
-      catch(err){ toast("Nepodařilo se načíst JSON."); }
-    };
-    r.readAsText(f);
-    e.target.value = "";
-  };
-})();
 
 /* ---------- init ---------- */
 function renderAll(){
