@@ -484,10 +484,10 @@ disk/localStorage. Viz Bobova paměť „litánie jsou soukromé".
 - **Seznam:** karty `P{priorita} · text · hvězdička` (priorita vlevo, hvězda u pravého
   kraje). Klik na text = editace (`openLitSheet`), klik na hvězdičku = toggle oblíbené
   (`litToggleFav`). Delegace: **jeden** click handler na `#litList` (ne 1254× per karta).
-- **Strop vykreslení 300 karet** (`CAP` v `renderLitList`) — stovky `line-clamp`
-  karet by sekaly render. Přes 300 se ukáže poznámka „…a dalších N, zúž filtrem".
-  Čištění se dělá po dávkách (filtr/search), takže strop nevadí. Řazení: oblíbené
-  nahoře → priorita DESC → id ASC.
+- **Strop vykreslení 5000 karet** (`CAP` v `renderLitList`) — jen pojistka proti
+  extrému (desetitisíce karet by při re-renderu na každý stisk v searchi sekaly).
+  Běžná DB (~1250) se zobrazí celá. Přes strop se ukáže poznámka „…a dalších N".
+  Řazení: oblíbené nahoře → priorita DESC → id ASC.
 - **Filtr** (`renderLitFilterBar`, klon Free): dvě chip skupiny (Témata modré,
   Části červené), slider priorita-min (1–5), mini-toggly „Bez tagů" a **„👁 Neviděné"**
   (reverse — ukáže jen položky s `videno=false`, tj. ještě neprošlé), Reset, sbalení.
@@ -556,7 +556,7 @@ nedoplnitelnou díru (skript se tak hluboko nedívá) — dá se zvednout okno `
 **Litánie HOTOVÉ a ověřené** (viz sekce 6): lokální import + overlay architektura
 otestovaná end-to-end přes DOM/localStorage (import 1254 vět → localStorage,
 fav→overlay, delete+undo, edit→overlay, nová věta→litNew, reload bez fetche →
-data z localStorage, celý state v exportu), fuzzy search, chip filtry, strop 300,
+data z localStorage, celý state v exportu), fuzzy search, chip filtry, strop 5000,
 undo lišta. Ověřeno, že appka na startu `litanie.json` **nikde nestahuje**
 (žádný síťový request). Screenshot nástroj v prostředí timeoutoval, ale reflow
 6 ms + 0 chyb → appka svižná. Import **už proběhl** (data v localStorage/exportu),
