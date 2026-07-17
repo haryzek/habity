@@ -533,12 +533,15 @@
   .free-search-row{margin-bottom:8px;}
   #secVolno .free-search-row{margin-bottom:3px;} /* filtr blíž k search v sekci Free */
   .free-search{
-    width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    display:block;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;
     color:var(--text);font-family:var(--sans);font-size:13px;padding:7px 12px;
     -webkit-user-select:text;user-select:text;
   }
   .free-search::placeholder{color:var(--dim);}
   .free-search:focus{outline:none;border-color:var(--accent);}
+  /* input[type=text] má globální margin-bottom:12px (vyšší specificita) — vynulovat,
+     ať mezeru mezi search a filtrem řídí jen .free-search-row. */
+  .free-search-row .free-search{margin-bottom:0;}
   .free-filter-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;}
   .ff-foot{
     display:flex;align-items:center;justify-content:space-between;
