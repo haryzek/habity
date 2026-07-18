@@ -272,7 +272,8 @@
     background:none;border:none;color:var(--missed);font-size:18px;cursor:pointer;
     flex-shrink:0;width:30px;height:30px;line-height:1;
   }
-  .subedit-bot{display:flex;align-items:center;gap:12px;}
+  .subedit-bot{display:flex;align-items:center;gap:7px;}
+  .subedit-bot input[type=range]{min-width:0;}
   .subedit-bot .lab{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
   .subedit-bot .sv{font-family:var(--mono);font-size:16px;color:var(--accent);width:22px;text-align:center;flex-shrink:0;}
   .subedit-fixed{display:flex;align-items:center;gap:10px;margin-top:6px;}
@@ -1187,6 +1188,7 @@ function normalize(o){
               id: st.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
               name: st.name,
               weight: (typeof st.weight==="number" && st.weight>=1) ? st.weight : 5,
+              prio: (typeof st.prio==="number" && st.prio>=1) ? st.prio : 5,
               cells: (typeof st.cells==="number" && st.cells>=1) ? st.cells : null,
               done: !!st.done
             };
@@ -2032,7 +2034,8 @@ function renderTasksPanel(){
       none.textContent = "Žádné kroky. Uprav projekt a přidej je.";
       body.appendChild(none);
     } else {
-      task.subtasks.forEach(function(s){
+      // výpis kroků řazený prioritou DESC, sekundárně původní pořadí (stable sort)
+      task.subtasks.slice().sort(function(a,b){ return (b.prio||5)-(a.prio||5); }).forEach(function(s){
         var row = document.createElement("div");
         row.className = "sub" + (s.done?" on":"");
         row.innerHTML = '<div class="box">'+(s.done?"✓":"")+'</div><span class="sname"></span><span class="sw">'+s.weight+'</span>';
@@ -2113,6 +2116,7 @@ function makeSubRow(data){
   row.dataset.id = data.id || "";
   row.dataset.done = data.done ? "1" : "";
   var w = (typeof data.weight==="number") ? data.weight : 5;
+  var p = (typeof data.prio==="number") ? data.prio : 5;
   var c = (typeof data.cells==="number" && data.cells>=1) ? data.cells : "";
   row.innerHTML =
     '<div class="subedit-top">'+
@@ -2120,9 +2124,12 @@ function makeSubRow(data){
       '<button class="subedit-del" type="button">✕</button>'+
     '</div>'+
     '<div class="subedit-bot">'+
-      '<span class="lab">náročnost</span>'+
+      '<span class="lab">N:</span>'+
       '<input type="range" class="s-weight" min="1" max="10" value="'+w+'">'+
       '<span class="sv">'+w+'</span>'+
+      '<span class="lab">P:</span>'+
+      '<input type="range" class="s-prio" min="1" max="10" value="'+p+'">'+
+      '<span class="sv sv-p">'+p+'</span>'+
     '</div>'+
     '<div class="subedit-fixed">'+
       '<span class="lab">Pevná hodnota:</span>'+
@@ -2132,6 +2139,8 @@ function makeSubRow(data){
   row.querySelector(".s-name").value = data.name || "";
   var rng = row.querySelector(".s-weight"), sv = row.querySelector(".sv");
   rng.oninput = function(){ sv.textContent = rng.value; };
+  var rngP = row.querySelector(".s-prio"), svP = row.querySelector(".sv-p");
+  rngP.oninput = function(){ svP.textContent = rngP.value; };
   row.querySelector(".subedit-del").onclick = function(){ row.remove(); };
   return row;
 }
@@ -2179,6 +2188,7 @@ document.getElementById("saveTask").onclick = function(){
       id: row.dataset.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
       name: sn,
       weight: +row.querySelector(".s-weight").value,
+      prio: +row.querySelector(".s-prio").value,
       cells: cellsVal,
       done: row.dataset.done==="1"
     });
