@@ -905,13 +905,14 @@
       <div class="lit-sheet-star" id="litFavToggle"><span class="st">☆</span><span>Oblíbená</span></div>
       <div class="lit-sheet-star lit-sheet-seen" id="litSeenToggle"><span class="st">👁</span><span>Shlédnuto</span></div>
     </div>
-    <div style="margin-bottom:10px">
-      <label>Témata</label>
+    <div style="margin-bottom:8px">
       <div class="tag-chips" id="litTemataChips"></div>
     </div>
-    <div style="margin-bottom:14px">
-      <label>Části</label>
+    <div style="margin-bottom:8px">
       <div class="tag-chips" id="litCastiChips"></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div class="tag-chips" id="litSkupinyChips"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" id="saveLit">Uložit</button>
@@ -1130,6 +1131,22 @@ var TAG_GROUPS = [
 var TAG_RENAME = { "Doma":"Dom", "Okolí":"Okl", "Okol":"Okl", "Praha":"Ph", "Pha":"Ph", "100km":"100", "<100":"100", "Sousedi":"Sou", "Sous":"Sou", "Svět":"O", "Sv":"O", "No plan":"Spon", "Noplan":"Spon", "Venku":"Air", "Kámoš":"Kámo", "Intenz":"Int", "Fokus":"Fok", "Nesmysl":"Bzz" };
 var DURATION_TICKS = ["0","5min","15min","30min","1h","2h","3h","6h","1d","3d","1t","2t","1m","3m","6m","1r","Delší"];
 
+// Litánie: jednorázové přejmenování tagů (běží v normalize, idempotentní) + seed
+// zelené skupiny. Definice tagů žijí jen v localStorage, proto migrace přes kód.
+var LIT_TAG_RENAME = {
+  "nevyuzity-potencial":"potenciál",
+  "emocni-inhibice":"emoinhib",
+  "Nejhodnejsi-kluk":"Hodnej",
+  "Don-Omnipotent":"Don"
+};
+var LIT_SKUPINY_SEED = ["Otázky","Postoje","Udělat","Výzvy"];
+function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
+function litRenArr(a){
+  var out = [], seen = {};
+  (a||[]).forEach(function(t){ var r = litRen(t); if(!seen[r]){ seen[r]=1; out.push(r); } });
+  return out;
+}
+
 var state = load();
 
 function blankState(){
@@ -1147,9 +1164,9 @@ function blankState(){
     // (⚙ Data) do localStorage — odtud je kryje jen JSON export, jako zbytek appky.
     //  litBase = základní věty (import z litanie.json), litTemata/litCasti = definice tagů
     //  litOverlay[id] = částečné přepisy základních vět, litNew = uživatelem přidané věty
-    litBase:[], litTemata:[], litCasti:[],
+    litBase:[], litTemata:[], litCasti:[], litSkupiny:LIT_SKUPINY_SEED.slice(),
     litOverlay:{}, litNew:[],
-    litFilter:{ temata:[], casti:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" }
+    litFilter:{ temata:[], casti:[], skupiny:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" }
   };
 }
 
@@ -1358,24 +1375,27 @@ function normalize(o){
         return {
           id: String(x.id),
           text: String(x.text),
-          temata: Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : [],
-          casti: Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : [],
+          temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
+          casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
+          skupiny: Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : [],
           priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
           oblibena: !!x.oblibena,
           aktivni: x.aktivni!==false
         };
       });
   }
-  if(Array.isArray(o.litTemata)) s.litTemata = o.litTemata.filter(function(t){ return typeof t==="string"; });
-  if(Array.isArray(o.litCasti)) s.litCasti = o.litCasti.filter(function(t){ return typeof t==="string"; });
+  if(Array.isArray(o.litTemata)) s.litTemata = litRenArr(o.litTemata.filter(function(t){ return typeof t==="string"; }));
+  if(Array.isArray(o.litCasti)) s.litCasti = litRenArr(o.litCasti.filter(function(t){ return typeof t==="string"; }));
+  if(Array.isArray(o.litSkupiny)) s.litSkupiny = o.litSkupiny.filter(function(t){ return typeof t==="string"; });
   if(o.litOverlay && typeof o.litOverlay==="object"){
     Object.keys(o.litOverlay).forEach(function(id){
       var ov = o.litOverlay[id];
       if(!ov || typeof ov!=="object") return;
       var clean = {};
       if(typeof ov.text==="string") clean.text = ov.text.slice(0,4000);
-      if(Array.isArray(ov.temata)) clean.temata = ov.temata.filter(function(t){ return typeof t==="string"; });
-      if(Array.isArray(ov.casti)) clean.casti = ov.casti.filter(function(t){ return typeof t==="string"; });
+      if(Array.isArray(ov.temata)) clean.temata = litRenArr(ov.temata.filter(function(t){ return typeof t==="string"; }));
+      if(Array.isArray(ov.casti)) clean.casti = litRenArr(ov.casti.filter(function(t){ return typeof t==="string"; }));
+      if(Array.isArray(ov.skupiny)) clean.skupiny = ov.skupiny.filter(function(t){ return typeof t==="string"; });
       if(typeof ov.priorita==="number" && ov.priorita>=1 && ov.priorita<=5) clean.priorita = Math.round(ov.priorita);
       if(typeof ov.oblibena==="boolean") clean.oblibena = ov.oblibena;
       if(typeof ov.videno==="boolean") clean.videno = ov.videno;
@@ -1389,8 +1409,9 @@ function normalize(o){
         return {
           id: (typeof x.id==="string") ? x.id : ("ul"+Date.now()+Math.random().toString(36).slice(2,6)),
           text: x.text.slice(0,4000),
-          temata: Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : [],
-          casti: Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : [],
+          temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
+          casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
+          skupiny: Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : [],
           priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
           oblibena: !!x.oblibena,
           videno: !!x.videno,
@@ -1398,11 +1419,12 @@ function normalize(o){
         };
       });
   }
-  s.litFilter = { temata:[], casti:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" };
+  s.litFilter = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" };
   if(o.litFilter && typeof o.litFilter==="object"){
     var lf = o.litFilter;
-    if(Array.isArray(lf.temata)) s.litFilter.temata = lf.temata.filter(function(t){ return typeof t==="string"; });
-    if(Array.isArray(lf.casti)) s.litFilter.casti = lf.casti.filter(function(t){ return typeof t==="string"; });
+    if(Array.isArray(lf.temata)) s.litFilter.temata = litRenArr(lf.temata.filter(function(t){ return typeof t==="string"; }));
+    if(Array.isArray(lf.casti)) s.litFilter.casti = litRenArr(lf.casti.filter(function(t){ return typeof t==="string"; }));
+    if(Array.isArray(lf.skupiny)) s.litFilter.skupiny = lf.skupiny.filter(function(t){ return typeof t==="string"; });
     if(typeof lf.prioMin==="number" && lf.prioMin>=1 && lf.prioMin<=5) s.litFilter.prioMin = Math.round(lf.prioMin);
     s.litFilter.fav = !!lf.fav;
     s.litFilter.unseen = !!lf.unseen;
@@ -3555,8 +3577,8 @@ document.getElementById("moveScrim").onclick = function(e){ if(e.target===this) 
 
 /* ================= LITÁNIE ================= */
 // Zdroj = litanie.json (read-only, v gitu). Změny žijí v state.litOverlay / state.litNew.
-var LIT_BASE = [], LIT_TEMATA = [], LIT_CASTI = [], LIT_LOADED = false;
-var LIT_COL_TEMATA = "#6E8FAE", LIT_COL_CASTI = "#BC5B43";
+var LIT_BASE = [], LIT_TEMATA = [], LIT_CASTI = [], LIT_SKUPINY = [], LIT_LOADED = false;
+var LIT_COL_TEMATA = "#6E8FAE", LIT_COL_CASTI = "#BC5B43", LIT_COL_SKUPINY = "#74955E";
 
 // Data žijí v localStorage (state.litBase/litTemata/litCasti) — nikdy ne online.
 // Runtime cache (LIT_*) se z nich naplní při startu.
@@ -3564,6 +3586,7 @@ function litLoadFromState(){
   LIT_BASE   = state.litBase || [];
   LIT_TEMATA = state.litTemata || [];
   LIT_CASTI  = state.litCasti || [];
+  LIT_SKUPINY = state.litSkupiny || [];
   LIT_LOADED = LIT_BASE.length > 0;
   refreshLit();
 }
@@ -3577,15 +3600,17 @@ function importLitanie(d){
       return {
         id: String(x.id),
         text: String(x.text),
-        temata: Array.isArray(x.temata) ? x.temata.slice() : [],
-        casti: Array.isArray(x.casti) ? x.casti.slice() : [],
+        temata: litRenArr(Array.isArray(x.temata) ? x.temata.slice() : []),
+        casti: litRenArr(Array.isArray(x.casti) ? x.casti.slice() : []),
+        skupiny: Array.isArray(x.skupiny) ? x.skupiny.slice() : [],
         priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
         oblibena: !!x.oblibena,
         aktivni: x.aktivni!==false
       };
     });
-  state.litTemata = Array.isArray(d.temata) ? d.temata.slice() : [];
-  state.litCasti  = Array.isArray(d.casti)  ? d.casti.slice()  : [];
+  state.litTemata = litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []);
+  state.litCasti  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
+  state.litSkupiny = Array.isArray(d.skupiny) ? d.skupiny.slice() : LIT_SKUPINY_SEED.slice();
   save();
   litLoadFromState();
   return state.litBase.length;
@@ -3601,6 +3626,7 @@ function litEffective(){
       text: (o && o.text!=null) ? o.text : b.text,
       temata: (o && o.temata!=null) ? o.temata : b.temata,
       casti: (o && o.casti!=null) ? o.casti : b.casti,
+      skupiny: (o && o.skupiny!=null) ? o.skupiny : (b.skupiny||[]),
       priorita: (o && o.priorita!=null) ? o.priorita : b.priorita,
       oblibena: (o && o.oblibena!=null) ? o.oblibena : b.oblibena,
       videno: (o && o.videno!=null) ? o.videno : !!b.videno,
@@ -3609,7 +3635,7 @@ function litEffective(){
     });
   });
   (state.litNew||[]).forEach(function(n){
-    out.push({ id:n.id, text:n.text, temata:n.temata, casti:n.casti,
+    out.push({ id:n.id, text:n.text, temata:n.temata, casti:n.casti, skupiny:n.skupiny||[],
       priorita:n.priorita, oblibena:n.oblibena, videno:!!n.videno, aktivni:n.aktivni!==false, _new:true });
   });
   return out;
@@ -3623,16 +3649,17 @@ function matchesLitSearch(l, search){
   if(!search) return true;
   var words = normSearchText(search).trim().split(/\s+/).filter(Boolean);
   if(!words.length) return true;
-  var hayFull = normSearchText(l.text)+" "+l.temata.map(normSearchText).join(" ")+" "+l.casti.map(normSearchText).join(" ");
+  var hayFull = normSearchText(l.text)+" "+l.temata.map(normSearchText).join(" ")+" "+l.casti.map(normSearchText).join(" ")+" "+(l.skupiny||[]).map(normSearchText).join(" ");
   var hayTokens = tokenizeSearch(hayFull);
   return words.every(function(w){ return fuzzyWordMatch(w, hayFull, hayTokens); });
 }
 function matchesLitFilter(l, f){
   if(f.fav && !l.oblibena) return false;
   if(f.unseen && l.videno) return false;
-  if(f.noTags && (l.temata.length || l.casti.length)) return false;
+  if(f.noTags && (l.temata.length || l.casti.length || (l.skupiny||[]).length)) return false;
   if(f.temata.length && !l.temata.some(function(t){ return f.temata.indexOf(t)>=0; })) return false;
   if(f.casti.length && !l.casti.some(function(t){ return f.casti.indexOf(t)>=0; })) return false;
+  if(f.skupiny.length && !(l.skupiny||[]).some(function(t){ return f.skupiny.indexOf(t)>=0; })) return false;
   if(l.priorita < f.prioMin) return false;
   if(!matchesLitSearch(l, f.search)) return false;
   return true;
@@ -3656,7 +3683,7 @@ function litEsc(s){
 }
 function litFilterActiveCount(){
   var f = state.litFilter, n = 0;
-  n += f.temata.length + f.casti.length;
+  n += f.temata.length + f.casti.length + f.skupiny.length;
   if(f.prioMin>1) n++;
   if(f.fav) n++;
   if(f.unseen) n++;
@@ -3754,8 +3781,7 @@ function renderLitFilterBar(){
   function tagGroup(label, allTags, selArr, color){
     var grp = document.createElement("div"); grp.className = "tag-group";
     grp.style.setProperty("--tc", color);
-    var lab = document.createElement("div"); lab.className = "tgl"; lab.textContent = label;
-    grp.appendChild(lab);
+    if(label){ var lab = document.createElement("div"); lab.className = "tgl"; lab.textContent = label; grp.appendChild(lab); }
     var chips = document.createElement("div"); chips.className = "tag-chips";
     allTags.forEach(function(tg){
       var chip = document.createElement("div");
@@ -3771,8 +3797,9 @@ function renderLitFilterBar(){
     grp.appendChild(chips);
     return grp;
   }
-  body.appendChild(tagGroup("Témata", LIT_TEMATA, f.temata, LIT_COL_TEMATA));
-  body.appendChild(tagGroup("Části", LIT_CASTI, f.casti, LIT_COL_CASTI));
+  body.appendChild(tagGroup("", LIT_TEMATA, f.temata, LIT_COL_TEMATA));
+  body.appendChild(tagGroup("", LIT_CASTI, f.casti, LIT_COL_CASTI));
+  body.appendChild(tagGroup("", LIT_SKUPINY, f.skupiny, LIT_COL_SKUPINY));
 
   // priorita min slider
   var prioWrap = document.createElement("div");
@@ -3810,7 +3837,7 @@ function renderLitFilterBar(){
   reset.type = "button"; reset.className = "ff-reset"; reset.textContent = "Reset";
   reset.onclick = function(e){
     e.stopPropagation();
-    f.temata = []; f.casti = []; f.prioMin = 1; f.fav = false; f.unseen = false; f.noTags = false;
+    f.temata = []; f.casti = []; f.skupiny = []; f.prioMin = 1; f.fav = false; f.unseen = false; f.noTags = false;
     save(); renderLitFilterBar(); renderLitList();
   };
   var close = document.createElement("button");
@@ -3831,7 +3858,7 @@ document.addEventListener("pointerdown", function(e){
 
 /* ---- editační sheet ---- */
 var litEditId = null, litEditNew = false, litEditFav = false, litEditSeen = false;
-var litEditTemata = [], litEditCasti = [];
+var litEditTemata = [], litEditCasti = [], litEditSkupiny = [];
 var litPrioInp = document.getElementById("litPrio"), litPrioVal = document.getElementById("litPrioVal");
 litPrioInp.oninput = function(){ litPrioVal.textContent = litPrioInp.value; };
 var litTextEl = document.getElementById("litText");
@@ -3865,6 +3892,7 @@ function renderLitSheetChips(){
   }
   fill("litTemataChips", LIT_TEMATA, litEditTemata, LIT_COL_TEMATA);
   fill("litCastiChips", LIT_CASTI, litEditCasti, LIT_COL_CASTI);
+  fill("litSkupinyChips", LIT_SKUPINY, litEditSkupiny, LIT_COL_SKUPINY);
 }
 function openLitSheet(id){
   litEditId = id || null;
@@ -3878,7 +3906,7 @@ function openLitSheet(id){
     litPrioInp.value = l.priorita; litPrioVal.textContent = l.priorita;
     litEditFav = !!l.oblibena;
     litEditSeen = !!l.videno;
-    litEditTemata = l.temata.slice(); litEditCasti = l.casti.slice();
+    litEditTemata = l.temata.slice(); litEditCasti = l.casti.slice(); litEditSkupiny = (l.skupiny||[]).slice();
     del.style.display = "block";
   } else {
     litEditNew = false;
@@ -3886,7 +3914,7 @@ function openLitSheet(id){
     litPrioInp.value = 2; litPrioVal.textContent = 2;
     litEditFav = false;
     litEditSeen = false;
-    litEditTemata = []; litEditCasti = [];
+    litEditTemata = []; litEditCasti = []; litEditSkupiny = [];
     del.style.display = "none";
   }
   favT.classList.toggle("on", litEditFav);
@@ -3903,21 +3931,21 @@ document.getElementById("saveLit").onclick = function(){
   var text = litTextEl.value.trim();
   if(!text){ litTextEl.focus(); return; }
   var prio = +litPrioInp.value;
-  var tem = litEditTemata.slice(), cas = litEditCasti.slice();
+  var tem = litEditTemata.slice(), cas = litEditCasti.slice(), sku = litEditSkupiny.slice();
   if(litEditId){
     if(litEditNew){
       var n = null;
       for(var i=0;i<state.litNew.length;i++) if(state.litNew[i].id===litEditId){ n = state.litNew[i]; break; }
-      if(n){ n.text=text; n.priorita=prio; n.temata=tem; n.casti=cas; n.oblibena=litEditFav; n.videno=litEditSeen; }
+      if(n){ n.text=text; n.priorita=prio; n.temata=tem; n.casti=cas; n.skupiny=sku; n.oblibena=litEditFav; n.videno=litEditSeen; }
     } else {
       var ov = state.litOverlay[litEditId] || {};
-      ov.text = text; ov.priorita = prio; ov.temata = tem; ov.casti = cas; ov.oblibena = litEditFav; ov.videno = litEditSeen;
+      ov.text = text; ov.priorita = prio; ov.temata = tem; ov.casti = cas; ov.skupiny = sku; ov.oblibena = litEditFav; ov.videno = litEditSeen;
       state.litOverlay[litEditId] = ov;
     }
   } else {
     state.litNew.push({
       id: "ul"+Date.now()+Math.random().toString(36).slice(2,6),
-      text:text, temata:tem, casti:cas, priorita:prio, oblibena:litEditFav, videno:litEditSeen, aktivni:true
+      text:text, temata:tem, casti:cas, skupiny:sku, priorita:prio, oblibena:litEditFav, videno:litEditSeen, aktivni:true
     });
   }
   save(); closeLitSheet(); refreshLit();
