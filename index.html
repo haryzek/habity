@@ -1137,9 +1137,10 @@ var LIT_TAG_RENAME = {
   "nevyuzity-potencial":"potenciál",
   "emocni-inhibice":"emoinhib",
   "Nejhodnejsi-kluk":"Hodnej",
-  "Don-Omnipotent":"Don"
+  "Don-Omnipotent":"Don",
+  "Postoje":"Litánie"
 };
-var LIT_SKUPINY_SEED = ["Otázky","Postoje","Udělat","Výzvy"];
+var LIT_SKUPINY_SEED = ["Otázky","Litánie","Udělat","Výzvy"];
 function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
 function litRenArr(a){
   var out = [], seen = {};
@@ -1377,7 +1378,7 @@ function normalize(o){
           text: String(x.text),
           temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
           casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
-          skupiny: Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : [],
+          skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : []),
           priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
           oblibena: !!x.oblibena,
           aktivni: x.aktivni!==false
@@ -1386,7 +1387,7 @@ function normalize(o){
   }
   if(Array.isArray(o.litTemata)) s.litTemata = litRenArr(o.litTemata.filter(function(t){ return typeof t==="string"; }));
   if(Array.isArray(o.litCasti)) s.litCasti = litRenArr(o.litCasti.filter(function(t){ return typeof t==="string"; }));
-  if(Array.isArray(o.litSkupiny)) s.litSkupiny = o.litSkupiny.filter(function(t){ return typeof t==="string"; });
+  if(Array.isArray(o.litSkupiny)) s.litSkupiny = litRenArr(o.litSkupiny.filter(function(t){ return typeof t==="string"; }));
   if(o.litOverlay && typeof o.litOverlay==="object"){
     Object.keys(o.litOverlay).forEach(function(id){
       var ov = o.litOverlay[id];
@@ -1395,7 +1396,7 @@ function normalize(o){
       if(typeof ov.text==="string") clean.text = ov.text.slice(0,4000);
       if(Array.isArray(ov.temata)) clean.temata = litRenArr(ov.temata.filter(function(t){ return typeof t==="string"; }));
       if(Array.isArray(ov.casti)) clean.casti = litRenArr(ov.casti.filter(function(t){ return typeof t==="string"; }));
-      if(Array.isArray(ov.skupiny)) clean.skupiny = ov.skupiny.filter(function(t){ return typeof t==="string"; });
+      if(Array.isArray(ov.skupiny)) clean.skupiny = litRenArr(ov.skupiny.filter(function(t){ return typeof t==="string"; }));
       if(typeof ov.priorita==="number" && ov.priorita>=1 && ov.priorita<=5) clean.priorita = Math.round(ov.priorita);
       if(typeof ov.oblibena==="boolean") clean.oblibena = ov.oblibena;
       if(typeof ov.videno==="boolean") clean.videno = ov.videno;
@@ -1411,7 +1412,7 @@ function normalize(o){
           text: x.text.slice(0,4000),
           temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
           casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
-          skupiny: Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : [],
+          skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : []),
           priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
           oblibena: !!x.oblibena,
           videno: !!x.videno,
@@ -1424,7 +1425,7 @@ function normalize(o){
     var lf = o.litFilter;
     if(Array.isArray(lf.temata)) s.litFilter.temata = litRenArr(lf.temata.filter(function(t){ return typeof t==="string"; }));
     if(Array.isArray(lf.casti)) s.litFilter.casti = litRenArr(lf.casti.filter(function(t){ return typeof t==="string"; }));
-    if(Array.isArray(lf.skupiny)) s.litFilter.skupiny = lf.skupiny.filter(function(t){ return typeof t==="string"; });
+    if(Array.isArray(lf.skupiny)) s.litFilter.skupiny = litRenArr(lf.skupiny.filter(function(t){ return typeof t==="string"; }));
     if(typeof lf.prioMin==="number" && lf.prioMin>=1 && lf.prioMin<=5) s.litFilter.prioMin = Math.round(lf.prioMin);
     s.litFilter.fav = !!lf.fav;
     s.litFilter.unseen = !!lf.unseen;
@@ -3610,7 +3611,7 @@ function importLitanie(d){
     });
   state.litTemata = litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []);
   state.litCasti  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
-  state.litSkupiny = Array.isArray(d.skupiny) ? d.skupiny.slice() : LIT_SKUPINY_SEED.slice();
+  state.litSkupiny = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : LIT_SKUPINY_SEED.slice());
   save();
   litLoadFromState();
   return state.litBase.length;
