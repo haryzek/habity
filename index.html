@@ -3670,12 +3670,29 @@ document.getElementById("moveScrim").onclick = function(e){ if(e.target===this) 
    1.0 = přesně podle pravidla. Průtok do něj schválně NEVSTUPUJE — průtok řeky
    není rychlost proudu v místě ponoru a to, co z velké vody na kůži dopadá
    (studenější voda), už je zapsané v teplotě vody. Je to kontext, ne výkon. */
-var COLD_PERF_CAP = 1.5;   // výkon, při kterém je kruh plný (1.5× pravidlo)
+// Strop plného kruhu = Bobův "hodně slušný den": 15 min ve 2 °C = 7,5.
+// Pravidlo minuta za stupeň (1.0) je měřítko pro začátečníka, ne pro někoho
+// po třech zimách — na tom by se všechny pořádné ponory slily na doraz.
+var COLD_PERF_BASE = 7.5;
 
 function coldPerf(rec){
   if(!rec || !rec.min) return 0;
   var tw = (rec.tw==null) ? 1 : rec.tw;
   return rec.min / Math.max(1, tw);
+}
+
+// Strop drží pevně na COLD_PERF_BASE a povolí se jen NAHORU (p90 zápisů), když
+// Bob základ přeroste. Schválně ne čisté p90 jako u Garmin kalorií: klouzavý
+// strop se posouvá za výkonem, takže by zlepšení mezi zimami v mřížce zmizelo —
+// kruhy by pořád vypadaly stejně, protože by se poměřovaly samy se sebou.
+function coldCap(){
+  var days = state.cold.days || {};
+  var vals = Object.keys(days).map(function(k){ return coldPerf(days[k]); })
+    .filter(function(v){ return v>0; }).sort(function(a,b){ return a-b; });
+  if(vals.length < 4) return COLD_PERF_BASE;   // pár zápisů percentilu nestačí
+  var i=(vals.length-1)*0.9, lo=Math.floor(i), hi=Math.ceil(i);
+  var p90 = (lo===hi) ? vals[lo] : vals[lo]+(vals[hi]-vals[lo])*(i-lo);
+  return Math.max(COLD_PERF_BASE, p90);
 }
 
 // "2,5" místo "2.5"; celá čísla bez desetinné části
@@ -3684,7 +3701,7 @@ function coldNum(v, dec){
   return String(r).replace(".", ",");
 }
 
-function coldCell(rec, isFuture, dateKey){
+function coldCell(rec, isFuture, dateKey, cap){
   var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
   var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit');
   if(isFuture || !rec || !rec.min){
@@ -3692,7 +3709,7 @@ function coldCell(rec, isFuture, dateKey){
   }
   var cx = 50, cy = 50;
   var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
-  var tt = Math.min(coldPerf(rec) / COLD_PERF_CAP, 1);
+  var tt = Math.min(coldPerf(rec) / (cap || COLD_PERF_BASE), 1);
   var R = MINR + (MAXR-MINR) * tt;
   var ringR = R - STROKE/2;
   var innerR = Math.max(8, ringR - STROKE/2 - GAP);
@@ -3734,12 +3751,13 @@ function renderCold(){
     var firstMon = mondayOf(new Date(keys[0]+"T00:00:00"));
     if(firstMon < startMon) startMon = firstMon;
   }
+  var cap = coldCap();
   var html = "";
   for(var wk=new Date(endMon); wk>=startMon; wk=addDays(wk,-7)){
     html += '<div class="move-week">';
     for(var i=0;i<7;i++){
       var d = addDays(wk,i), dk = key(d);
-      html += coldCell(days[dk], d>t, dk);
+      html += coldCell(days[dk], d>t, dk, cap);
     }
     html += '</div>';
   }
@@ -3761,7 +3779,7 @@ function openColdEdit(dk){
   document.getElementById("coldEditTitle").textContent = (rec ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
   var perf = rec ? coldPerf(rec) : 0;
   document.getElementById("coldEditNote").textContent = perf
-    ? ("Výkon " + coldNum(perf,2) + " × pravidlo minuta za stupeň.")
+    ? ("Výkon " + coldNum(perf,2) + " ze stropu " + coldNum(coldCap(),1) + ".")
     : "Voda a minuty jsou povinné. Vítr a průtok jsou kontext, do výkonu nejdou.";
   document.getElementById("coldDelete").style.display = rec ? "" : "none";
   document.getElementById("coldScrim").classList.add("open");
