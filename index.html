@@ -3709,7 +3709,10 @@ function coldCell(rec, isFuture, dateKey, cap){
   }
   var cx = 50, cy = 50;
   var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
-  var tt = Math.min(coldPerf(rec) / (cap || COLD_PERF_BASE), 1);
+  // Odmocnina, ať PLOCHA kruhu odpovídá výkonu, ne poloměr. Oko čte velikost
+  // jako plochu; lineární poloměr by nafoukl velké dny (plocha ~ r²) a slabší
+  // by se slily u spodní hranice.
+  var tt = Math.sqrt(Math.min(coldPerf(rec) / (cap || COLD_PERF_BASE), 1));
   var R = MINR + (MAXR-MINR) * tt;
   var ringR = R - STROKE/2;
   var innerR = Math.max(8, ringR - STROKE/2 - GAP);
