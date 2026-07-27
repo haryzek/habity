@@ -70,8 +70,12 @@
   .track{display:flex;width:200%;flex:1;transition:transform .25s ease;will-change:transform;}
   .panel{width:50%;flex:0 0 50%;}
 
-  /* ---- Move: dvě plochy (Garmin / Otužování), vertikální scroll ---- */
-  #trackMove .panel{overflow-y:auto;padding:10px 2px 24px;}
+  /* ---- Move: dvě plochy (Garmin / Otužování) ----
+     Panel schválně NEMÁ overflow-y:auto. Vlastní scrollovací kontejner na
+     Androidu sebere vodorovné gesto (Chrome zahájí scroll a pošle
+     pointercancel) → swipe jen cuknul a odskočil. Scrolluje okno, stejně
+     jako ve všech ostatních sekcích, kde swipe funguje. */
+  #trackMove .panel{padding:10px 2px 24px;}
   .move-week{display:flex;gap:5px;margin-bottom:10px;align-items:stretch;}
   .move-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;}
   .move-disc{flex:1;width:100%;display:flex;align-items:center;justify-content:center;}
@@ -2423,11 +2427,16 @@ function nextRepeatDate(t, completionDate){
   // vyplněný bouncer => pevná řada, nejbližší BUDOUCÍ datum vůči dni splnění
   if(t.repeat==="weekly" || t.repeat==="biweekly"){
     var step = t.repeat==="weekly" ? 7 : 14;
-    // najdi nejbližší výskyt cílového dne v týdnu STRIKTNĚ po dni splnění
     var dow = t.bouncer.dow;
-    var d = addDays(c,1);
+    // Kotva řady = datum TÉHLE instance, ne den splnění. U biweekly na tom
+    // stojí parita týdnů — "nejbližší cílový den po splnění" by u dvoutýdenního
+    // úkolu vždycky vrátil příští týden (přesně tenhle bug).
+    var d = t.date ? parseKey(t.date) : new Date(c);
+    d.setHours(0,0,0,0);
     while(d.getDay()!==dow) d = addDays(d,1);
-    // d je první cílový den po splnění; pro biweekly to stačí (řada je definovaná dnem v týdnu)
+    // posouvej po krocích řady, dokud není striktně po dni splnění
+    var g = 0;
+    while(d <= c && g < 1000){ d = addDays(d, step); g++; }
     return key(d);
   } else {
     // monthly+ : řada definovaná konkrétním datem (bouncer.date), krok v měsících
