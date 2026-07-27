@@ -2804,8 +2804,14 @@ document.querySelectorAll("#utRepeatSeg .seg").forEach(function(seg){
 /* bouncer den v týdnu */
 document.querySelectorAll("#utBouncerDow .seg").forEach(function(seg){
   seg.onclick = function(){
-    utDow = +seg.dataset.dow;
-    document.querySelectorAll("#utBouncerDow .seg").forEach(function(s){ s.classList.toggle("on", s===seg); });
+    // druhý klik na vybraný den kotvu SEJME (utDow zpět na null) — jinak by z
+    // úkolu s kotvou nešlo udělat úkol bez kotvy jinak než smazat a založit
+    // znovu. Bez kotvy jede opakování klouzavě ode dne splnění.
+    var dow = +seg.dataset.dow;
+    utDow = (utDow===dow) ? null : dow;
+    document.querySelectorAll("#utBouncerDow .seg").forEach(function(s){
+      s.classList.toggle("on", utDow!==null && +s.dataset.dow===utDow);
+    });
   };
 });
 function refreshBouncerUI(){
