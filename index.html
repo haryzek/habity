@@ -3438,7 +3438,12 @@ document.getElementById("btnSettings").onclick = openSettings;
 /* ================= MOVE (Garmin kolečka) ================= */
 function mondayOf(d){ var off=(d.getDay()+6)%7; return addDays(d,-off); }
 
-// půlkruh plnící se ZDOLA; side: -1 = levá, +1 = pravá
+// Půlkruh plnící se ZDOLA.
+// POZOR na side: oblouk jde od spodního bodu k hornímu, takže sweep=1 (side +1)
+// vede přes LEVOU polovinu a sweep=0 (side -1) přes PRAVOU — tedy obráceně, než
+// by se čekalo. Ověřeno přes getBBox, nesahat bez změření.
+//   side +1 => levá půlka
+//   side -1 => pravá půlka
 function moveSemi(cx, cy, r, side, ratio){
   var sweep = side>0 ? 1 : 0;
   var len = Math.PI * r;
@@ -3694,8 +3699,8 @@ function coldCell(rec, isFuture, dateKey){
   // oba prstence jdou obráceně než stupnice: víc barvy = víc drsno
   var wRatio = rec.tw==null ? 0 : Math.max(0, Math.min(1, (20 - rec.tw)/20));
   var aRatio = rec.ta==null ? 0 : Math.max(0, Math.min(1, (40 - rec.ta)/60));
-  var L  = moveSemi(cx,cy,ringR,-1,wRatio);
-  var Rr = moveSemi(cx,cy,ringR,+1,aRatio);
+  var L  = moveSemi(cx,cy,ringR,+1,wRatio);  // +1 = levá půlka: voda
+  var Rr = moveSemi(cx,cy,ringR,-1,aRatio);  // -1 = pravá půlka: vzduch
   var label = coldNum(rec.min, 1);
   var fs = Math.max(13, Math.min(innerR*1.05, 30));
   if(label.length > 2) fs = fs * 0.72;   // "12" se vejde, "2,5" a "12,5" už ne
