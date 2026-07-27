@@ -1,6 +1,6 @@
 Ahoj osle!
 
-# HABITY — README pro pokračování (stav po přidání sekce Litánie)
+# HABITY — README pro pokračování (stav po přidání plochy Otužování)
 
 Tohle čte Claude, který přebírá práci na appce **Habity** v nové konverzaci.
 Cílem je zahučet do věci bez ztráty kontextu. Čti to celé, ať chápeš nejen
@@ -80,10 +80,16 @@ obráceně:**
   `SEC_DEFAULT_VIEW[curSection]` — takže Habits/Free přistanou na Přehledu,
   ostatní na Checku, bez ohledu na to, kde jsi swipnul předtím. Swipe uvnitř sekce
   pak funguje dál (Check na Habits/Free je pořád dostupný swipem doprava).
-  **Move (4) a Litánie (5) jsou výjimky** — mají jen jednu plochu, swipe/pager se
-  na ně nevztahují. Rozdíl: Move nemá ani FAB (data z importu), **Litánie FAB má**
-  (přidání nové věty). `updateUI` proto řeší zvlášť `noPager = 4||5` a
-  `fab hidden = jen 4`.
+  **Move (4) má dvě plochy, ale jiné než ostatní:** ne Check/Přehled, ale
+  **Garmin (view 0) ↔ Otužování (view 1)** — viz 5e. Swipe i pager fungují
+  normálně, jen `hTitle` se u view 1 přepíná na „Otužování". **Litánie (5) je
+  jediná výjimka** — jedna plocha, bez swipu i pageru. Move nemá FAB (obě plochy
+  se plní klikem na puntík dne), **Litánie FAB má** (přidání nové věty).
+  `updateUI` proto řeší `noPager = jen 5` a `fab hidden = jen 4`.
+  ⚠️ **Past:** `#trackMove .panel` **nesmí dostat `overflow-y:auto`**. Vlastní
+  scrollovací kontejner sebere na Androidu vodorovné gesto (Chrome zahájí scroll
+  a pošle `pointercancel`) → swipe jen cukne a odskočí. Move scrolluje oknem jako
+  všechny ostatní sekce. Stálo to jeden bug report z provozu.
 - **Data/Nastavení** (export/import JSON, vymazat historii) = **ozubené kolečko ⚙
   v headeru** nahoře vedle data. Už NENÍ spodní tab.
 
@@ -93,16 +99,16 @@ obráceně:**
 | 1 | **Tasks** | WiP náhled + kalendář | Dny/Měsíce | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
-| 4 | **Move** | — (jedna plocha) | — | Garmin aktivita jako kolečka po týdnech. Data z Garmin Connectu, plní se samy. **Viz sekce 5.** |
+| 4 | **Move** | Garmin (view 0) | **Otužování** (view 1) | Dvě plochy stejného tvaru: Garmin aktivita (plní se sama ze syncu) a ruční zápis ponorů. **Viz sekce 5 a 5e.** |
 | 5 | **Litánie** | — (jedna plocha) | — | Podpůrné věty/přerámování, filtrované tagy. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
 
 Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
 česky. `hTitle` nahoře ukazuje jen název sekce (ne rozlišuje Check/Přehled).
 
 **Struktura DOMu:** 6 `<section class="page">` (`secProgress`/`secTasks`/`secNavyky`/
-`secVolno`/`secMove`/`secLitanie`). Sekce 0–3 mají jeden `.track` se **dvěma** panely
-(Check + Přehled), track šířka 200 %, panel 50 %. **`secMove` i `secLitanie` mají
-jen jeden panel** (translateX vždy 0). Aktivní je vždy jen sekce odpovídající
+`secVolno`/`secMove`/`secLitanie`). Sekce 0–4 mají jeden `.track` se **dvěma** panely
+(u 0–3 Check + Přehled, u Move Garmin + Otužování), track šířka 200 %, panel 50 %.
+**Jen `secLitanie` má jediný panel** (translateX vždy 0). Aktivní je vždy jen sekce odpovídající
 `curSection` (`.page.active`). `SEC_PAGES`/`SEC_TRACKS`/`SEC_TITLES` mají teď
 **6 položek** (index 5 = Litánie).
 
@@ -201,6 +207,12 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
     overrides: { "YYYY-MM-DD": {kcal, durMin, distM, hr} },  // ruční zámky dní, sync je nepřepíše (viz 5b)
     caps: { kcal:679, dist:3729, hrBase:55, hrCap:130 }  // stropy prstenců; kcal/dist p90 z dat, hr napevno
   },
+
+  // ----- OTUŽOVÁNÍ (druhá plocha Move, viz 5e) — čistě ruční, žádný sync -----
+  cold: {
+    days: { "YYYY-MM-DD": {tw, ta, min, wind, flow} }  // voda/vzduch °C, minuty, vítr m/s, průtok m³/s
+  },                                                    // tw a min povinné; ta/wind/flow smí být null
+
 
   // ----- LITÁNIE (viz sekce 6) — SOUKROMÁ data, jen v localStorage, nikdy online -----
   litBase: [ {id,text,temata,casti,priorita,oblibena,aktivni} ],             // základ z importu litanie.json
@@ -338,8 +350,13 @@ Putování (přesun/rollup) instanci jen posouvá, nemnoží. Toto je tvrdé pra
 - **Vyplněný bouncer** → pevná periodická řada: respawn = **nejbližší BUDOUCÍ
   datum v řadě vůči dni splnění**, a toto datum se stává novým bouncerem.
   Bobovo (ne)splnění řadou nehne.
-  - weekly/biweekly: bouncer = den v týdnu (`{dow}`). Najde nejbližší ten den
-    striktně po dni splnění.
+  - weekly/biweekly: bouncer = den v týdnu (`{dow}`). Řada se kotví na **datu
+    splňované instance** (`t.date`), srovná se na cílový `dow` a posouvá se po
+    krocích (7/14), dokud není striktně po dni splnění.
+    ⚠️ **Nesahat na tu kotvu.** Dřív se počítalo „nejbližší cílový dow po dni
+    splnění", což u **biweekly vracelo vždycky příští týden** — `step` se
+    spočítal a zahodil, takže weekly i biweekly dávaly identické datum. Parita
+    dvoutýdenní řady stojí a padá s kotvením na `t.date`.
   - monthly+: bouncer = konkrétní datum (`{date}`). Posouvá o krok měsíců
     (1/3/6/12), dokud není striktně po dni splnění.
 - **Pozdní splnění může spolknout přeskočené cykly** — frčí na nejbližší budoucí
@@ -388,6 +405,18 @@ projektu (`weight:5, prio:5`), existující úkol smaže z `utasks` a ukáže to
 Hotový projekt se přidáním kroku zas „odhotoví" (`updateTaskCompletedAt`).
 
 Když má úkol repeat ale není zadané datum, použije se bouncer jako první kotva.
+
+**Kotva se sundává druhým klikem** na už vybraný den (`utDow` zpět na `null`) —
+jinak by z úkolu s kotvou nešlo udělat úkol bez kotvy jinak než ho smazat a
+založit znovu. U monthly+ to jde odjakživa (kotva je `<input type="date">`,
+obsah se smaže). Odkotvený úkol jede klouzavě ode dne splnění (flow režim).
+
+**Známé chování, které Bob zatím nechal být** (splnění úkolu naplánovaného do
+budoucna): `utComplete` počítá respawn vždy od **dneška**, ne od data úkolu.
+U zakotveného zítřejšího úkolu tak `nextRepeatDate` vrátí datum, na kterém úkol
+už stojí → **zůstane viset na zítřku a dá se splnit i zítra znovu** (druhá zelená
+za jednu práci). U nezakotveného si splnění dopředu ukousne den z intervalu.
+Oprava by byla počítat od `max(dnešek, t.date)` — vědomě odloženo.
 
 ### 4g. Přehled úkolů (`renderUtOverview`) — pozice 1 Přehled rovina
 
@@ -506,6 +535,55 @@ nevyexportuje → **zálohovat pravidelně**.
 **privátní autentizovanou vrstvu** (ne veřejné Pages). Obousměrný živý stav =
 riziko konfliktů + nutná auth. Velký samostatný projekt, až bude potřeba.
 
+### 5e. Otužování — druhá plocha Move (`renderCold`/`coldCell`)
+
+Swipe doleva z Garmin plochy. Vizuálně **stejná mřížka** (týden = řádek, datum si
+buňka bere z kalendáře, nejnovější nahoře), ale **čistě ruční zápis** — žádný
+sync, a proto ani `overrides`/zámky jako u Garminu. Klik na puntík dne otevře
+`coldScrim` s pěti poli; `tw` a `min` jsou povinné, zbytek smí zůstat prázdný.
+Existující zápis má tlačítko Smazat.
+
+**Kódování kolečka:**
+
+| Prvek | Veličina | Škála |
+|---|---|---|
+| levý půlprstenec (`--water` #5B87A8) | teplota vody | `(20 − tw)/20` |
+| pravý půlprstenec (`--done` zelená) | teplota vzduchu | `(40 − ta)/60` |
+| průměr kruhu (`--accent`) | **výkon** | `sqrt(perf/cap)` |
+| číslo uvnitř | minuty ve vodě | — |
+| text pod kruhem | `vítr/průtok` | — |
+
+**Oba prstence jedou REVERZNĚ** proti stupnici: plný = ledová voda / −20 °C.
+Kdyby se plnily „normálně", nejlepší ponory by měly prázdné prstence.
+
+⚠️ **Past v `moveSemi(cx,cy,r,side,ratio)`:** `side +1` kreslí **LEVOU** půlku a
+`side −1` **PRAVOU** — obráceně, než by čekal. Oblouk jde od spodního bodu
+k hornímu, takže `sweep=1` vede přes levou stranu. Původní komentář v kódu
+tvrdil opak a stálo to jeden špatně nasazený prstenec. Ověřeno přes `getBBox`,
+**nesahat bez změření**. (Move to má taky prohozené, ale tam je přiřazení
+dist/hr libovolné, tak se nechalo být.)
+
+**Výkon = `minuty / teplota vody`** — otužilecké pravidlo „minuta za stupeň",
+1.0 = přesně podle pravidla. **Průtok do vzorce schválně nevstupuje:** průtok
+řeky (m³/s z ČHMÚ) není rychlost proudu v místě ponoru, a to, co z velké vody
+na kůži dopadá — studenější voda — je už zapsané v `tw`. Je to kontext, ne výkon.
+
+**Strop (`coldCap`)** drží pevně na `COLD_PERF_BASE = 7.5` (Bobův „hodně slušný
+den" = 15 min ve 2 °C) a **povolí se jen NAHORU** (p90 zápisů, od 4 zápisů výš),
+když základ přeroste. **Vědomě ne čisté p90 jako u Garmin kalorií:** klouzavý
+strop se posouvá za výkonem, takže by zlepšení mezi zimami v mřížce zmizelo —
+kruhy by se poměřovaly samy se sebou a vypadaly pořád stejně. Dolů nikdy.
+Původní strop 1.5 byl postavený na pravidle pro začátečníka a byl 5× vedle
+(Bob dá 10 min ve 2 °C = 5.0); zimní ponory se na něm slily na doraz.
+
+**Odmocnina u průměru** je tam proto, aby výkonu odpovídala **plocha** kruhu, ne
+poloměr — oko čte velikost jako plochu (`~r²`), takže lineární poloměr nafukuje
+velké dny a drtí slabé.
+
+**Mřížka se kreslí vždycky** (minimálně 8 týdnů zpět), na rozdíl od Garmin
+plochy, která při nula datech ukáže jen empty-state. Bez toho by nebylo kam
+kliknout a nešel by založit první zápis.
+
 ---
 
 ## 6. LITÁNIE — podpůrné věty s tagy (pozice 5)
@@ -597,7 +675,9 @@ datech na to už jsou připravené.
 Tmavé „kokosové" téma. CSS proměnné v `:root`:
 `--bg:#15120E --surface:#201B15 --surface2:#2A241C --border:#3A332A
 --text:#EDE6D8 --dim:#9A9081 --empty:#34302A --done:#74955E --missed:#BC5B43
---accent:#D9A441`. Fonty: serif (Georgia) pro názvy, sans (system) pro UI, mono
+--accent:#D9A441 --water:#5B87A8`. Poslední (tlumená modrá) je jediná studená
+barva v jinak zemité paletě a používá se **výhradně** pro prstenec teploty vody
+v Otužování. Fonty: serif (Georgia) pro názvy, sans (system) pro UI, mono
 pro metadata/čísla. Bob má rád hustotu (malé paddingy, malé písmo).
 
 **🍹 Piňa colada odměna** (`pina()`): po `✓` splnění vyskočí velké emoji 🍹
@@ -621,6 +701,17 @@ cache, automatika 3× denně (Task Scheduler), auto-push `move_data.json` do rep
 auto-fetch v appce, responsivní kolečka. Ověřeno reálnými daty z Bobova Garminu.
 Zbývá jen doladit vizuál Move „na závěr všeho" (velikosti/mezery detaily) a
 případně „ukázat posledních X týdnů" místo nekonečného scrollu.
+
+**Otužování HOTOVÉ, kalibrace ověřená na Bobových reálných číslech** (viz 5e):
+swipe/pager na Move, zápis + editace + mazání dne, perzistence přes `normalize()`
+round-trip, obě prstencové škály, strop 7.5 s povolením nahoru (otestováno i
+přerůstání na 11.3). **Čeká na běh času:** zatím nula ostrých zápisů — jestli
+strop sedí, se ukáže až po pár týdnech zimní sezóny. Pokud se kruhy budou trvale
+lepit na maximum, zvednout `COLD_PERF_BASE`.
+
+**Opraveno z provozu:** biweekly s kotvou se překlápělo o týden místo o dva
+(viz 4d); swipe na Move nefungoval na Androidu kvůli `overflow-y` na panelu
+(viz sekce 2); kotva opakování nešla sundat (viz 4f).
 
 **Reálně neověřené (čeká na běh času):** rollup se na ostro projeví až den po
 naplánování úkolu (musí propadnout přes půlnoc). Logika je testovaná na
@@ -650,21 +741,23 @@ otázce na nejasné hrany, pak to postav a otestuj.
 ## 9. Tipy pro zásahy do kódu
 
 - Soubor je strukturovaný: `<style>` → HTML (header s ⚙, pager se 2 tečkami,
-  **5 `<section>` pages** — 0–3 s `track`/dvěma `panel`, `secMove` s jedním —
+  **6 `<section>` pages** — 0–4 s `track`/dvěma `panel`, `secLitanie` s jedním —
   sheety, modaly) → `<script>` (state/normalize/load/save → date helpers →
   NÁVYKY → projektové ÚKOLY → TASKS úkolová sekce → Přehled úkolů →
   confirm/toast/piňa → settings → **MOVE (renderMove/moveCell/importMoveData/
-  fetchMoveData/recalcMoveCaps)** → **LITÁNIE (litLoadFromState/importLitanie/
+  fetchMoveData/recalcMoveCaps)** → **OTUŽOVÁNÍ (coldPerf/coldCap/coldCell/
+  renderCold/openColdEdit)** → **LITÁNIE (litLoadFromState/importLitanie/
   litEffective/matchesLitFilter/renderLitList/renderLitFilterBar/openLitSheet/
   litDelete+undo)** → navigace (swipe/taby/pager) → FAB → init).
 - **Navigace:** `updateUI()` je centrální — transformuje tracky podle `curView`
-  (Move track vždy 0), přepíná `.page.active` podle `curSection`, syncuje
-  taby/pager/title, skrývá pager+FAB na Move. Taby nastavují `curSection`, swipe
-  a pager tečky nastavují `curView`.
+  (Litánie track vždy 0), přepíná `.page.active` podle `curSection`, syncuje
+  taby/pager/title (u Move view 1 přepisuje title na „Otužování"), skrývá pager
+  na Litániích a FAB na Move. Taby nastavují `curSection`, swipe a pager tečky
+  nastavují `curView`.
 - `renderCheck()` = router pro úkolovou (Tasks) Check stranu (default + backlog
   view).
 - `renderAll()` volá všechny rendery najednou (Check i Přehled všech sekcí jsou
-  v DOMu pořád, jen schované), **včetně `renderMove()`**. Sourozenecký sync (viz
+  v DOMu pořád, jen schované), **včetně `renderMove()` a `renderCold()`**. Sourozenecký sync (viz
   sekce 2) je proto nutný. Auto-fetch Move (`fetchMoveData()`) se volá zvlášť na
   konci initu (async).
 - **Move/Garmin:** vizuál a datový model v `index.html` (sekce 5), ale sync motor
