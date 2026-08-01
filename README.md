@@ -312,7 +312,9 @@ je třetí garantovaný backlog (`normalize()` ho doplní). U vlastních backlog
 název i na úkolech a ve výběrech) a **✕** (smazání); systémové nejdou ani
 přejmenovat, ani smazat. Multi-výběr (checkboxy) má dole tři tlačítka
 **Reset · Zrušit · Potvrdit** — Reset jen odškrtne všechny checkboxy a sheet
-nechá otevřený.
+nechá otevřený. Multi-výběr se **nepamatuje**: sheet se vždy otevře bez
+zaškrtnutých (`working = []`), i když v `state.taskBacklogSel` něco je.
+Klik na název backlogu (včetně **Wip**) otevře rovnou jeho backlog view.
 
 ### 4b. Akce na úkolu
 
@@ -326,6 +328,9 @@ nechá otevřený.
   zítřek. **Jediné dobrovolné přiznání lajdáctví, platí na repeat i ne-repeat.**
 - **přesun → / » (`utMove`)**: bez penalizace, žádná stopa v Přehledu. „Převálcovalo
   mě něco jiného." Sem patří i odsouvání repeatů co netlačí.
+  `→` = **prostě následující den po datu úkolu**, i když je datum v minulosti
+  (žádný clamp na dnešek). `»` naopak clampuje: propadlý úkol se posune o týden
+  od dneška.
 
 ### 4c. Prokrastinace = červené čtverečky (FILOZOFIE — důležité)
 
