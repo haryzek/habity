@@ -2495,8 +2495,9 @@ function utMiss(t){
 /* přesun bez penalizace */
 function utMove(t, mode){
   var base = t.date ? parseKey(t.date) : today();
+  // „→" = prostě následující den po datu úkolu (i když je v minulosti)
+  if(mode==="tomorrow"){ t.date = key(addDays(base,1)); save(); renderCheck(); return; }
   if(base < today()) base = today();
-  if(mode==="tomorrow") t.date = key(addDays(base,1));
   else if(mode==="week") t.date = key(addDays(base,7));
   save(); renderCheck();
 }
@@ -3100,7 +3101,8 @@ function fselOpen(selectId, title){
   });
   var current = sel.value;
   document.getElementById("pickerTitle").textContent = title || "Backlog";
-  var working = multi ? taskSelNames().slice() : null;
+  // multi-výběr se nikdy nepamatuje: seznam se otevírá vždy bez zaškrtnutých
+  var working = multi ? [] : null;
   var multiFoot = document.getElementById("pickerMultiFoot");
   var singleCancel = document.getElementById("pickerCancel");
   var list = document.getElementById("pickerList");
@@ -3133,12 +3135,7 @@ function fselOpen(selectId, title){
     row.onclick = function(){
       closePickerSheet();
       if(multi){
-        if(selectId==="wipSelect" && it.value==="Wip"){
-          state.taskBacklogSel = ["Wip"]; sel.value = "Wip"; fselSync(selectId); save();
-          if(document.getElementById("blogView").classList.contains("open")) closeBlogView();
-        } else {
-          openBlogView(it.value);
-        }
+        openBlogView(it.value);
         return;
       }
       if(sel.value !== it.value){
