@@ -411,9 +411,9 @@
   }
   /* rychlé volby backlogů vpravo od dropdownu (stejná výška i centr) */
   .blog-quick{
-    flex-shrink:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;
-    color:var(--text);font-family:var(--mono);font-size:11px;padding:0 8px;cursor:pointer;
-    display:flex;align-items:center;
+    flex:1 1 0;min-width:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;
+    color:var(--text);font-family:var(--mono);font-size:11px;padding:0 2px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
   }
   .blog-quick:active{background:var(--accent);color:#15120E;}
   .wip-sel{
@@ -425,6 +425,8 @@
     background-repeat:no-repeat;background-position:right 11px center;background-size:16px;
   }
   .wip-sel:focus{outline:none;border-color:var(--accent);}
+  /* mini varianta: jen šipka u levého kraje, výběr backlogu přes rychlé volby */
+  .wip-sel--mini{flex:0 0 34px;min-width:34px;padding:9px 0;background-position:center;}
   .wip-wrap{margin-bottom:6px;}
   .wip-empty{font-family:var(--serif);font-size:13px;color:var(--dim);padding:4px 2px 10px;}
 
@@ -735,11 +737,8 @@
         <div class="checkDefault" id="checkDefault">
           <div class="wipbar" id="wipBar">
             <select class="wip-sel" id="wipSelect" style="display:none"></select>
-            <button type="button" class="wip-sel fsel-trigger" id="wipSelectBtn" data-target="wipSelect" data-scope="tasks" data-multi="1"></button>
-            <button type="button" class="blog-quick" data-q="wip">WIP</button>
-            <button type="button" class="blog-quick" data-q="SN">SN</button>
-            <button type="button" class="blog-quick" data-q="PSY">PSY</button>
-            <button type="button" class="blog-quick" data-q="PR">PR</button>
+            <button type="button" class="wip-sel wip-sel--mini fsel-trigger" id="wipSelectBtn" data-target="wipSelect" data-scope="tasks" data-multi="1" data-notext="1" title="Backlogy"></button>
+            <!-- rychlé volby (WIP/FUT + prefixy) se generují v renderBlogQuick() -->
           </div>
           <div class="wip-wrap" id="wipPreview"></div>
           <div id="calList"></div>
@@ -2569,6 +2568,7 @@ function renderCheckDefault(){
     });
     fselSync("wipSelect");
   }
+  renderBlogQuick();
   // WiP náhled – top nedatované z Wip
   var wip = backlogTasks("Wip");
   var preview = document.getElementById("wipPreview");
@@ -2648,9 +2648,15 @@ function applyTaskBacklogMulti(names){
   document.getElementById("checkDefault").classList.add("hide");
   document.getElementById("blogView").classList.add("open");
   renderBlogView();
+  blogScrollTop();
 }
 
 /* ---- přepínání default <-> backlog view ---- */
+// backlog view vždy ukázat od začátku, ať nezdědí scroll hlavní stránky
+function blogScrollTop(){
+  window.scrollTo(0,0);
+  document.scrollingElement && (document.scrollingElement.scrollTop = 0);
+}
 function openBlogView(name){
   blogCurrent = name || "Wip";
   state.taskBacklogSel = [blogCurrent];
@@ -2658,6 +2664,7 @@ function openBlogView(name){
   document.getElementById("checkDefault").classList.add("hide");
   document.getElementById("blogView").classList.add("open");
   renderBlogView();
+  blogScrollTop();
 }
 function closeBlogView(){
   document.getElementById("blogView").classList.remove("open");
@@ -3031,6 +3038,7 @@ function fselSync(selectId){
   var sel = document.getElementById(selectId);
   var btn = document.getElementById(selectId+"Btn");
   if(!sel || !btn) return;
+  if(btn.dataset.notext==="1") return; // mini trigger (jen šipka) – text nezobrazujeme
   var opt = sel.options[sel.selectedIndex];
   btn.textContent = opt ? opt.text : "";
 }
@@ -3200,17 +3208,34 @@ document.querySelectorAll(".fsel-trigger").forEach(function(btn){
   btn.onclick = function(){ fselOpen(this.dataset.target, this.dataset.title || "Backlog"); };
 });
 
-/* rychlé volby backlogů vedle dropdownu: WIP = Wip backlog,
-   SN/PSY/PR = multi-výběr všech backlogů s daným prefixem názvu */
-document.querySelectorAll("#wipBar .blog-quick").forEach(function(b){
-  b.onclick = function(){
-    var q = b.dataset.q;
-    if(q==="wip"){ openBlogView("Wip"); return; }
-    var names = state.backlogs.filter(function(n){ return n.toUpperCase().indexOf(q)===0; });
-    if(!names.length){ toast("Žádný backlog nezačíná na „"+q+"“."); return; }
-    applyTaskBacklogMulti(names);
-  };
-});
+/* rychlé volby backlogů vedle mini dropdownu: WIP/FUT = systémové backlogy,
+   dál prvních 6 dvoupísmenných prefixů uživatelských backlogů (abecedně);
+   prefix = multi-výběr všech backlogů s daným začátkem názvu */
+function renderBlogQuick(){
+  var bar = document.getElementById("wipBar");
+  bar.querySelectorAll(".blog-quick").forEach(function(b){ b.remove(); });
+  var SYS_BL = ["Wip","Done","Future"];
+  var prefixes = [];
+  state.backlogs.forEach(function(n){
+    if(SYS_BL.indexOf(n)>=0) return;
+    var p = n.slice(0,2).toUpperCase();
+    if(prefixes.indexOf(p)===-1) prefixes.push(p);
+  });
+  prefixes.sort();
+  var defs = [{label:"WIP", open:"Wip"}, {label:"FUT", open:"Future"}];
+  prefixes.slice(0,6).forEach(function(p){ defs.push({label:p, prefix:p}); });
+  defs.forEach(function(d){
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "blog-quick"; b.textContent = d.label;
+    b.onclick = function(){
+      if(d.open){ openBlogView(d.open); return; }
+      var names = state.backlogs.filter(function(n){ return n.toUpperCase().indexOf(d.prefix)===0; });
+      if(!names.length){ toast("Žádný backlog nezačíná na „"+d.prefix+"“."); return; }
+      applyTaskBacklogMulti(names);
+    };
+    bar.appendChild(b);
+  });
+}
 
 function toast(msg){
   var t = document.getElementById("toast");
