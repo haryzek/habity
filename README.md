@@ -144,8 +144,9 @@ labely; zrušeno).
 (toggle ☆/★ vedle názvu v editačním sheetu, `#habitStar`; hvězdička jen pro
 sekci 0). Přehled Habits má pak **úplně nahoře odvozený blok „Godzilla"**
 (`buildGodzillaBlock`): 90 čtverečků, den je **modrý** (`--god`, `.cell.god`)
-právě když jsou ten den `done` **všechny** ohvězdičkované habity. **Nic se
-neukládá** — počítá se za běhu z logů (`refreshGodzilla` po kliku do mřížky),
+právě když ten den **žádný** ohvězdičkovaný habit nemá `missed` — nechecknuté
+dny (volno) bod nekazí, jen vyloženě červená; prázdná minulost je tím pádem
+celá modrá (vědomý trade-off). **Nic se neukládá** — počítá se za běhu z logů (`refreshGodzilla` po kliku do mřížky),
 takže bez hvězdiček blok zmizí a znovu ožije i s historií, jakmile se něco
 ohvězdičkuje. Buňky Godzilly nejsou klikací. Ohvězdičkované habity mají ★
 v hlavičce Přehledu i na Check kartě.

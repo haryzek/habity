@@ -1821,9 +1821,11 @@ function renderTodayPanel(si){
   });
 }
 
-/* Godzilla: odvozený přehledový řádek — den je modrý, když jsou ten den splněné
-   VŠECHNY ohvězdičkované habity sekce 0. Nic se neukládá, počítá se z logů,
-   takže "historie" ožije kdykoli se nějaký habit zase ohvězdičkuje. */
+/* Godzilla: odvozený přehledový řádek — den je modrý, když ten den NEMÁ žádný
+   ohvězdičkovaný habit sekce 0 červenou (missed). Nechecknuté dny (volno) bod
+   nekazí — a prázdná minulost je tím pádem celá modrá, to je vědomý trade-off.
+   Nic se neukládá, počítá se z logů, takže "historie" ožije kdykoli se nějaký
+   habit zase ohvězdičkuje. */
 function starredHabits(){ return state.sections[0].habits.filter(function(h){ return h.star; }); }
 function buildGodzillaBlock(){
   var stars = starredHabits();
@@ -1834,10 +1836,10 @@ function buildGodzillaBlock(){
   var t = today(), tk = key(t), doneCount = 0;
   for(var i=89;i>=0;i--){
     var dk = key(addDays(t,-i));
-    var all = stars.every(function(h){ return getState(0, h.id, dk)==="done"; });
-    if(all) doneCount++;
+    var ok = stars.every(function(h){ return getState(0, h.id, dk)!=="missed"; });
+    if(ok) doneCount++;
     var cell = document.createElement("div");
-    cell.className = "cell"+(all?" god":"")+(dk===tk?" today":"");
+    cell.className = "cell"+(ok?" god":"")+(dk===tk?" today":"");
     grid.appendChild(cell);
   }
   head.innerHTML = '<span class="name">Godzilla</span><span class="hstar">★</span><span class="stat"></span>';
