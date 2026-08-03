@@ -140,6 +140,16 @@ aktivity (`openSheet`), **klik na čísílka+šipku** vpravo (zbytek hlavičky) 
 nejstaršího dne po dnešek — **bez měsíčních nadpisů** (dřív `.month-row` s `.ml`
 labely; zrušeno).
 
+**Godzilla (hvězdičková skupina, jen Habits):** habit může mít `star:true`
+(toggle ☆/★ vedle názvu v editačním sheetu, `#habitStar`; hvězdička jen pro
+sekci 0). Přehled Habits má pak **úplně nahoře odvozený blok „Godzilla"**
+(`buildGodzillaBlock`): 90 čtverečků, den je **modrý** (`--god`, `.cell.god`)
+právě když jsou ten den `done` **všechny** ohvězdičkované habity. **Nic se
+neukládá** — počítá se za běhu z logů (`refreshGodzilla` po kliku do mřížky),
+takže bez hvězdiček blok zmizí a znovu ožije i s historií, jakmile se něco
+ohvězdičkuje. Buňky Godzilly nejsou klikací. Ohvězdičkované habity mají ★
+v hlavičce Přehledu i na Check kartě.
+
 **Free search+filtr je na DVOU místech** (Check panel i Přehled panel). Oba search
 inputy (`freeSearch` / `freeSearchOv`) i oba filtr bary (`.ffbar`:
 `freeFilterBar` / `freeFilterBarOv`) jedou přes jeden `state.freeFilter`, takže
@@ -183,7 +193,7 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
 ```
 {
   sections: [
-    {habits:[{id,name,priority,createdAt}], log},                    // 0=Habits
+    {habits:[{id,name,priority,createdAt,star?}], log},              // 0=Habits (star = hvězdičková skupina)
     {habits:[{id,name,priority,createdAt,backlog:"Free"}], log, backlogs:["Free",...]}  // 1=Free
   ],
   tasks: [ {id,name,priority,createdAt, subtasks:[{id,name,weight,prio,cells,done}]} ],  // projektové
@@ -291,16 +301,22 @@ stav).
    „Zítra · …", „pá 3. čvc"). Co úkol to řádek. Ukazuje úkoly ze **VŠECH** backlogů
    (kalendář = reálný den, backlogy jsou jen organizace).
 
-**Lišta backlogů (wipbar):** dropdown „Wip" + vpravo na stejné řádce **rychlé
-volby** `WIP · SN · PSY · PR` (`.blog-quick`, stejná výška/styl jako dropdown).
-WIP otevře Wip backlog view; SN/PSY/PR otevřou **multi-výběr všech backlogů,
-jejichž název začíná daným prefixem** (case-insensitive, `applyTaskBacklogMulti`).
-Žádný match → jen toast. Rychlé volby jsou záměrně jen na hlavní stránce (v
-backlog view by se s „‹ Zpět" nevešly na mobil).
+**Lišta backlogů (wipbar):** vlevo u kraje **mini dropdown** — jen šipčička
+(`.wip-sel--mini`, `data-notext` ať do něj `fselSync` nepíše text), otvírá plný
+picker s multi-výběrem. Vedle **8 rychlých voleb** (`.blog-quick`, generuje
+`renderBlogQuick()` při každém `renderCheckDefault()`): `WIP` a `FUT` otevřou
+backlogy Wip a Future; dalších **6 tlačítek = prvních šest dvoupísmenných
+prefixů uživatelských backlogů abecedně** (systémové Wip/Done/Future se do
+prefixů nepočítají; sedmý a další prefix v abecedě vypadne). Prefix otevře
+**multi-výběr všech backlogů, jejichž název začíná daným prefixem**
+(case-insensitive, `applyTaskBacklogMulti`). Rychlé volby jsou záměrně jen na
+hlavní stránce (v backlog view by se s „‹ Zpět" nevešly na mobil).
 
 **Backlog view** (samostatný režim): klik na lištu „Wip" → plnoobrazovkový výpis.
-Ukazuje **jen nedatované** úkoly vybraných backlogů; při více vybraných člení
-skupinovými hlavičkami. Tlačítko „‹ Zpět" se vrací na default obrazovku. Done je
+Otvírá se **vždy nascrollovaný nahoru** (`blogScrollTop()` v `openBlogView` i
+`applyTaskBacklogMulti` — jen při otevření, ne při re-renderu, ať to neskáče
+uprostřed práce). Ukazuje **jen nedatované** úkoly vybraných backlogů; při více
+vybraných člení skupinovými hlavičkami. Tlačítko „‹ Zpět" se vrací na default obrazovku. Done je
 vědomě „zabořený" za dropdown — Bobovi to tak stačí (archiv).
 
 **Kompaktní picker backlogů (`fselOpen`):** nativní `<select>` zůstává skrytý

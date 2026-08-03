@@ -25,6 +25,7 @@
     --done2:#8FB179;    /* světlejší zelená – odlišení sousedního splněného subtasku */
     --missed:#BC5B43;
     --accent:#D9A441;
+    --god:#5C8DC9;      /* modrá pro Godzillu (schválně jiná než done zelená) */
     --water:#5B87A8;    /* tlumená modrá – jen prstenec teploty vody v Otužování */
     --serif:Georgia,'Times New Roman',ui-serif,serif;
     --sans:-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;
@@ -139,6 +140,12 @@
   }
   .cell.done{background:var(--done);}
   .cell.missed{background:var(--missed);}
+  .cell.god{background:var(--god);}
+  /* Godzilla: odvozený řádek nahoře v přehledu – buňky nejsou klikací */
+  .hblock.godz .cell{cursor:default;}
+  .hblock.godz .hhead{cursor:default;}
+  .hblock.godz .hhead .stat{color:var(--god);}
+  .hhead .hstar,.card .hstar{color:var(--accent);font-size:12px;flex-shrink:0;}
   /* odstíny pro proporční mřížku subtasků (ob jeden subtask) */
   .cell.e0{background:var(--empty);}
   .cell.e1{background:var(--empty2);}
@@ -247,6 +254,14 @@
     -webkit-user-select:text;user-select:text;
   }
   input[type=text]:focus{outline:none;border-color:var(--accent);}
+  /* řádka název + hvězdička v habit sheetu */
+  .name-star-row{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .name-star-row input[type=text]{flex:1;min-width:0;margin-bottom:0;}
+  .sheet-star{
+    background:none;border:none;font-size:26px;line-height:1;color:var(--dim);
+    cursor:pointer;padding:2px 4px;flex-shrink:0;display:none;
+  }
+  .sheet-star.on{color:var(--accent);}
   .prio-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
   .prio-lab{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
   input[type=range]{flex:1;accent-color:var(--accent);height:22px;}
@@ -875,7 +890,10 @@
 <!-- ADD / EDIT HABIT SHEET -->
 <div class="scrim" id="sheetScrim">
   <div class="sheet" id="sheet">
-    <input type="text" id="inName" placeholder="Název návyku" autocomplete="off">
+    <div class="name-star-row">
+      <input type="text" id="inName" placeholder="Název návyku" autocomplete="off">
+      <button type="button" class="sheet-star" id="habitStar" aria-label="Hvězdičková skupina">☆</button>
+    </div>
     <div class="prio-row">
       <span class="prio-lab" id="prioLab">Priorita</span>
       <input type="range" id="inPrio" min="1" max="10" value="5">
@@ -1785,7 +1803,7 @@ function renderTodayPanel(si){
     var card = document.createElement("div");
     card.className = "card";
     card.innerHTML =
-      '<div class="name"></div>'+
+      '<div class="name"></div>'+(h.star?'<span class="hstar">★</span>':'')+
       '<span class="prio">'+(si===1?"Z":"P")+h.priority+'</span>'+
       '<div class="toggles">'+
         '<div class="tg yes'+(st==="done"?" on":"")+'">✓</div>'+
@@ -1803,6 +1821,39 @@ function renderTodayPanel(si){
   });
 }
 
+/* Godzilla: odvozený přehledový řádek — den je modrý, když jsou ten den splněné
+   VŠECHNY ohvězdičkované habity sekce 0. Nic se neukládá, počítá se z logů,
+   takže "historie" ožije kdykoli se nějaký habit zase ohvězdičkuje. */
+function starredHabits(){ return state.sections[0].habits.filter(function(h){ return h.star; }); }
+function buildGodzillaBlock(){
+  var stars = starredHabits();
+  if(!stars.length) return null;
+  var block = document.createElement("div"); block.className = "hblock godz";
+  var head = document.createElement("div"); head.className = "hhead";
+  var grid = document.createElement("div"); grid.className = "grid";
+  var t = today(), tk = key(t), doneCount = 0;
+  for(var i=89;i>=0;i--){
+    var dk = key(addDays(t,-i));
+    var all = stars.every(function(h){ return getState(0, h.id, dk)==="done"; });
+    if(all) doneCount++;
+    var cell = document.createElement("div");
+    cell.className = "cell"+(all?" god":"")+(dk===tk?" today":"");
+    grid.appendChild(cell);
+  }
+  head.innerHTML = '<span class="name">Godzilla</span><span class="hstar">★</span><span class="stat"></span>';
+  head.querySelector(".stat").textContent = doneCount+"/90";
+  block.appendChild(head); block.appendChild(grid);
+  return block;
+}
+function refreshGodzilla(){
+  var list = document.getElementById("overviewList0");
+  var old = list.querySelector(".hblock.godz");
+  var nb = buildGodzillaBlock();
+  if(old && nb) old.replaceWith(nb);
+  else if(old) old.remove();
+  else if(nb) list.insertBefore(nb, list.firstChild);
+}
+
 function renderOverviewPanel(si){
   var list = document.getElementById("overviewList"+si);
   var empty = document.getElementById("overviewEmpty"+si);
@@ -1811,6 +1862,7 @@ function renderOverviewPanel(si){
   list.innerHTML = "";
   empty.style.display = hs.length ? "none" : "block";
   var t = today(), tk = key(t);
+  if(si===0){ var gb = buildGodzillaBlock(); if(gb) list.appendChild(gb); }
   hs.forEach(function(h){
     var block = document.createElement("div"); block.className = "hblock";
     var head = document.createElement("div"); head.className = "hhead";
@@ -1827,13 +1879,15 @@ function renderOverviewPanel(si){
           var nx = cycle(sIdx, hid, dkey);
           cellEl.className = "cell"+(nx?(" "+nx):"")+(dkey===tk?" today":"");
           renderHeadStat(head, sIdx, hid);
+          if(sIdx===0) refreshGodzilla();
           if(dkey===tk) renderTodayPanel(sIdx);
         };
       })(si, h.id, dk, cell);
       grid.appendChild(cell);
     }
     head.innerHTML =
-      '<span class="name"></span><span class="prio">'+(si===1?"Z":"P")+h.priority+'</span>'+
+      '<span class="name"></span>'+(h.star?'<span class="hstar">★</span>':'')+
+      '<span class="prio">'+(si===1?"Z":"P")+h.priority+'</span>'+
       '<span class="stat"></span><span class="chev">›</span>';
     head.querySelector(".name").textContent = h.name;
     head.querySelector(".stat").textContent = doneCount+"/90";
@@ -1910,6 +1964,20 @@ function persistHabitEditIfExisting(){
 }
 habitDurMin.oninput = function(){ if(+habitDurMin.value > +habitDurMax.value) habitDurMax.value = habitDurMin.value; refreshHabitDurLabels(); persistHabitEditIfExisting(); };
 habitDurMax.oninput = function(){ if(+habitDurMax.value < +habitDurMin.value) habitDurMin.value = habitDurMax.value; refreshHabitDurLabels(); persistHabitEditIfExisting(); };
+var habitEditStar = false;
+var habitStarBtn = document.getElementById("habitStar");
+function refreshHabitStarBtn(){
+  habitStarBtn.textContent = habitEditStar ? "★" : "☆";
+  habitStarBtn.classList.toggle("on", habitEditStar);
+}
+habitStarBtn.onclick = function(){
+  habitEditStar = !habitEditStar;
+  refreshHabitStarBtn();
+  if(editingId && editingSection===0){
+    var h = habitById(0, editingId);
+    if(h){ h.star = habitEditStar; save(); renderTodayPanel(0); renderOverviewPanel(0); }
+  }
+};
 var habitEditTags = [];
 function renderHabitTagChips(){
   var wrap = document.getElementById("habitTagChips");
@@ -1937,10 +2005,13 @@ function openSheet(si, id){
   var tagsWrap = document.getElementById("habitTagsWrap");
   var durWrap = document.getElementById("habitDurationWrap");
   document.getElementById("prioLab").textContent = (si===1) ? "Zábava" : "Priorita";
+  // hvězdička jen pro sekci Habits (si 0)
+  habitStarBtn.style.display = (si===0) ? "block" : "none";
   if(editingId){
     var h = habitById(si, editingId);
     document.getElementById("inName").value = h.name;
     prioInput.value = h.priority; prioVal.textContent = h.priority;
+    habitEditStar = !!h.star; refreshHabitStarBtn();
     del.style.display = "block";
     if(si===1){
       tagsWrap.style.display = "block"; durWrap.style.display = "block";
@@ -1952,6 +2023,7 @@ function openSheet(si, id){
   } else {
     document.getElementById("inName").value = "";
     prioInput.value = 5; prioVal.textContent = 5;
+    habitEditStar = false; refreshHabitStarBtn();
     del.style.display = "none";
     if(si===1){
       tagsWrap.style.display = "block"; durWrap.style.display = "block";
@@ -1973,12 +2045,14 @@ document.getElementById("saveHabit").onclick = function(){
   var prio = +prioInput.value;
   if(editingId){
     var h = habitById(editingSection, editingId); h.name = name; h.priority = prio;
+    if(editingSection===0) h.star = habitEditStar;
     if(editingSection===1){
       h.tags = habitEditTags.slice();
       h.durationMin = +habitDurMin.value; h.durationMax = +habitDurMax.value;
     }
   } else {
     var nh = { id:"h"+Date.now()+Math.random().toString(36).slice(2,6), name:name, priority:prio, createdAt:Date.now() };
+    if(editingSection===0) nh.star = habitEditStar;
     if(editingSection===1){
       nh.tags = habitEditTags.slice();
       nh.durationMin = +habitDurMin.value; nh.durationMax = +habitDurMax.value;
