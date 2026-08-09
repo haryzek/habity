@@ -980,10 +980,10 @@
 <div class="scrim" id="taskScrim">
   <div class="sheet tall" id="taskSheet">
     <input type="text" id="taskName" placeholder="Název projektu" autocomplete="off">
-    <div class="prio-row">
-      <span class="prio-lab">Priorita</span>
-      <input type="range" id="taskPrio" min="1" max="10" value="5">
-      <span class="prio-val" id="taskPrioVal">5</span>
+    <div class="prio-row" id="taskOrderRow">
+      <span class="prio-lab">Pořadí</span>
+      <input type="range" id="taskOrder" min="1" max="1" value="1">
+      <span class="prio-val" id="taskOrderVal">1</span>
     </div>
     <div id="subRows"></div>
     <div class="btn-row">
@@ -1332,33 +1332,52 @@ function normalize(o){
     // starý v1 -> sekce 01
     s.sections[0] = { habits:o.habits, log:(o.log&&typeof o.log==="object")?o.log:{} };
   }
-  // tasks
+  // tasks — pořadí projektů i kroků = pořadí v poli (žádná čísla priorit).
+  // Staré zálohy s priority/prio se JEDNORÁZOVĚ seřadí podle nich (Bob uvidí
+  // stejné pořadí jako dřív) a čísla se zahodí; nové zálohy je už nemají.
   if(Array.isArray(o.tasks)){
+    var hadTaskPrio = false;
     s.tasks = o.tasks.filter(function(t){ return t && typeof t==="object" && typeof t.name==="string"; })
       .map(function(t){
+        var hadSubPrio = false;
         var subtasks = Array.isArray(t.subtasks) ? t.subtasks.filter(function(st){ return st && typeof st.name==="string"; }).map(function(st){
+            if(typeof st.prio==="number") hadSubPrio = true;
             return {
               id: st.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
               name: st.name,
               weight: (typeof st.weight==="number" && st.weight>=1) ? st.weight : 5,
-              prio: (typeof st.prio==="number" && st.prio>=1) ? st.prio : 5,
               cells: (typeof st.cells==="number" && st.cells>=1) ? st.cells : null,
-              done: !!st.done
+              done: !!st.done,
+              _prio: (typeof st.prio==="number" && st.prio>=1) ? st.prio : 5
             };
           }) : [];
+        // migrace: checklist se dřív řadil prio DESC, tak pole srovnej stejně
+        if(hadSubPrio) subtasks.sort(function(a,b){ return b._prio-a._prio; });
+        subtasks.forEach(function(st){ delete st._prio; });
         var isDone = subtasks.length>0 && subtasks.every(function(st){ return st.done; });
         // completedAt: převezmi platný timestamp; u starých záloh bez pole, ale
         // už 100% hotových, dopočítej fallback (ať se řadí, ne že by zůstal null)
         var completedAt = (typeof t.completedAt==="number") ? t.completedAt : (isDone ? (t.createdAt||Date.now()) : null);
+        if(typeof t.priority==="number") hadTaskPrio = true;
         return {
           id: t.id || ("t"+Date.now()+Math.random().toString(36).slice(2,6)),
           name: t.name,
-          priority: (typeof t.priority==="number") ? t.priority : 5,
           createdAt: t.createdAt || Date.now(),
           completedAt: isDone ? completedAt : null,
-          subtasks: subtasks
+          subtasks: subtasks,
+          _priority: (typeof t.priority==="number") ? t.priority : 5
         };
       });
+    if(hadTaskPrio){
+      s.tasks.sort(function(a,b){
+        var aDone = !!a.completedAt, bDone = !!b.completedAt;
+        if(aDone!==bDone) return aDone ? 1 : -1;
+        if(aDone && bDone) return (b.completedAt||0)-(a.completedAt||0);
+        if(b._priority!==a._priority) return b._priority-a._priority;
+        return a.createdAt-b.createdAt;
+      });
+    }
+    s.tasks.forEach(function(t){ delete t._priority; });
   }
 
   // ---- NOVÁ úkolová sekce ----
@@ -2156,15 +2175,28 @@ function deleteHabitById(si, id){
 document.getElementById("deleteHabit").onclick = function(){ if(editingId) deleteHabitById(editingSection, editingId); };
 
 /* ================= ÚKOLY (Tasks / Progres) ================= */
+// Pořadí = pořadí v state.tasks (řídí ho slider Pořadí v editaci). Hotové
+// projekty jsou z pořadí vyřazené a padají na konec, nejnovější nahoře.
+// Stejný zdroj pravdy používá Check i Přehled — seřazení je všude identické.
 function sortedTasks(){
-  return state.tasks.slice().sort(function(a,b){
-    var aDone = a.subtasks.length>0 && taskProgress(a)>=1;
-    var bDone = b.subtasks.length>0 && taskProgress(b)>=1;
-    if(aDone!==bDone) return aDone ? 1 : -1;           // hotové na konec
-    if(aDone && bDone) return (b.completedAt||0)-(a.completedAt||0); // nejnovější nahoře
-    if(b.priority!==a.priority) return b.priority-a.priority;
-    return a.createdAt-b.createdAt;
+  var todo=[], done=[];
+  state.tasks.forEach(function(t){
+    (t.subtasks.length>0 && taskProgress(t)>=1 ? done : todo).push(t);
   });
+  done.sort(function(a,b){ return (b.completedAt||0)-(a.completedAt||0); });
+  return todo.concat(done);
+}
+function taskIsDone(t){ return t.subtasks.length>0 && taskProgress(t)>=1; }
+// zařadí projekt na pozici pos (1..N) mezi NEhotové; hotové zůstávají za nimi
+function reorderTaskInState(task, pos){
+  var todo=[], done=[];
+  state.tasks.forEach(function(t){
+    if(t===task) return;
+    (taskIsDone(t) ? done : todo).push(t);
+  });
+  var i = Math.max(0, Math.min(pos-1, todo.length));
+  todo.splice(i, 0, task);
+  state.tasks = todo.concat(done);
 }
 function taskById(id){
   for(var i=0;i<state.tasks.length;i++) if(state.tasks[i].id===id) return state.tasks[i];
@@ -2305,8 +2337,10 @@ function renderTasksPanel(){
       none.textContent = "Žádné kroky. Uprav projekt a přidej je.";
       body.appendChild(none);
     } else {
-      // výpis kroků řazený prioritou DESC, sekundárně původní pořadí (stable sort)
-      task.subtasks.slice().sort(function(a,b){ return (b.prio||5)-(a.prio||5); }).forEach(function(s){
+      // výpis kroků v pořadí pole; hotové vyřazené z pořadí — padají dolů
+      var todoS=[], doneS=[];
+      task.subtasks.forEach(function(s){ (s.done?doneS:todoS).push(s); });
+      todoS.concat(doneS).forEach(function(s){
         var row = document.createElement("div");
         row.className = "sub" + (s.done?" on":"");
         row.innerHTML = '<div class="box">'+(s.done?"✓":"")+'</div><span class="sname"></span><span class="sw">'+s.weight+'</span>';
@@ -2342,7 +2376,7 @@ function renderProgresPanel(){
     var block = document.createElement("div"); block.className = "hblock";
     var head = document.createElement("div"); head.className = "hhead";
     var isDone = task.subtasks.length>0 && taskProgress(task)>=1;
-    head.innerHTML = '<span class="name"></span><span class="prio">P'+task.priority+'</span><span class="stat"></span>';
+    head.innerHTML = '<span class="name"></span><span class="stat"></span>';
     head.querySelector(".name").textContent = task.name;
     head.querySelector(".stat").textContent = isDone ? "🍹" : Math.round(taskProgress(task)*100)+"%";
     head.style.cursor = "default";
@@ -2377,8 +2411,20 @@ function renderProgresPanel(){
 
 /* --- task sheet (velký, naráz) --- */
 var editingTaskId = null;
-var taskPrio = document.getElementById("taskPrio"), taskPrioVal = document.getElementById("taskPrioVal");
-taskPrio.oninput = function(){ taskPrioVal.textContent = taskPrio.value; };
+var taskOrder = document.getElementById("taskOrder"), taskOrderVal = document.getElementById("taskOrderVal");
+taskOrder.oninput = function(){ taskOrderVal.textContent = taskOrder.value; };
+
+// Přečísluje slidery Pořadí podle aktuálního pořadí řádků v editoru (1..N).
+// Volat po každém přidání/smazání/přesunu řádku.
+function renumberSubRows(container){
+  var rows = container.querySelectorAll(".subedit");
+  rows.forEach(function(r, i){
+    var rng = r.querySelector(".s-order");
+    rng.max = rows.length;
+    rng.value = i+1;
+    r.querySelector(".sv-o").textContent = i+1;
+  });
+}
 
 function makeSubRow(data){
   data = data || {};
@@ -2387,7 +2433,6 @@ function makeSubRow(data){
   row.dataset.id = data.id || "";
   row.dataset.done = data.done ? "1" : "";
   var w = (typeof data.weight==="number") ? data.weight : 5;
-  var p = (typeof data.prio==="number") ? data.prio : 5;
   var c = (typeof data.cells==="number" && data.cells>=1) ? data.cells : "";
   row.innerHTML =
     '<div class="subedit-top">'+
@@ -2398,9 +2443,9 @@ function makeSubRow(data){
       '<span class="lab">N:</span>'+
       '<input type="range" class="s-weight" min="1" max="10" value="'+w+'">'+
       '<span class="sv">'+w+'</span>'+
-      '<span class="lab">P:</span>'+
-      '<input type="range" class="s-prio" min="1" max="10" value="'+p+'">'+
-      '<span class="sv sv-p">'+p+'</span>'+
+      '<span class="lab">#:</span>'+
+      '<input type="range" class="s-order" min="1" max="1" value="1">'+
+      '<span class="sv sv-o">1</span>'+
     '</div>'+
     '<div class="subedit-fixed">'+
       '<span class="lab">Pevná hodnota:</span>'+
@@ -2410,9 +2455,28 @@ function makeSubRow(data){
   row.querySelector(".s-name").value = data.name || "";
   var rng = row.querySelector(".s-weight"), sv = row.querySelector(".sv");
   rng.oninput = function(){ sv.textContent = rng.value; };
-  var rngP = row.querySelector(".s-prio"), svP = row.querySelector(".sv-p");
-  rngP.oninput = function(){ svP.textContent = rngP.value; };
-  row.querySelector(".subedit-del").onclick = function(){ row.remove(); };
+  // Pořadí: při tažení jen ukazuj cílovou pozici, přesun řádku až po puštění
+  // (change) — přeskládat DOM pod prstem uprostřed tažení by drag utrhlo.
+  var rngO = row.querySelector(".s-order"), svO = row.querySelector(".sv-o");
+  rngO.oninput = function(){ svO.textContent = rngO.value; };
+  rngO.onchange = function(){
+    var container = row.parentNode;
+    var rows = Array.prototype.slice.call(container.querySelectorAll(".subedit"));
+    var from = rows.indexOf(row);
+    var to = Math.max(0, Math.min(+rngO.value-1, rows.length-1));
+    if(from!==to){
+      rows.splice(from,1);
+      rows.splice(to,0,row);
+      rows.forEach(function(r){ container.appendChild(r); });
+      row.scrollIntoView({block:"nearest"});
+    }
+    renumberSubRows(container);
+  };
+  row.querySelector(".subedit-del").onclick = function(){
+    var container = row.parentNode;
+    row.remove();
+    renumberSubRows(container);
+  };
   return row;
 }
 /* addStep=true → rovnou přidá prázdný krok a fokusne ho (místo fokusu názvu) */
@@ -2421,19 +2485,35 @@ function openTaskSheet(id, addStep){
   var rows = document.getElementById("subRows");
   rows.innerHTML = "";
   var del = document.getElementById("deleteTask");
+  var orderRow = document.getElementById("taskOrderRow");
+  var todo = state.tasks.filter(function(t){ return !taskIsDone(t); });
   if(editingTaskId){
     var t = taskById(editingTaskId);
     document.getElementById("taskName").value = t.name;
-    taskPrio.value = t.priority; taskPrioVal.textContent = t.priority;
+    // Pořadí mezi NEhotovými projekty; hotový je z pořadí vyřazený → bez slideru
+    var pos = todo.indexOf(t);
+    if(pos>=0){
+      orderRow.style.display = "";
+      taskOrder.max = todo.length;
+      taskOrder.value = pos+1;
+      taskOrderVal.textContent = pos+1;
+    } else {
+      orderRow.style.display = "none";
+    }
     if(t.subtasks.length) t.subtasks.forEach(function(s){ rows.appendChild(makeSubRow(s)); });
     else if(!addStep) rows.appendChild(makeSubRow());
     del.style.display = "block";
   } else {
     document.getElementById("taskName").value = "";
-    taskPrio.value = 5; taskPrioVal.textContent = 5;
+    // nový projekt: defaultně na konec pořadí (šoupni, když má být výš)
+    orderRow.style.display = "";
+    taskOrder.max = todo.length+1;
+    taskOrder.value = todo.length+1;
+    taskOrderVal.textContent = todo.length+1;
     if(!addStep) rows.appendChild(makeSubRow());
     del.style.display = "none";
   }
+  renumberSubRows(rows);
   document.getElementById("taskScrim").classList.add("open");
   document.getElementById("taskSheet").scrollTop = 0;
   if(addStep){
@@ -2448,6 +2528,7 @@ function closeTaskSheet(){ document.getElementById("taskScrim").classList.remove
 function addSubRowFocused(container){
   var row = makeSubRow();
   container.appendChild(row);
+  renumberSubRows(container);
   var inp = row.querySelector(".s-name");
   row.scrollIntoView({block:"nearest"});
   inp.focus();
@@ -2461,8 +2542,7 @@ document.getElementById("taskScrim").onclick = function(e){ if(e.target===this) 
 document.getElementById("saveTask").onclick = function(){
   var name = document.getElementById("taskName").value.trim();
   if(!name){ document.getElementById("taskName").focus(); return; }
-  var prio = +taskPrio.value;
-  // posbírej subtasky z řádků (přeskoč prázdné názvy)
+  // posbírej subtasky z řádků v pořadí editoru (přeskoč prázdné názvy)
   var subs = [];
   document.querySelectorAll("#subRows .subedit").forEach(function(row){
     var sn = row.querySelector(".s-name").value.trim();
@@ -2474,19 +2554,21 @@ document.getElementById("saveTask").onclick = function(){
       id: row.dataset.id || ("s"+Date.now()+Math.random().toString(36).slice(2,6)),
       name: sn,
       weight: +row.querySelector(".s-weight").value,
-      prio: +row.querySelector(".s-prio").value,
       cells: cellsVal,
       done: row.dataset.done==="1"
     });
   });
+  var orderVisible = document.getElementById("taskOrderRow").style.display !== "none";
   if(editingTaskId){
     var t = taskById(editingTaskId);
-    t.name = name; t.priority = prio; t.subtasks = subs;
+    t.name = name; t.subtasks = subs;
     updateTaskCompletedAt(t);
+    if(orderVisible && !taskIsDone(t)) reorderTaskInState(t, +taskOrder.value);
   } else {
-    var nt = { id:"t"+Date.now()+Math.random().toString(36).slice(2,6), name:name, priority:prio, createdAt:Date.now(), completedAt:null, subtasks:subs };
+    var nt = { id:"t"+Date.now()+Math.random().toString(36).slice(2,6), name:name, createdAt:Date.now(), completedAt:null, subtasks:subs };
     updateTaskCompletedAt(nt);
     state.tasks.push(nt);
+    if(!taskIsDone(nt)) reorderTaskInState(nt, +taskOrder.value);
   }
   save(); closeTaskSheet(); renderTasksPanel(); renderProgresPanel();
 };
