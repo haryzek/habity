@@ -862,17 +862,17 @@
         </div>
       </div>
       <div class="panel">
-        <div id="coldGrid"></div>
-        <div class="empty-state" id="coldEmpty">
-          Zatím žádné otužování.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš ponor.
-        </div>
-      </div>
-      <div class="panel">
         <div class="run-stats" id="runStats"></div>
         <div id="runGrid"></div>
         <div class="empty-state" id="runEmpty">
           Zatím žádné běhy.<br>Data přitečou ze syncu (<b style="color:var(--accent)">run_data.json</b>),
           pocity zapíšeš klepnutím na den.
+        </div>
+      </div>
+      <div class="panel">
+        <div id="coldGrid"></div>
+        <div class="empty-state" id="coldEmpty">
+          Zatím žádné otužování.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš ponor.
         </div>
       </div>
     </div>
@@ -3518,10 +3518,10 @@ function updateUI(){
   document.querySelectorAll("#pager .dot").forEach(function(d){
     d.classList.toggle("on", +d.dataset.view===curView);
   });
-  // Move má tři plochy s vlastními názvy (Garmin / otužování / běh)
+  // Move má tři plochy s vlastními názvy (Garmin / běh / otužování)
   document.getElementById("hTitle").textContent =
-    (curSection===4 && curView===1) ? "Otužování" :
-    (curSection===4 && curView===2) ? "Běh" : SEC_TITLES[curSection];
+    (curSection===4 && curView===1) ? "Běh" :
+    (curSection===4 && curView===2) ? "Otužování" : SEC_TITLES[curSection];
   // třetí tečka pageru existuje jen pro Move
   var dot3 = document.querySelector('#pager .dot[data-view="2"]');
   if(dot3) dot3.style.display = (curSection===4) ? "" : "none";
@@ -3848,7 +3848,7 @@ document.getElementById("moveUnlock").onclick = function(){
 document.getElementById("moveCancel").onclick = closeMoveEdit;
 document.getElementById("moveScrim").onclick = function(e){ if(e.target===this) closeMoveEdit(); };
 
-/* ================= OTUŽOVÁNÍ (druhá plocha sekce Move) =================
+/* ================= OTUŽOVÁNÍ (třetí plocha sekce Move) =================
    Čistě ruční zápisy, žádný sync — proto ani overrides, ani zámky. Mřížka je
    stejná jako u Move (týden = řádek, datum si buňka bere z kalendáře), jen
    kolečko kóduje jiných pět údajů:
@@ -4026,7 +4026,7 @@ document.getElementById("coldDelete").onclick = function(){
 document.getElementById("coldCancel").onclick = closeColdEdit;
 document.getElementById("coldScrim").onclick = function(e){ if(e.target===this) closeColdEdit(); };
 
-/* ================= BĚH (třetí plocha sekce Move) =================
+/* ================= BĚH (druhá plocha sekce Move) =================
    Data ze syncu (run_data.json, merge do state.run.days — localStorage drží
    i historii starší než 90denní okno syncu) + ruční pocity (state.run.manual).
    Kolečko dne:
