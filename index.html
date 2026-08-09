@@ -4043,6 +4043,11 @@ document.getElementById("coldScrim").onclick = function(e){ if(e.target===this) 
                          rychle, achilovky řvou; prázdný = kalibruje se
      čísla pod kruhem  = těžkost/achilovky 0–10, ruční zápis klikem na den */
 
+// Okno plochy kruhu: 0.85 (výrazně pod baseline) = prázdno, 1.25 = plný kruh.
+// Lineárně na poloměr, bez odmocniny — forma se hýbe v úzkém pásmu (±25 %),
+// plošná věrnost jako u otužování by rozdíly slila k nerozeznání.
+var RUN_FORMA_LO = 0.85, RUN_FORMA_HI = 1.25;
+
 function runEF(rec){
   if(!rec || !rec.hr) return 0;
   var sec = rec.movSec || rec.durSec;
@@ -4072,15 +4077,18 @@ function runCtx(){
     win.forEach(function(w){ s2 += runEF(days[w]); });
     formaMap[k] = baseline ? (s2/win.length)/baseline : 0;
   });
-  // strop jako u otužování: pevná 1.0 (=baseline), povoluje se jen nahoru,
-  // ať zlepšení v mřížce zůstane vidět a kruhy se neporovnávají samy se sebou
+  // Pevné okno místo klouzavého stropu (p90 jako u otužování tady nefunguje:
+  // forma je klouzavý průměr, hladká křivka ≈ vlastní p90, takže aktuální
+  // kruhy by byly věčně plné a růst by nebylo kam kreslit). Plný kruh = 1.25,
+  // tj. +25 % EF nad baseline — realistický strop zlepšení za první ~3 měsíce
+  // návratu. Kdyby ho Bob přerostl, strop se povolí nahoru (p90).
   var fvals = efKeys.map(function(k){ return formaMap[k]; })
     .filter(function(v){ return v>0; }).sort(function(a,b){ return a-b; });
-  var cap = 1.0;
+  var cap = RUN_FORMA_HI;
   if(fvals.length >= 4){
     var i=(fvals.length-1)*0.9, lo=Math.floor(i), hi=Math.ceil(i);
     var p90 = (lo===hi) ? fvals[lo] : fvals[lo]+(fvals[hi]-fvals[lo])*(i-lo);
-    cap = Math.max(1.0, p90);
+    cap = Math.max(RUN_FORMA_HI, p90);
   }
   return { days:days, rkeys:rkeys, efKeys:efKeys, formaMap:formaMap,
            baseline:baseline, baseCount:baseKeys.length, cap:cap };
@@ -4138,7 +4146,7 @@ function runCell(rec, man, isFuture, dateKey, ctx){
   }
   var cx = 50, cy = 50;
   var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
-  var tt = Math.sqrt(Math.min(runFormaAt(ctx, dateKey) / ctx.cap, 1));
+  var tt = Math.max(0, Math.min((runFormaAt(ctx, dateKey) - RUN_FORMA_LO) / (ctx.cap - RUN_FORMA_LO), 1));
   var R = MINR + (MAXR-MINR) * tt;
   var ringR = R - STROKE/2;
   var innerR = Math.max(8, ringR - STROKE/2 - GAP);
