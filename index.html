@@ -77,6 +77,17 @@
      pointercancel) → swipe jen cuknul a odskočil. Scrolluje okno, stejně
      jako ve všech ostatních sekcích, kde swipe funguje. */
   #trackMove .panel{padding:10px 2px 24px;}
+  /* Move má tři plochy (Garmin / Otužování / Běh) — track je širší a panely
+     třetinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
+  #trackMove{width:300%;}
+  #trackMove .panel{width:33.3333%;flex:0 0 33.3333%;}
+  /* Běh: řádek statistik nad mřížkou */
+  .run-stats{
+    font-family:var(--mono);font-size:11px;color:var(--dim);
+    text-align:center;line-height:1.6;margin:2px 0 14px;
+    text-transform:uppercase;letter-spacing:.4px;
+  }
+  .run-stats b{color:var(--accent);font-weight:700;}
   .move-week{display:flex;gap:5px;margin-bottom:10px;align-items:stretch;}
   .move-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:5px;}
   .move-disc{flex:1;width:100%;display:flex;align-items:center;justify-content:center;}
@@ -722,6 +733,8 @@
 <div class="pager" id="pager">
   <div class="dot on" data-view="0"></div>
   <div class="dot" data-view="1"></div>
+  <!-- třetí tečka jen pro Move (Běh) — jinde ji updateUI schová -->
+  <div class="dot" data-view="2" style="display:none"></div>
 </div>
 
 <div class="wrap">
@@ -852,6 +865,14 @@
         <div id="coldGrid"></div>
         <div class="empty-state" id="coldEmpty">
           Zatím žádné otužování.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš ponor.
+        </div>
+      </div>
+      <div class="panel">
+        <div class="run-stats" id="runStats"></div>
+        <div id="runGrid"></div>
+        <div class="empty-state" id="runEmpty">
+          Zatím žádné běhy.<br>Data přitečou ze syncu (<b style="color:var(--accent)">run_data.json</b>),
+          pocity zapíšeš klepnutím na den.
         </div>
       </div>
     </div>
@@ -1104,6 +1125,29 @@
   </div>
 </div>
 
+<!-- BĚH: ruční zápis pocitů (2 údaje, zbytek dne teče z Garmin syncu) -->
+<div class="scrim" id="runScrim">
+  <div class="sheet" id="runSheet">
+    <h2 id="runEditTitle">Zapsat pocity</h2>
+    <div class="move-edit-grid">
+      <div class="move-edit-f">
+        <label>Těžkost (0–10)</label>
+        <input type="number" id="runHeavy" min="0" max="10" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Achilovky (0–10)</label>
+        <input type="number" id="runAch" min="0" max="10" step="1" inputmode="numeric">
+      </div>
+    </div>
+    <p class="move-edit-note" id="runEditNote"></p>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="runSave">Uložit</button>
+      <button class="btn btn-ghost" id="runCancel">Zrušit</button>
+    </div>
+    <button class="btn btn-danger btn-slim" id="runDelete" style="display:none">Smazat zápis</button>
+  </div>
+</div>
+
 <div class="scrim" id="setScrim">
   <div class="sheet">
     <h2>Data</h2>
@@ -1226,6 +1270,10 @@ function blankState(){
     // Otužování: čistě ruční zápisy (žádný sync → žádné overrides ani zámky).
     // tw/ta = teplota vody/vzduchu °C, min = doba ve vodě, wind m/s, flow m³/s.
     cold:{ days:{} },
+    // Běh: days = běžecké dny ze syncu (run_data.json, merge — historie v
+    // localStorage přežívá 90denní okno syncu, baseline EF se z ní počítá);
+    // manual[date] = ruční pocity {heavy, ach} 0–10, sync na ně nesahá.
+    run:{ days:{}, manual:{} },
     // Litánie: SOUKROMÁ data, nikdy ne online. Zdroj se JEDNORÁZOVĚ naimportuje z disku
     // (⚙ Data) do localStorage — odtud je kryje jen JSON export, jako zbytek appky.
     //  litBase = základní věty (import z litanie.json), litTemata/litCasti = definice tagů
@@ -1453,6 +1501,37 @@ function normalize(o){
         flow: opt(d.flow, 0, 100000)
       };
     });
+  }
+
+  // ---- Běh (dny ze syncu + ruční pocity) ----
+  if(o.run && typeof o.run==="object"){
+    if(o.run.days && typeof o.run.days==="object"){
+      Object.keys(o.run.days).forEach(function(k){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+        var d = o.run.days[k];
+        if(!d || typeof d!=="object") return;
+        s.run.days[k] = {
+          distM:  Math.max(0, Math.round(+d.distM  || 0)),
+          durSec: Math.max(0, Math.round(+d.durSec || 0)),
+          movSec: Math.max(0, Math.round(+d.movSec || 0)),
+          hr:     (typeof d.hr==="number"  && d.hr>0)  ? Math.round(d.hr) : null,
+          vo2:    (typeof d.vo2==="number" && d.vo2>0) ? d.vo2 : null
+        };
+      });
+    }
+    if(o.run.manual && typeof o.run.manual==="object"){
+      Object.keys(o.run.manual).forEach(function(k){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+        var d = o.run.manual[k];
+        if(!d || typeof d!=="object") return;
+        function score(v){
+          var n = Math.round(+v);
+          return (v!=null && v!=="" && isFinite(n) && n>=0 && n<=10) ? n : null;
+        }
+        var heavy = score(d.heavy), ach = score(d.ach);
+        if(heavy!=null || ach!=null) s.run.manual[k] = { heavy:heavy, ach:ach };
+      });
+    }
   }
 
   // ---- Litánie (base v localStorage + overlay přepisy + uživatelské věty + filtr) ----
@@ -3409,9 +3488,11 @@ var SEC_DEFAULT_VIEW = [0,0,1,1,0,0];
 
 function applyViewToTrack(trackEl, animate){
   trackEl.style.transition = animate ? "transform .25s ease" : "none";
-  // Litánie mají jednu plochu (bez Check/Přehled) — žádný posun
-  if(trackEl.id==="trackLitanie"){ trackEl.style.transform="translateX(0)"; return; }
-  trackEl.style.transform = "translateX("+(curView===0 ? "0%" : "-50%")+")";
+  // Posun z počtu panelů: Litánie 1 (žádný posun), většina 2, Move 3.
+  // curView se clampuje, ať track s méně panely neodjede do prázdna.
+  var n = trackEl.children.length || 1;
+  var v = Math.min(curView, n-1);
+  trackEl.style.transform = "translateX(-"+(v*100/n)+"%)";
 }
 // Po přepnutí stránky (swipe / tečka / tab) ukázat obsah od shora — jinak
 // nová plocha zdědí scroll té předchozí.
@@ -3437,9 +3518,13 @@ function updateUI(){
   document.querySelectorAll("#pager .dot").forEach(function(d){
     d.classList.toggle("on", +d.dataset.view===curView);
   });
-  // Move má dvě plochy s vlastními názvy (Garmin / ruční otužování)
+  // Move má tři plochy s vlastními názvy (Garmin / otužování / běh)
   document.getElementById("hTitle").textContent =
-    (curSection===4 && curView===1) ? "Otužování" : SEC_TITLES[curSection];
+    (curSection===4 && curView===1) ? "Otužování" :
+    (curSection===4 && curView===2) ? "Běh" : SEC_TITLES[curSection];
+  // třetí tečka pageru existuje jen pro Move
+  var dot3 = document.querySelector('#pager .dot[data-view="2"]');
+  if(dot3) dot3.style.display = (curSection===4) ? "" : "none";
   // Move: bez FABu (obě plochy se plní klikem na puntík). Litánie: FAB má, pager ne.
   var isMove = curSection===4;
   var noPager = curSection===5;
@@ -3469,8 +3554,9 @@ function attachSwipe(pageEl, trackEl){
     }
     if(decided && horizontal){
       if(e.cancelable) e.preventDefault();
+      var maxV=(trackEl.children.length||1)-1;
       var base=-curView*w, d=dx;
-      if((curView===0 && d>0)||(curView===1 && d<0)) d=d*0.3; // odpor na okrajích
+      if((curView===0 && d>0)||(curView===maxV && d<0)) d=d*0.3; // odpor na okrajích
       trackEl.style.transform="translateX("+(base+d)+"px)";
     }
   });
@@ -3479,9 +3565,9 @@ function attachSwipe(pageEl, trackEl){
     try{ if(pid!==null) pageEl.releasePointerCapture(pid); }catch(_){}
     pid=null;
     if(decided && horizontal){
-      var threshold=w*0.22;
-      if(dx<-threshold && curView<1) curView=1;
-      else if(dx>threshold && curView>0) curView=0;
+      var threshold=w*0.22, maxV=(trackEl.children.length||1)-1;
+      if(dx<-threshold && curView<maxV) curView++;
+      else if(dx>threshold && curView>0) curView--;
     }
     updateUI();
   }
@@ -3683,6 +3769,7 @@ document.getElementById("btnRefreshMove").onclick = function(){
     .then(function(arr){
       if(!Array.isArray(arr) || !arr.length) throw new Error("empty");
       importMoveData(arr, false); // importMoveData samo hlásí "Naimportováno N dní"
+      fetchRunData();             // běžecká data potichu spolu s Move
       closeSettings();
     })
     .catch(function(){ toast("Načtení Move dat selhalo (offline / soubor chybí?)."); })
@@ -3938,6 +4025,296 @@ document.getElementById("coldDelete").onclick = function(){
 
 document.getElementById("coldCancel").onclick = closeColdEdit;
 document.getElementById("coldScrim").onclick = function(e){ if(e.target===this) closeColdEdit(); };
+
+/* ================= BĚH (třetí plocha sekce Move) =================
+   Data ze syncu (run_data.json, merge do state.run.days — localStorage drží
+   i historii starší než 90denní okno syncu) + ruční pocity (state.run.manual).
+   Kolečko dne:
+     plocha kruhu      = Forma: EF (rychlost/tep) klouzavý průměr posledních
+                         5 běhů vůči baseline (průměr prvních 6 běhů = 1.0).
+                         Roste JEN s fyziologickým zlepšením, ne s docházkou.
+     číslo uvnitř      = průměrný tep běhu — číslo, které má KLESAT; na fixní
+                         trase klesá jen zlepšením nebo trpělivostí (schválně
+                         ne tempo, to by svádělo k honění → achilovky)
+     levý půlprstenec  = konzistence: běžecké dny za 28 dní, plný = 12 (3×týdně)
+     pravý půlprstenec = Brzda (acute:chronic): minuty běhu 7 dní / týdenní
+                         průměr předchozích 3 týdnů; půlka = 1.0 (stabilní
+                         zátěž), plný = 2.0; od 1.4 zčervená = přidáváš moc
+                         rychle, achilovky řvou; prázdný = kalibruje se
+     čísla pod kruhem  = těžkost/achilovky 0–10, ruční zápis klikem na den */
+
+function runEF(rec){
+  if(!rec || !rec.hr) return 0;
+  var sec = rec.movSec || rec.durSec;
+  if(!sec || !rec.distM) return 0;
+  return (rec.distM / sec) / rec.hr;
+}
+
+// Předpočet všeho, co mřížka i statistiky potřebují. EF dny = dny s tepem
+// i vzdáleností (den bez pásu/tepu se počítá do konzistence a Brzdy, ne do EF).
+function runCtx(){
+  var days = state.run.days || {};
+  var rkeys = Object.keys(days).filter(function(k){
+    var d = days[k];
+    return d && (d.distM>0 || d.durSec>0);
+  }).sort();
+  var efKeys = rkeys.filter(function(k){ return runEF(days[k])>0; });
+  var baseKeys = efKeys.slice(0,6);
+  var baseline = null;
+  if(baseKeys.length){
+    var s = 0;
+    baseKeys.forEach(function(k){ s += runEF(days[k]); });
+    baseline = s / baseKeys.length;
+  }
+  var formaMap = {};
+  efKeys.forEach(function(k,i){
+    var win = efKeys.slice(Math.max(0,i-4), i+1), s2 = 0;
+    win.forEach(function(w){ s2 += runEF(days[w]); });
+    formaMap[k] = baseline ? (s2/win.length)/baseline : 0;
+  });
+  // strop jako u otužování: pevná 1.0 (=baseline), povoluje se jen nahoru,
+  // ať zlepšení v mřížce zůstane vidět a kruhy se neporovnávají samy se sebou
+  var fvals = efKeys.map(function(k){ return formaMap[k]; })
+    .filter(function(v){ return v>0; }).sort(function(a,b){ return a-b; });
+  var cap = 1.0;
+  if(fvals.length >= 4){
+    var i=(fvals.length-1)*0.9, lo=Math.floor(i), hi=Math.ceil(i);
+    var p90 = (lo===hi) ? fvals[lo] : fvals[lo]+(fvals[hi]-fvals[lo])*(i-lo);
+    cap = Math.max(1.0, p90);
+  }
+  return { days:days, rkeys:rkeys, efKeys:efKeys, formaMap:formaMap,
+           baseline:baseline, baseCount:baseKeys.length, cap:cap };
+}
+
+// forma platná k danému dni = poslední známá (den bez tepu zdědí tvar odvedle)
+function runFormaAt(ctx, dk){
+  var last = 0;
+  for(var i=0;i<ctx.efKeys.length;i++){
+    if(ctx.efKeys[i] > dk) break;
+    last = ctx.formaMap[ctx.efKeys[i]];
+  }
+  return last || 1;
+}
+
+function runDaysBetween(a, b){
+  return Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00")) / 86400000);
+}
+
+// konzistence: běžecké dny v okně [dk-27, dk], plný prstenec = 12
+function runConsistency(ctx, dk){
+  var n = 0;
+  ctx.rkeys.forEach(function(k){
+    var d = runDaysBetween(k, dk);
+    if(d>=0 && d<28) n++;
+  });
+  return n;
+}
+
+// Brzda: minuty běhu za 7 dní / týdenní průměr PŘEDCHOZÍCH 3 týdnů (uncoupled
+// acute:chronic — akutní týden se do reference nepočítá). Bez historie (restart
+// z nuly) vrací 0 = prázdný prstenec: Brzda se teprve kalibruje. Kdyby se
+// akutní týden počítal i do jmenovatele, restart by věčně svítil červeně.
+function runBrake(ctx, dk){
+  var acute = 0, chronic = 0;
+  ctx.rkeys.forEach(function(k){
+    var d = runDaysBetween(k, dk);
+    if(d<0 || d>=28) return;
+    var sec = ctx.days[k].durSec || 0;
+    if(d<7) acute += sec; else chronic += sec;
+  });
+  return (chronic>0) ? acute/(chronic/3) : 0;
+}
+
+function runCell(rec, man, isFuture, dateKey, ctx){
+  var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
+  var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit');
+  var foot = man
+    ? (man.heavy==null ? '–' : man.heavy)+'/'+(man.ach==null ? '–' : man.ach)
+    : (rec ? '–/–' : '&nbsp;');
+  if(isFuture || !rec){
+    // den bez běhu: puntík; pod ním případný ruční zápis (kdyby si Bob
+    // zapsal pocity ke dni, kde sync (ještě) nic nemá)
+    return '<div class="'+cls+'"'+editAttr+'><div class="move-slot"><span class="move-dot"></span></div><span class="mk">'+foot+'</span></div>';
+  }
+  var cx = 50, cy = 50;
+  var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
+  var tt = Math.sqrt(Math.min(runFormaAt(ctx, dateKey) / ctx.cap, 1));
+  var R = MINR + (MAXR-MINR) * tt;
+  var ringR = R - STROKE/2;
+  var innerR = Math.max(8, ringR - STROKE/2 - GAP);
+  var consRatio = Math.min(runConsistency(ctx, dateKey) / 12, 1);
+  var brake = runBrake(ctx, dateKey);
+  var brakeRatio = Math.min(brake/2, 1);
+  var brakeCol = (brake>=1.4) ? "var(--missed)" : "var(--water)";
+  var L  = moveSemi(cx,cy,ringR,+1,consRatio);  // +1 = levá půlka: konzistence
+  var Rr = moveSemi(cx,cy,ringR,-1,brakeRatio); // -1 = pravá půlka: Brzda
+  var label = rec.hr ? String(rec.hr) : "–";
+  var fs = Math.max(13, Math.min(innerR*1.05, 30));
+  if(label.length > 2) fs = fs * 0.72;
+  var svg =
+    '<svg viewBox="0 0 100 100">'+
+      '<circle cx="50" cy="50" r="'+innerR+'" fill="var(--accent)"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--done)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+L.on+' '+L.len+'"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="'+brakeCol+'" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+Rr.on+' '+Rr.len+'"/>'+
+      '<text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="var(--sans)" font-weight="700" font-size="'+fs+'" fill="#15120E">'+label+'</text>'+
+    '</svg>';
+  return '<div class="'+cls+'"'+editAttr+'><div class="move-disc">'+svg+'</div><span class="mk">'+foot+'</span></div>';
+}
+
+function renderRunStats(ctx){
+  var el = document.getElementById("runStats");
+  if(!el) return;
+  if(!ctx.rkeys.length){ el.innerHTML = ""; return; }
+  var totalM = 0, vo2 = null;
+  ctx.rkeys.forEach(function(k){
+    totalM += ctx.days[k].distM || 0;
+    if(ctx.days[k].vo2) vo2 = ctx.days[k].vo2;
+  });
+  var parts = [];
+  if(ctx.efKeys.length < 6){
+    parts.push("EF baseline: "+ctx.efKeys.length+"/6 běhů");
+  }else{
+    var lastKey = ctx.efKeys[ctx.efKeys.length-1];
+    parts.push("EF <b>"+Math.round(ctx.formaMap[lastKey]*100)+"</b> (start=100)");
+  }
+  parts.push(coldNum(totalM/1000,1)+" km celkem");
+  if(vo2) parts.push("VO₂max "+coldNum(vo2,0));
+  el.innerHTML = parts.join(" · ");
+}
+
+function renderRun(){
+  var grid = document.getElementById("runGrid");
+  var empty = document.getElementById("runEmpty");
+  if(!grid) return;
+  var ctx = runCtx();
+  var man = state.run.manual || {};
+  var hasAny = ctx.rkeys.length || Object.keys(man).length;
+  if(empty) empty.style.display = hasAny ? "none" : "";
+  renderRunStats(ctx);
+  // mřížka vždy (jako otužování) — minimálně 8 týdnů, ať je kam klikat
+  var t = today();
+  var endMon = mondayOf(t);
+  var startMon = addDays(endMon, -7*7);
+  var allKeys = ctx.rkeys.concat(Object.keys(man)).sort();
+  if(allKeys.length){
+    var firstMon = mondayOf(new Date(allKeys[0]+"T00:00:00"));
+    if(firstMon < startMon) startMon = firstMon;
+  }
+  var html = "";
+  for(var wk=new Date(endMon); wk>=startMon; wk=addDays(wk,-7)){
+    html += '<div class="move-week">';
+    for(var i=0;i<7;i++){
+      var d = addDays(wk,i), dk = key(d);
+      html += runCell(ctx.days[dk], man[dk], d>t, dk, ctx);
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+/* ---- Ruční zápis pocitů ---- */
+var runEditDate = null;
+
+function runPaceStr(rec){
+  var sec = rec.movSec || rec.durSec;
+  if(!sec || !rec.distM) return null;
+  var spk = sec / (rec.distM/1000);
+  var m = Math.floor(spk/60), s = Math.round(spk%60);
+  if(s===60){ m++; s=0; }
+  return m+":"+(s<10?"0":"")+s;
+}
+
+function openRunEdit(dk){
+  runEditDate = dk;
+  var man = (state.run.manual || {})[dk] || null;
+  var rec = (state.run.days || {})[dk] || null;
+  document.getElementById("runHeavy").value = (man && man.heavy!=null) ? man.heavy : "";
+  document.getElementById("runAch").value   = (man && man.ach!=null)   ? man.ach   : "";
+  document.getElementById("runEditTitle").textContent = (man ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
+  var note = "Těžkost a achilovky 0–10. Zbytek dne teče z Garminu.";
+  if(rec){
+    var bits = [coldNum(rec.distM/1000,1)+" km"];
+    var pace = runPaceStr(rec);
+    if(pace) bits.push(pace+" min/km");
+    if(rec.hr) bits.push("tep "+rec.hr);
+    note = "Garmin: "+bits.join(" · ")+".";
+  }
+  document.getElementById("runEditNote").textContent = note;
+  document.getElementById("runDelete").style.display = man ? "" : "none";
+  document.getElementById("runScrim").classList.add("open");
+}
+function closeRunEdit(){
+  document.getElementById("runScrim").classList.remove("open");
+  runEditDate = null;
+}
+
+document.getElementById("runGrid").addEventListener("click", function(e){
+  var cell = e.target.closest ? e.target.closest(".move-cell--edit") : null;
+  if(!cell) return;
+  var dk = cell.getAttribute("data-date");
+  if(dk) openRunEdit(dk);
+});
+
+document.getElementById("runSave").onclick = function(){
+  if(!runEditDate) return;
+  function score(id){
+    var raw = document.getElementById(id).value;
+    if(String(raw).trim()==="") return null;
+    var n = Math.round(+raw);
+    return (isFinite(n) && n>=0 && n<=10) ? n : null;
+  }
+  var heavy = score("runHeavy"), ach = score("runAch");
+  if(heavy==null && ach==null){ toast("Zadej aspoň jedno číslo 0–10."); return; }
+  if(!state.run.manual) state.run.manual = {};
+  state.run.manual[runEditDate] = { heavy:heavy, ach:ach };
+  save();
+  renderRun();
+  toast("Pocity zapsány. 🏃");
+  closeRunEdit();
+};
+
+document.getElementById("runDelete").onclick = function(){
+  if(!runEditDate) return;
+  if(state.run.manual) delete state.run.manual[runEditDate];
+  save();
+  renderRun();
+  toast("Zápis smazán.");
+  closeRunEdit();
+};
+
+document.getElementById("runCancel").onclick = closeRunEdit;
+document.getElementById("runScrim").onclick = function(e){ if(e.target===this) closeRunEdit(); };
+
+// Import ze syncu: merge po dnech (přepis dne novými daty), historie mimo
+// 90denní okno syncu v localStorage zůstává — z ní žije EF baseline.
+function importRunData(arr, silent){
+  if(!Array.isArray(arr)){ if(!silent) toast("Čekal jsem pole dní (JSON array)."); return; }
+  var n=0;
+  arr.forEach(function(d){
+    if(!d || typeof d!=="object") return;
+    if(typeof d.date!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.date)) return;
+    state.run.days[d.date] = {
+      distM:  Math.max(0, Math.round(+d.distM  || 0)),
+      durSec: Math.max(0, Math.round(+d.durSec || 0)),
+      movSec: Math.max(0, Math.round(+d.movSec || 0)),
+      hr:     (typeof d.hr==="number"  && d.hr>0)  ? Math.round(d.hr) : null,
+      vo2:    (typeof d.vo2==="number" && d.vo2>0) ? d.vo2 : null
+    };
+    n++;
+  });
+  save();
+  renderRun();
+  if(!silent) toast("Naimportováno "+n+" běžeckých dní. 🏃");
+}
+
+function fetchRunData(){
+  fetch("run_data.json", {cache:"no-store"})
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(arr){ if(Array.isArray(arr) && arr.length) importRunData(arr, true); })
+    .catch(function(){});
+}
 
 /* ================= LITÁNIE ================= */
 // Zdroj = litanie.json (read-only, v gitu). Změny žijí v state.litOverlay / state.litNew.
@@ -4364,7 +4741,7 @@ document.getElementById("undoBtn").onclick = function(){
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
   renderProgresPanel(); renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
-  renderMove(); renderCold(); refreshLit();
+  renderMove(); renderCold(); renderRun(); refreshLit();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
 var freeSearchEls = [document.getElementById("freeSearch"), document.getElementById("freeSearchOv")];
@@ -4387,6 +4764,7 @@ document.getElementById("hDate").textContent = fmtLong(today());
 renderAll();
 updateUI();
 fetchMoveData();
+fetchRunData();
 litLoadFromState();
 
 // Optické vycentrování glyfů v tabbaru. Unicode ikony (✓ ↻ ☆ ❝ ◉) mají různé
