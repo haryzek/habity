@@ -1,6 +1,6 @@
 Ahoj osle!
 
-# HABITY — README pro pokračování (stav po přidání plochy Otužování)
+# HABITY — README pro pokračování (stav po přidání plochy Běh)
 
 Tohle čte Claude, který přebírá práci na appce **Habity** v nové konverzaci.
 Cílem je zahučet do věci bez ztráty kontextu. Čti to celé, ať chápeš nejen
@@ -80,11 +80,13 @@ obráceně:**
   `SEC_DEFAULT_VIEW[curSection]` — takže Habits/Free přistanou na Přehledu,
   ostatní na Checku, bez ohledu na to, kde jsi swipnul předtím. Swipe uvnitř sekce
   pak funguje dál (Check na Habits/Free je pořád dostupný swipem doprava).
-  **Move (4) má dvě plochy, ale jiné než ostatní:** ne Check/Přehled, ale
-  **Garmin (view 0) ↔ Otužování (view 1)** — viz 5e. Swipe i pager fungují
-  normálně, jen `hTitle` se u view 1 přepíná na „Otužování". **Litánie (5) je
-  jediná výjimka** — jedna plocha, bez swipu i pageru. Move nemá FAB (obě plochy
-  se plní klikem na puntík dne), **Litánie FAB má** (přidání nové věty).
+  **Move (4) má TŘI plochy, jiné než ostatní:** ne Check/Přehled, ale
+  **Garmin (view 0) ↔ Běh (view 1) ↔ Otužování (view 2)** — viz 5e a 5f.
+  Posun tracku i swipe meze se počítají z **počtu panelů**
+  (`applyViewToTrack`: `translateX(-v*100/n%)`), pager má třetí tečku, kterou
+  `updateUI` ukazuje jen v Move; `hTitle` se přepíná na „Běh"/„Otužování".
+  **Litánie (5) je jediná výjimka** — jedna plocha, bez swipu i pageru. Move
+  nemá FAB (plochy se plní klikem na puntík dne), **Litánie FAB má**.
   `updateUI` proto řeší `noPager = jen 5` a `fab hidden = jen 4`.
   ⚠️ **Past:** `#trackMove .panel` **nesmí dostat `overflow-y:auto`**. Vlastní
   scrollovací kontejner sebere na Androidu vodorovné gesto (Chrome zahájí scroll
@@ -99,16 +101,17 @@ obráceně:**
 | 1 | **Tasks** | WiP náhled + kalendář | Dny/Měsíce | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
-| 4 | **Move** | Garmin (view 0) | **Otužování** (view 1) | Dvě plochy stejného tvaru: Garmin aktivita (plní se sama ze syncu) a ruční zápis ponorů. **Viz sekce 5 a 5e.** |
+| 4 | **Move** | Garmin (view 0) | **Běh** (view 1) · **Otužování** (view 2) | Tři plochy stejného tvaru: Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e a 5f.** |
 | 5 | **Litánie** | — (jedna plocha) | — | Podpůrné věty/přerámování, filtrované tagy. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
 
 Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
 česky. `hTitle` nahoře ukazuje jen název sekce (ne rozlišuje Check/Přehled).
 
 **Struktura DOMu:** 6 `<section class="page">` (`secProgress`/`secTasks`/`secNavyky`/
-`secVolno`/`secMove`/`secLitanie`). Sekce 0–4 mají jeden `.track` se **dvěma** panely
-(u 0–3 Check + Přehled, u Move Garmin + Otužování), track šířka 200 %, panel 50 %.
-**Jen `secLitanie` má jediný panel** (translateX vždy 0). Aktivní je vždy jen sekce odpovídající
+`secVolno`/`secMove`/`secLitanie`). Sekce 0–3 mají jeden `.track` se **dvěma** panely
+(Check + Přehled, track 200 %, panel 50 %), **Move má tři** (Garmin + Běh +
+Otužování, track 300 %, panel 33,3 % — přes `#trackMove` override).
+**Jen `secLitanie` má jediný panel** (posun se počítá z počtu panelů, takže 0). Aktivní je vždy jen sekce odpovídající
 `curSection` (`.page.active`). `SEC_PAGES`/`SEC_TRACKS`/`SEC_TITLES` mají teď
 **6 položek** (index 5 = Litánie).
 
@@ -197,7 +200,11 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
     {habits:[{id,name,priority,createdAt,star?}], log},              // 0=Habits (star = hvězdičková skupina)
     {habits:[{id,name,priority,createdAt,backlog:"Free"}], log, backlogs:["Free",...]}  // 1=Free
   ],
-  tasks: [ {id,name,priority,createdAt, subtasks:[{id,name,weight,prio,cells,done}]} ],  // projektové
+  tasks: [ {id,name,createdAt,completedAt, subtasks:[{id,name,weight,cells,done}]} ],  // projektové
+  // POZOR: projekty i kroky NEMAJÍ prioritu — pořadí = pořadí v poli (slider
+  // „Pořadí" v editaci, vytlačovací insert). Hotové jsou z pořadí vyřazené
+  // (padají na konec, řadí je completedAt DESC). Staré zálohy s priority/prio
+  // normalize() jednorázově seřadí podle nich a čísla zahodí.
 
   // ----- TASKS (kalendářní úkolová sekce) -----
   backlogs: ["Wip","Done","Future", ...],   // Wip+Done+Future vždy garantované a první tři; pak vlastní
@@ -219,7 +226,13 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
     caps: { kcal:679, dist:3729, hrBase:55, hrCap:130 }  // stropy prstenců; kcal/dist p90 z dat, hr napevno
   },
 
-  // ----- OTUŽOVÁNÍ (druhá plocha Move, viz 5e) — čistě ruční, žádný sync -----
+  // ----- BĚH (druhá plocha Move, viz 5f) — sync + ruční pocity -----
+  run: {
+    days: { "YYYY-MM-DD": {distM, durSec, movSec, hr, vo2} },  // běžecké dny (run_data.json, merge jako move)
+    manual: { "YYYY-MM-DD": {heavy, ach} }                     // ruční pocity 0-10 (těžkost/achilovky), sync nesahá
+  },
+
+  // ----- OTUŽOVÁNÍ (třetí plocha Move, viz 5e) — čistě ruční, žádný sync -----
   cold: {
     days: { "YYYY-MM-DD": {tw, ta, min, wind, flow} }  // voda/vzduch °C, minuty, vítr m/s, průtok m³/s
   },                                                    // tw a min povinné; ta/wind/flow smí být null
@@ -269,14 +282,21 @@ stav).
   `habitBacklog` + `habitNewBacklog`) se zobrazí **jen** když `editingSection===1`
   (Free). Pro Habits zůstává skrytý.
 
-### 3c. Progress — kroky s N/P, kompaktní placky
+### 3c. Progress — pořadí místo priorit, kompaktní placky
 
-- Každý krok (subtask) má vedle náročnosti (`weight`, v editaci slider **N:** 1–10)
-  i **prioritu** (`prio`, slider **P:** 1–10, default 5, `normalize()` doplní starým
-  datům). Oba slidery sedí vedle sebe na jedné řádce (jednopísmenné popisky).
-- **Výpis kroků v rozbalené placce** se řadí `prio` DESC → původní pořadí zadání
-  (stable sort). Proporční proužek i Přehled mřížka prio **ignorují** (jedou dál
-  na `weight`/`cells`).
+- **Pořadí = pořadí v poli** (`state.tasks`, resp. `task.subtasks`), žádná čísla.
+  V editaci projektu je slider **Pořadí** (1..N mezi NEhotovými projekty,
+  vytlačovací insert přes `reorderTaskInState`; u hotového projektu je řádek
+  skrytý — hotové jsou z pořadí vyřazené). Nový projekt startuje na konci.
+- Každý krok má v editoru vedle náročnosti (**N:** 1–10) slider **#:** (pořadí).
+  Tažení ukazuje cílovou pozici, **přesun řádku se provede až na `change`**
+  (po puštění) — přeskládat DOM pod prstem by na mobilu utrhlo drag. Řádky se
+  přeskládají živě v editoru, uložení převezme DOM pořadí (`renumberSubRows`
+  po každém přidání/smazání/přesunu).
+- **Výpis kroků v rozbalené placce**: nehotové v pořadí pole, hotové dole.
+  Progres mřížka/proužek nechává hotové **vlevo** (naplňovací bar, `displayOrder`).
+- **Řazení projektů**: `sortedTasks()` = nehotové v pořadí pole, hotové na konci
+  (completedAt DESC). Check i Přehled jedou z téhle jedné funkce → vždy stejně.
 - **Placka projektu** (task-head): malý serif nadpis (14px, nízký padding —
   názvy jsou unifikované na 14px serif napříč sekcemi podle Tasks `.titem`), vpravo
   🍹 když je projekt na 100 %, a **šedé „+"** — otevře editaci projektu a rovnou
@@ -491,12 +511,16 @@ prohlížeče nedovolí). Mezi nima stojí **PC skript**. Tok je **jednosměrný
 Garmin Connect
    │  build_data.py (Python) — token login, stáhne 90 dní, agreguje po dnech
    ▼
-move_data.json (KOŘEN repa)  → git commit + push (jen když se změní)
+move_data.json + run_data.json (KOŘEN repa)  → git commit + push (jen při změně)
    ▼
-GitHub Pages  → appka si ho při startu tiše fetchne (fetchMoveData, cache:no-store)
+GitHub Pages  → appka si je při startu tiše fetchne (fetchMoveData + fetchRunData)
    ▼
 sekce Move   — plná automatika, nulová ruční práce
 ```
+
+`run_data.json` = běžecké dny pro plochu Běh (viz 5f): aktivity s `typeKey`
+obsahujícím „running", sečtené po dnech (`distM/durSec/movSec`, `hr` vážený
+délkou, `vo2` z hodinek). Ruční refresh v ⚙ stahuje oba soubory.
 
 - **Appka strana:** `fetchMoveData()` (volaná v initu) stáhne `move_data.json`
   z Pages a naimportuje `importMoveData(arr, silent=true)` — bez toastu, tiše.
@@ -527,9 +551,9 @@ p90). Overrides jsou součást `state`, takže jdou i do klasického exportu zá
 ### 5c. Motor syncu — `local/garmin/` (git-ignorováno)
 
 Celý motor žije v `local/garmin/` (mimo git, osobní/citlivé):
-- **`build_data.py`** — skript. Píše `move_data.json` do **kořene repa**
-  (`REPO_ROOT`), pak commit+push. Mění jen datový soubor, takže s lidským vývojem
-  (jiné soubory) **nikdy nekonfliktuje**; před push dělá `pull --rebase --autostash`.
+- **`build_data.py`** — skript. Píše `move_data.json` + `run_data.json` do
+  **kořene repa** (`REPO_ROOT`), pak commit+push. Mění jen datové soubory, takže
+  s lidským vývojem **nikdy nekonfliktuje**; před push `pull --rebase --autostash`.
 - **`.garmintoken/`** — přihlašovací token (garth). **Login heslem jen poprvé**,
   pak token (bez hesla, bez `429` rate limitu). Token vyprší ~po roce → skript si
   při ručním běhu řekne o heslo; při automatickém běhu bez konzole to jen
@@ -557,9 +581,9 @@ nevyexportuje → **zálohovat pravidelně**.
 **privátní autentizovanou vrstvu** (ne veřejné Pages). Obousměrný živý stav =
 riziko konfliktů + nutná auth. Velký samostatný projekt, až bude potřeba.
 
-### 5e. Otužování — druhá plocha Move (`renderCold`/`coldCell`)
+### 5e. Otužování — třetí plocha Move (`renderCold`/`coldCell`)
 
-Swipe doleva z Garmin plochy. Vizuálně **stejná mřížka** (týden = řádek, datum si
+Dva swipy doleva z Garmin plochy (view 2). Vizuálně **stejná mřížka** (týden = řádek, datum si
 buňka bere z kalendáře, nejnovější nahoře), ale **čistě ruční zápis** — žádný
 sync, a proto ani `overrides`/zámky jako u Garminu. Klik na puntík dne otevře
 `coldScrim` s pěti poli; `tw` a `min` jsou povinné, zbytek smí zůstat prázdný.
@@ -605,6 +629,31 @@ velké dny a drtí slabé.
 **Mřížka se kreslí vždycky** (minimálně 8 týdnů zpět), na rozdíl od Garmin
 plochy, která při nula datech ukáže jen empty-state. Bez toho by nebylo kam
 kliknout a nešel by založit první zápis.
+
+### 5f. Běh — druhá plocha Move (`renderRun`/`runCell`, view 1)
+
+Bobův návrat k běhu (srpen 2026, Po-St-Pá ~2×800 m okolo plavání). Stejná
+mřížka jako otužování, data ze syncu (`run_data.json` → `state.run.days`,
+merge = historie přežívá 90denní okno) + **ruční pocity** klikem na den
+(`runScrim`: těžkost/achilovky 0–10 → `state.run.manual`, sync na ně nesahá).
+Nad mřížkou `#runStats`: EF (po nakalibrování baseline), km celkem, VO₂max.
+
+**Filosofie indexu (KOUČOVSKÉ, nesahat bez rozmyslu):** index nesmí odměňovat
+tempo (achilovky náchylné k zánětu + psychologický odpor → honění = konec).
+Odměňuje se docházka a klesající tep na fixní trase. Pocit těžkosti se zlepšuje
+poslední — proto se zapisuje, ale do indexu nevstupuje.
+
+| Prvek | Veličina | Jak |
+|---|---|---|
+| plocha kruhu | **Forma** | EF = `(distM/movSec)/hr`, klouzavý průměr 5 běhů ÷ baseline (průměr prvních 6 EF-běhů). Okno `RUN_FORMA_LO=0.85` (prázdno) až `RUN_FORMA_HI=1.25` (plný kruh = +25 % = realistický 3-4měsíční cíl), **lineárně na poloměr** (bez odmocniny — forma žije v úzkém pásmu, plošná věrnost by rozdíly slila). Strop se povolí nahoru p90, kdyby Bob 1.25 přerostl. |
+| číslo uvnitř | průměrný tep dne | číslo, které má KLESAT — trestá honění, odměňuje trpělivost |
+| levý půlprstenec (`--done`) | konzistence | běžecké dny za 28 dní ÷ 12 (plán 3×týdně) |
+| pravý půlprstenec (`--water`/`--missed`) | **Brzda** | uncoupled acute:chronic — minuty 7 dní ÷ týdenní průměr **předchozích 3 týdnů** (akutní týden se do reference nepočítá, jinak restart z nuly věčně červený). Půlka = 1.0, plný = 2.0, od 1.4 červená. Bez historie 0 = prázdný (kalibruje se). |
+| čísla pod kruhem | `těžkost/achilovky` | ruční, `–/–` když nezapsáno |
+
+**Den bez tepu/vzdálenosti** se počítá do konzistence a Brzdy, ne do EF (tvar
+kruhu zdědí od posledního EF-dne, `runFormaAt`). Víc aktivit v dni sčítá už
+skript (2×800 m = jeden běžecký den — jinak by ráno dávalo 2 čárky docházky).
 
 ---
 
