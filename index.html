@@ -3667,7 +3667,12 @@ document.querySelectorAll("#pager .dot").forEach(function(d){
 
 /* ---------- FAB (přidá do aktuální sekce) ---------- */
 document.getElementById("fab").onclick = function(){
-  if(curSection===0) openTaskSheet(null);
+  if(curSection===0){
+    // je-li v panelu rolet otevřená právě jedna roleta → FAB přidá krok rovnou do ní
+    var op = curView===0 ? sortedTasks().filter(function(t){ return expanded[t.id]; }) : [];
+    if(op.length===1) openTaskSheet(op[0].id, true);
+    else openTaskSheet(null);
+  }
   else if(curSection===1) openUtSheet(null);
   else if(curSection===4) return; // Move nemá přidávání přes FAB
   else if(curSection===5) openLitSheet(null); // Litánie – přidat novou větu
