@@ -381,6 +381,11 @@
   .blog-group-head:first-child{margin-top:6px;}
   .blog-group-head .bl{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.5px;flex-shrink:0;text-transform:uppercase;}
   .blog-group-head .bline{flex:1;height:1px;background:var(--border);}
+  /* + na konci oddělovací čáry: přidá úkol rovnou do toho backlogu */
+  .blog-group-head .bplus{flex-shrink:0;width:22px;height:22px;line-height:20px;text-align:center;
+    border:1px solid var(--border);border-radius:50%;background:transparent;color:var(--dim);
+    font-size:15px;padding:0;cursor:pointer;}
+  .blog-group-head .bplus:active{transform:scale(.9);}
 
   /* toast */
   .toast{
@@ -2866,8 +2871,12 @@ function renderBlogView(){
     var items = backlogTasks(nm);
     if(ordered.length>1){
       var gh = document.createElement("div"); gh.className = "blog-group-head";
-      gh.innerHTML = '<span class="bl"></span><span class="bline"></span>';
+      gh.innerHTML = '<span class="bl"></span><span class="bline"></span>'+
+                     '<button class="bplus" type="button" title="+ úkol do ‚'+nm+'‘">+</button>';
       gh.querySelector(".bl").textContent = nm;
+      gh.querySelector(".bplus").onclick = (function(bk){
+        return function(e){ e.stopPropagation(); openUtSheet(null, bk); };
+      })(nm);
       list.appendChild(gh);
     }
     items.forEach(function(t){ list.appendChild(makeUtaskRow(t,"backlog")); });
@@ -3108,7 +3117,8 @@ function fillProjectPicker(){
   fselSync("utProject");
 }
 
-function openUtSheet(id){
+/* presetBacklog = předvyplněný backlog u nového úkolu (jinak Wip / aktuální backlog view) */
+function openUtSheet(id, presetBacklog){
   editingUtId = id || null;
   var del = document.getElementById("utDelete");
 
@@ -3148,7 +3158,8 @@ function openUtSheet(id){
   } else {
     document.getElementById("utName").value = "";
     utPrioEl.value = 1; utPrioValEl.textContent = 1;
-    var defaultBk = document.getElementById("blogView").classList.contains("open") ? blogCurrent : "Wip";
+    var defaultBk = (presetBacklog && state.backlogs.indexOf(presetBacklog)>=0) ? presetBacklog
+                  : (document.getElementById("blogView").classList.contains("open") ? blogCurrent : "Wip");
     fillBacklogPicker(defaultBk);
     del.style.display = "none";
   }
