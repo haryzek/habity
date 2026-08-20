@@ -77,10 +77,10 @@
      pointercancel) → swipe jen cuknul a odskočil. Scrolluje okno, stejně
      jako ve všech ostatních sekcích, kde swipe funguje. */
   #trackMove .panel{padding:10px 2px 24px;}
-  /* Move má tři plochy (Garmin / Otužování / Běh) — track je širší a panely
-     třetinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
-  #trackMove{width:300%;}
-  #trackMove .panel{width:33.3333%;flex:0 0 33.3333%;}
+  /* Move má čtyři plochy (Nálada / Garmin / Běh / Otužování) — track je širší a
+     panely čtvrtinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
+  #trackMove{width:400%;}
+  #trackMove .panel{width:25%;flex:0 0 25%;}
   /* Běh: řádek statistik nad mřížkou */
   .run-stats{
     font-family:var(--mono);font-size:11px;color:var(--dim);
@@ -738,8 +738,9 @@
 <div class="pager" id="pager">
   <div class="dot on" data-view="0"></div>
   <div class="dot" data-view="1"></div>
-  <!-- třetí tečka jen pro Move (Běh) — jinde ji updateUI schová -->
+  <!-- třetí a čtvrtá tečka jen pro Move — jinde je updateUI schová -->
   <div class="dot" data-view="2" style="display:none"></div>
+  <div class="dot" data-view="3" style="display:none"></div>
 </div>
 
 <div class="wrap">
@@ -860,6 +861,12 @@
   <!-- SEKCE: MOVE (Garmin aktivita — kolečka po týdnech) -->
   <section class="page" id="secMove">
     <div class="track" id="trackMove">
+      <div class="panel">
+        <div id="vibeGrid"></div>
+        <div class="empty-state" id="vibeEmpty">
+          Zatím žádné zápisy dne.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš, jak bylo.
+        </div>
+      </div>
       <div class="panel">
         <div id="moveGrid"></div>
         <div class="empty-state" id="moveEmpty">
@@ -1095,6 +1102,41 @@
   </div>
 </div>
 
+<!-- NÁLADA: ruční zápis dne (5 hodnot 1–5, žádný sync) -->
+<div class="scrim" id="vibeScrim">
+  <div class="sheet" id="vibeSheet">
+    <h2 id="vibeEditTitle">Zapsat den</h2>
+    <div class="move-edit-grid">
+      <div class="move-edit-f">
+        <label>Nálada (1–5)</label>
+        <input type="number" id="vibeMood" min="1" max="5" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Kontakt (1–5)</label>
+        <input type="number" id="vibeSoc" min="1" max="5" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Aktivita (1–5)</label>
+        <input type="number" id="vibeAct" min="1" max="5" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Tělo (1–5)</label>
+        <input type="number" id="vibeBody" min="1" max="5" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Hlava (1–5)</label>
+        <input type="number" id="vibeHead" min="1" max="5" step="1" inputmode="numeric">
+      </div>
+    </div>
+    <p class="move-edit-note">Nálada 1 blbá → 5 výborná · kontakt 1 samota → 5 společnost · aktivita 1 línej den → 5 frmol · tělo 1 na hovno → 5 forma · hlava 1 klid → 5 ruminace turbo.</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="vibeSave">Uložit</button>
+      <button class="btn btn-ghost" id="vibeCancel">Zrušit</button>
+    </div>
+    <button class="btn btn-danger btn-slim" id="vibeDelete" style="display:none">Smazat zápis</button>
+  </div>
+</div>
+
 <!-- OTUŽOVÁNÍ: ruční zápis ponoru (5 údajů, žádný sync) -->
 <div class="scrim" id="coldScrim">
   <div class="sheet" id="coldSheet">
@@ -1275,6 +1317,10 @@ function blankState(){
     // Otužování: čistě ruční zápisy (žádný sync → žádné overrides ani zámky).
     // tw/ta = teplota vody/vzduchu °C, min = doba ve vodě, wind m/s, flow m³/s.
     cold:{ days:{} },
+    // Nálada: čistě ruční zápisy dne, všech 5 hodnot 1–5.
+    // mood = nálada (velikost kolečka), soc = kontakt (levý prstenec),
+    // act = aktivita (pravý prstenec), body = tělo, head = hlava (čísla dole).
+    vibe:{ days:{} },
     // Běh: days = běžecké dny ze syncu (run_data.json, merge — historie v
     // localStorage přežívá 90denní okno syncu, baseline EF se z ní počítá);
     // manual[date] = ruční pocity {heavy, ach} 0–10, sync na ně nesahá.
@@ -1524,6 +1570,21 @@ function normalize(o){
         wind: opt(d.wind, 0, 60),
         flow: opt(d.flow, 0, 100000)
       };
+    });
+  }
+
+  // ---- Nálada (ruční zápisy dne, 5 hodnot 1–5) ----
+  if(o.vibe && typeof o.vibe==="object" && o.vibe.days && typeof o.vibe.days==="object"){
+    Object.keys(o.vibe.days).forEach(function(k){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+      var d = o.vibe.days[k];
+      if(!d || typeof d!=="object") return;
+      function v15(v){
+        var n = Math.round(+v);
+        return (v!=null && v!=="" && isFinite(n) && n>=1 && n<=5) ? n : null;
+      }
+      var rec = { mood:v15(d.mood), soc:v15(d.soc), act:v15(d.act), body:v15(d.body), head:v15(d.head) };
+      if(rec.mood!=null) s.vibe.days[k] = rec;
     });
   }
 
@@ -3611,13 +3672,16 @@ function updateUI(){
   document.querySelectorAll("#pager .dot").forEach(function(d){
     d.classList.toggle("on", +d.dataset.view===curView);
   });
-  // Move má tři plochy s vlastními názvy (Garmin / běh / otužování)
+  // Move má čtyři plochy s vlastními názvy (Nálada / Garmin / běh / otužování)
   document.getElementById("hTitle").textContent =
-    (curSection===4 && curView===1) ? "Běh" :
-    (curSection===4 && curView===2) ? "Otužování" : SEC_TITLES[curSection];
-  // třetí tečka pageru existuje jen pro Move
-  var dot3 = document.querySelector('#pager .dot[data-view="2"]');
-  if(dot3) dot3.style.display = (curSection===4) ? "" : "none";
+    (curSection===4 && curView===0) ? "Nálada" :
+    (curSection===4 && curView===2) ? "Běh" :
+    (curSection===4 && curView===3) ? "Otužování" : SEC_TITLES[curSection];
+  // třetí a čtvrtá tečka pageru existují jen pro Move
+  [2,3].forEach(function(v){
+    var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
+    if(d) d.style.display = (curSection===4) ? "" : "none";
+  });
   // Move: bez FABu (obě plochy se plní klikem na puntík). Litánie: FAB má, pager ne.
   var isMove = curSection===4;
   var noPager = curSection===5;
@@ -4123,6 +4187,126 @@ document.getElementById("coldDelete").onclick = function(){
 
 document.getElementById("coldCancel").onclick = closeColdEdit;
 document.getElementById("coldScrim").onclick = function(e){ if(e.target===this) closeColdEdit(); };
+
+/* ================= NÁLADA (první plocha sekce Move) =================
+   Čistě ruční zápisy, všech 5 hodnot na škále 1–5:
+     velikost kolečka  = nálada (žlutá; 1 blbá → 5 výborná)
+     levý půlprstenec  = kontakt (zelená; 1 samota → 5 hodně společnosti)
+     pravý půlprstenec = aktivita (červená; 1 línej den → 5 frmol)
+     čísla dole        = tělo/hlava (tělo 1 na hovno → 5 forma;
+                         hlava 1 klid → 5 ruminace turbo) */
+function vibeCell(rec, isFuture, dateKey){
+  var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
+  var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit');
+  if(isFuture || !rec || !rec.mood){
+    return '<div class="'+cls+'"'+editAttr+'><div class="move-slot"><span class="move-dot"></span></div><span class="mk">&nbsp;</span></div>';
+  }
+  var cx = 50, cy = 50;
+  var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
+  var tt = (rec.mood-1)/4;
+  var R = MINR + (MAXR-MINR) * tt;
+  var ringR = R - STROKE/2;
+  var innerR = Math.max(8, ringR - STROKE/2 - GAP);
+  // prstence z pětiny na plno (1 → 0.2, 5 → 1): i samota/línej den je vidět,
+  // nula by splývala s nevyplněným
+  var L  = moveSemi(cx,cy,ringR,+1,(rec.soc||0)/5);  // +1 = levá půlka: kontakt
+  var Rr = moveSemi(cx,cy,ringR,-1,(rec.act||0)/5);  // -1 = pravá půlka: aktivita
+  var svg =
+    '<svg viewBox="0 0 100 100">'+
+      '<circle cx="50" cy="50" r="'+innerR+'" fill="var(--accent)"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--done)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+L.on+' '+L.len+'"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="var(--missed)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+Rr.on+' '+Rr.len+'"/>'+
+    '</svg>';
+  var foot = (rec.body||'–')+'/'+(rec.head||'–');
+  return '<div class="'+cls+'"'+editAttr+'><div class="move-disc">'+svg+'</div><span class="mk">'+foot+'</span></div>';
+}
+
+function renderVibe(){
+  var grid = document.getElementById("vibeGrid");
+  var empty = document.getElementById("vibeEmpty");
+  if(!grid) return;
+  var days = state.vibe.days || {};
+  var keys = Object.keys(days).sort();
+  if(empty) empty.style.display = keys.length ? "none" : "";
+  // Mřížka se kreslí vždy (jako Otužování) — bez ní by nebylo kam kliknout.
+  var t = today();
+  var endMon = mondayOf(t);
+  var startMon = addDays(endMon, -7*7);
+  if(keys.length){
+    var firstMon = mondayOf(new Date(keys[0]+"T00:00:00"));
+    if(firstMon < startMon) startMon = firstMon;
+  }
+  var html = "";
+  for(var wk=new Date(endMon); wk>=startMon; wk=addDays(wk,-7)){
+    html += '<div class="move-week">';
+    for(var i=0;i<7;i++){
+      var d = addDays(wk,i), dk = key(d);
+      html += vibeCell(days[dk], d>t, dk);
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+/* ---- Ruční zápis dne ---- */
+var vibeEditDate = null;
+
+function openVibeEdit(dk){
+  vibeEditDate = dk;
+  var rec = (state.vibe.days || {})[dk] || null;
+  function set(id, v){ document.getElementById(id).value = (v==null ? "" : v); }
+  set("vibeMood", rec ? rec.mood : null);
+  set("vibeSoc",  rec ? rec.soc  : null);
+  set("vibeAct",  rec ? rec.act  : null);
+  set("vibeBody", rec ? rec.body : null);
+  set("vibeHead", rec ? rec.head : null);
+  document.getElementById("vibeEditTitle").textContent = (rec ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
+  document.getElementById("vibeDelete").style.display = rec ? "" : "none";
+  document.getElementById("vibeScrim").classList.add("open");
+}
+function closeVibeEdit(){
+  document.getElementById("vibeScrim").classList.remove("open");
+  vibeEditDate = null;
+}
+
+document.getElementById("vibeGrid").addEventListener("click", function(e){
+  var cell = e.target.closest ? e.target.closest(".move-cell--edit") : null;
+  if(!cell) return;
+  var dk = cell.getAttribute("data-date");
+  if(dk) openVibeEdit(dk);
+});
+
+document.getElementById("vibeSave").onclick = function(){
+  if(!vibeEditDate) return;
+  function val(id){
+    var n = Math.round(+document.getElementById(id).value);
+    return (isFinite(n) && n>=1 && n<=5) ? n : null;
+  }
+  var rec = { mood:val("vibeMood"), soc:val("vibeSoc"), act:val("vibeAct"), body:val("vibeBody"), head:val("vibeHead") };
+  if(rec.mood==null || rec.soc==null || rec.act==null || rec.body==null || rec.head==null){
+    toast("Vyplň všech pět hodnot, každou 1–5."); return;
+  }
+  if(!state.vibe.days) state.vibe.days = {};
+  state.vibe.days[vibeEditDate] = rec;
+  save();
+  renderVibe();
+  toast("Den zapsán. ☀️");
+  closeVibeEdit();
+};
+
+document.getElementById("vibeDelete").onclick = function(){
+  if(!vibeEditDate) return;
+  if(state.vibe.days) delete state.vibe.days[vibeEditDate];
+  save();
+  renderVibe();
+  toast("Zápis smazán.");
+  closeVibeEdit();
+};
+
+document.getElementById("vibeCancel").onclick = closeVibeEdit;
+document.getElementById("vibeScrim").onclick = function(e){ if(e.target===this) closeVibeEdit(); };
 
 /* ================= BĚH (druhá plocha sekce Move) =================
    Data ze syncu (run_data.json, merge do state.run.days — localStorage drží
@@ -4847,7 +5031,7 @@ document.getElementById("undoBtn").onclick = function(){
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
   renderProgresPanel(); renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
-  renderMove(); renderCold(); renderRun(); refreshLit();
+  renderMove(); renderCold(); renderVibe(); renderRun(); refreshLit();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
 var freeSearchEls = [document.getElementById("freeSearch"), document.getElementById("freeSearchOv")];
