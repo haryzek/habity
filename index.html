@@ -4218,6 +4218,7 @@ function vibeCell(rec, isFuture, dateKey){
       '<path d="'+Rr.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
       '<path d="'+L.d+'" fill="none" stroke="var(--done)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+L.on+' '+L.len+'"/>'+
       '<path d="'+Rr.d+'" fill="none" stroke="var(--missed)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+Rr.on+' '+Rr.len+'"/>'+
+      '<text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="var(--sans)" font-weight="700" font-size="'+Math.max(13, Math.min(innerR*1.05, 30))+'" fill="#15120E">'+rec.mood+'</text>'+
     '</svg>';
   var foot = (rec.body||'–')+'/'+(rec.head||'–');
   return '<div class="'+cls+'"'+editAttr+'><div class="move-disc">'+svg+'</div><span class="mk">'+foot+'</span></div>';
