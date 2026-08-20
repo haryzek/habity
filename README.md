@@ -80,11 +80,12 @@ obráceně:**
   `SEC_DEFAULT_VIEW[curSection]` — takže Habits/Free přistanou na Přehledu,
   ostatní na Checku, bez ohledu na to, kde jsi swipnul předtím. Swipe uvnitř sekce
   pak funguje dál (Check na Habits/Free je pořád dostupný swipem doprava).
-  **Move (4) má TŘI plochy, jiné než ostatní:** ne Check/Přehled, ale
-  **Garmin (view 0) ↔ Běh (view 1) ↔ Otužování (view 2)** — viz 5e a 5f.
-  Posun tracku i swipe meze se počítají z **počtu panelů**
-  (`applyViewToTrack`: `translateX(-v*100/n%)`), pager má třetí tečku, kterou
-  `updateUI` ukazuje jen v Move; `hTitle` se přepíná na „Běh"/„Otužování".
+  **Move (4) má ČTYŘI plochy, jiné než ostatní:** ne Check/Přehled, ale
+  **Nálada (view 0) ↔ Garmin (view 1) ↔ Běh (view 2) ↔ Otužování (view 3)**
+  — viz 5e, 5f a 5g. Posun tracku i swipe meze se počítají z **počtu panelů**
+  (`applyViewToTrack`: `translateX(-v*100/n%)`), pager má třetí a čtvrtou tečku,
+  které `updateUI` ukazuje jen v Move; `hTitle` se přepíná na
+  „Nálada"/„Běh"/„Otužování".
   **Litánie (5) je jediná výjimka** — jedna plocha, bez swipu i pageru. Move
   nemá FAB (plochy se plní klikem na puntík dne), **Litánie FAB má**.
   `updateUI` proto řeší `noPager = jen 5` a `fab hidden = jen 4`.
@@ -101,7 +102,7 @@ obráceně:**
 | 1 | **Tasks** | WiP náhled + kalendář | Dny/Měsíce | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
-| 4 | **Move** | Garmin (view 0) | **Běh** (view 1) · **Otužování** (view 2) | Tři plochy stejného tvaru: Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e a 5f.** |
+| 4 | **Move** | Nálada (view 0) | **Garmin** (view 1) · **Běh** (view 2) · **Otužování** (view 3) | Čtyři plochy stejného tvaru: ruční zápis dne (nálada), Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e, 5f a 5g.** |
 | 5 | **Litánie** | — (jedna plocha) | — | Podpůrné věty/přerámování, filtrované tagy. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
 
 Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
@@ -109,8 +110,8 @@ Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
 
 **Struktura DOMu:** 6 `<section class="page">` (`secProgress`/`secTasks`/`secNavyky`/
 `secVolno`/`secMove`/`secLitanie`). Sekce 0–3 mají jeden `.track` se **dvěma** panely
-(Check + Přehled, track 200 %, panel 50 %), **Move má tři** (Garmin + Běh +
-Otužování, track 300 %, panel 33,3 % — přes `#trackMove` override).
+(Check + Přehled, track 200 %, panel 50 %), **Move má čtyři** (Nálada + Garmin +
+Běh + Otužování, track 400 %, panel 25 % — přes `#trackMove` override).
 **Jen `secLitanie` má jediný panel** (posun se počítá z počtu panelů, takže 0). Aktivní je vždy jen sekce odpovídající
 `curSection` (`.page.active`). `SEC_PAGES`/`SEC_TRACKS`/`SEC_TITLES` mají teď
 **6 položek** (index 5 = Litánie).
@@ -226,13 +227,18 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
     caps: { kcal:679, dist:3729, hrBase:55, hrCap:130 }  // stropy prstenců; kcal/dist p90 z dat, hr napevno
   },
 
-  // ----- BĚH (druhá plocha Move, viz 5f) — sync + ruční pocity -----
+  // ----- NÁLADA (první plocha Move, viz 5g) — čistě ruční, žádný sync -----
+  vibe: {
+    days: { "YYYY-MM-DD": {mood, soc, act, body, head} }  // všech 5 povinných, škála 1-5
+  },
+
+  // ----- BĚH (třetí plocha Move, viz 5f) — sync + ruční pocity -----
   run: {
     days: { "YYYY-MM-DD": {distM, durSec, movSec, hr, vo2} },  // běžecké dny (run_data.json, merge jako move)
     manual: { "YYYY-MM-DD": {heavy, ach} }                     // ruční pocity 0-10 (těžkost/achilovky), sync nesahá
   },
 
-  // ----- OTUŽOVÁNÍ (třetí plocha Move, viz 5e) — čistě ruční, žádný sync -----
+  // ----- OTUŽOVÁNÍ (čtvrtá plocha Move, viz 5e) — čistě ruční, žádný sync -----
   cold: {
     days: { "YYYY-MM-DD": {tw, ta, min, wind, flow} }  // voda/vzduch °C, minuty, vítr m/s, průtok m³/s
   },                                                    // tw a min povinné; ta/wind/flow smí být null
@@ -581,9 +587,9 @@ nevyexportuje → **zálohovat pravidelně**.
 **privátní autentizovanou vrstvu** (ne veřejné Pages). Obousměrný živý stav =
 riziko konfliktů + nutná auth. Velký samostatný projekt, až bude potřeba.
 
-### 5e. Otužování — třetí plocha Move (`renderCold`/`coldCell`)
+### 5e. Otužování — čtvrtá plocha Move (`renderCold`/`coldCell`)
 
-Dva swipy doleva z Garmin plochy (view 2). Vizuálně **stejná mřížka** (týden = řádek, datum si
+Dva swipy doleva z Garmin plochy (view 3). Vizuálně **stejná mřížka** (týden = řádek, datum si
 buňka bere z kalendáře, nejnovější nahoře), ale **čistě ruční zápis** — žádný
 sync, a proto ani `overrides`/zámky jako u Garminu. Klik na puntík dne otevře
 `coldScrim` s pěti poli; `tw` a `min` jsou povinné, zbytek smí zůstat prázdný.
@@ -630,7 +636,7 @@ velké dny a drtí slabé.
 plochy, která při nula datech ukáže jen empty-state. Bez toho by nebylo kam
 kliknout a nešel by založit první zápis.
 
-### 5f. Běh — druhá plocha Move (`renderRun`/`runCell`, view 1)
+### 5f. Běh — třetí plocha Move (`renderRun`/`runCell`, view 2)
 
 Bobův návrat k běhu (srpen 2026, Po-St-Pá ~2×800 m okolo plavání). Stejná
 mřížka jako otužování, data ze syncu (`run_data.json` → `state.run.days`,
@@ -654,6 +660,25 @@ poslední — proto se zapisuje, ale do indexu nevstupuje.
 **Den bez tepu/vzdálenosti** se počítá do konzistence a Brzdy, ne do EF (tvar
 kruhu zdědí od posledního EF-dne, `runFormaAt`). Víc aktivit v dni sčítá už
 skript (2×800 m = jeden běžecký den — jinak by ráno dávalo 2 čárky docházky).
+
+### 5g. Nálada — první plocha Move (`renderVibe`/`vibeCell`, view 0)
+
+Default landing ploch Move (srpen 2026). Stejná mřížka jako Otužování (kreslí se
+vždy, min. 8 týdnů zpět), **čistě ruční zápis** — klik na den otevře `vibeScrim`
+s pěti poli, **všech 5 povinných, škála 1–5** → `state.vibe.days[date] =
+{mood, soc, act, body, head}`. Žádný sync, žádné overrides.
+
+| Prvek | Veličina | Škála |
+|---|---|---|
+| průměr kruhu (`--accent` žlutá) | nálada `mood` | 1 blbá (nejmenší) → 5 výborná (největší), lineárně `(mood−1)/4` |
+| číslo uvnitř | nálada `mood` | — |
+| levý půlprstenec (`--done` zelená) | kontakt `soc` | 1 samota → 5 hodně společnosti, `soc/5` |
+| pravý půlprstenec (`--missed` červená) | aktivita `act` | 1 línej den → 5 frmol, `act/5` |
+| čísla pod kruhem | `tělo/hlava` | tělo 1 forma → 5 na hovno; hlava 1 klid → 5 ruminace turbo |
+
+Prstence se plní **po pětinách od `v/5`** (1 = 20 %), ne `(v−1)/4` — nula by
+splývala s nevyplněným dnem. Pozor: **tělo a hlava jedou reverzně proti
+náladě** (vyšší = horší), je to schválně dle Bobova zadání.
 
 ---
 
@@ -822,7 +847,7 @@ otázce na nejasné hrany, pak to postav a otestuj.
   litDelete+undo)** → navigace (swipe/taby/pager) → FAB → init).
 - **Navigace:** `updateUI()` je centrální — transformuje tracky podle `curView`
   (Litánie track vždy 0), přepíná `.page.active` podle `curSection`, syncuje
-  taby/pager/title (u Move view 1 přepisuje title na „Otužování"), skrývá pager
+  taby/pager/title (u Move přepisuje title na „Nálada"/„Běh"/„Otužování"), skrývá pager
   na Litániích a FAB na Move. Taby nastavují `curSection`, swipe a pager tečky
   nastavují `curView`.
 - `renderCheck()` = router pro úkolovou (Tasks) Check stranu (default + backlog
