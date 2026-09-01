@@ -71,16 +71,16 @@
   .track{display:flex;width:200%;flex:1;transition:transform .25s ease;will-change:transform;}
   .panel{width:50%;flex:0 0 50%;}
 
-  /* ---- Move: dvě plochy (Garmin / Otužování) ----
+  /* ---- Move: plochy sekce ----
      Panel schválně NEMÁ overflow-y:auto. Vlastní scrollovací kontejner na
      Androidu sebere vodorovné gesto (Chrome zahájí scroll a pošle
      pointercancel) → swipe jen cuknul a odskočil. Scrolluje okno, stejně
      jako ve všech ostatních sekcích, kde swipe funguje. */
   #trackMove .panel{padding:10px 2px 24px;}
-  /* Move má čtyři plochy (Nálada / Garmin / Běh / Otužování) — track je širší a
-     panely čtvrtinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
-  #trackMove{width:400%;}
-  #trackMove .panel{width:25%;flex:0 0 25%;}
+  /* Move má pět ploch (Nálada / Spánek / Garmin / Běh / Otužování) — track je širší a
+     panely pětinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
+  #trackMove{width:500%;}
+  #trackMove .panel{width:20%;flex:0 0 20%;}
   /* Běh: řádek statistik nad mřížkou */
   .run-stats{
     font-family:var(--mono);font-size:11px;color:var(--dim);
@@ -738,9 +738,10 @@
 <div class="pager" id="pager">
   <div class="dot on" data-view="0"></div>
   <div class="dot" data-view="1"></div>
-  <!-- třetí a čtvrtá tečka jen pro Move — jinde je updateUI schová -->
+  <!-- třetí až pátá tečka jen pro Move — jinde je updateUI schová -->
   <div class="dot" data-view="2" style="display:none"></div>
   <div class="dot" data-view="3" style="display:none"></div>
+  <div class="dot" data-view="4" style="display:none"></div>
 </div>
 
 <div class="wrap">
@@ -865,6 +866,12 @@
         <div id="vibeGrid"></div>
         <div class="empty-state" id="vibeEmpty">
           Zatím žádné zápisy dne.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš, jak bylo.
+        </div>
+      </div>
+      <div class="panel">
+        <div id="sleepGrid"></div>
+        <div class="empty-state" id="sleepEmpty">
+          Zatím žádné zápisy spánku.<br>Klepni na <b style="color:var(--accent)">puntík dne</b> a zapiš noc.
         </div>
       </div>
       <div class="panel">
@@ -1137,6 +1144,41 @@
   </div>
 </div>
 
+<!-- SPÁNEK: ruční zápis noci (délka povinná, zbytek volitelný, žádný sync) -->
+<div class="scrim" id="sleepScrim">
+  <div class="sheet" id="sleepSheet">
+    <h2 id="sleepEditTitle">Zapsat noc</h2>
+    <div class="move-edit-grid">
+      <div class="move-edit-f">
+        <label>Délka spánku (h)</label>
+        <input type="number" id="sleepDur" min="0" max="24" step="0.5" inputmode="decimal">
+      </div>
+      <div class="move-edit-f">
+        <label>Usnutí (HHMM)</label>
+        <input type="text" id="sleepBed" maxlength="4" placeholder="2320" inputmode="numeric" autocomplete="off">
+      </div>
+      <div class="move-edit-f">
+        <label>Pocit (1–10)</label>
+        <input type="number" id="sleepFeel" min="1" max="10" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Usínání (min)</label>
+        <input type="number" id="sleepFall" min="0" max="600" step="1" inputmode="numeric">
+      </div>
+      <div class="move-edit-f">
+        <label>Sny (počet)</label>
+        <input type="number" id="sleepDream" min="0" max="99" step="1" inputmode="numeric">
+      </div>
+    </div>
+    <p class="move-edit-note">Délka po půlhodinách (6.5) · usnutí 2320 / 0040 · levý prstenec čas usnutí (23:00 plno → 4:00 nic) · pravý pocit 1 strašný → 10 nejlepší · dole usínání/sny.</p>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="sleepSave">Uložit</button>
+      <button class="btn btn-ghost" id="sleepCancel">Zrušit</button>
+    </div>
+    <button class="btn btn-danger btn-slim" id="sleepDelete" style="display:none">Smazat zápis</button>
+  </div>
+</div>
+
 <!-- OTUŽOVÁNÍ: ruční zápis ponoru (5 údajů, žádný sync) -->
 <div class="scrim" id="coldScrim">
   <div class="sheet" id="coldSheet">
@@ -1321,6 +1363,11 @@ function blankState(){
     // mood = nálada (velikost kolečka), soc = kontakt (levý prstenec),
     // act = aktivita (pravý prstenec), body = tělo, head = hlava (čísla dole).
     vibe:{ days:{} },
+    // Spánek: čistě ruční zápisy noci. dur = délka spánku v h (povinná, velikost
+    // i barva kolečka), bed = čas usnutí "HHMM" (levý prstenec, 23:00 plno →
+    // 4:00 nic), feel = pocit 1–10 (pravý prstenec), fall = usínání v min,
+    // dream = počet snů (čísla dole).
+    sleep:{ days:{} },
     // Běh: days = běžecké dny ze syncu (run_data.json, merge — historie v
     // localStorage přežívá 90denní okno syncu, baseline EF se z ní počítá);
     // manual[date] = ruční pocity {heavy, ach} 0–10, sync na ně nesahá.
@@ -1585,6 +1632,30 @@ function normalize(o){
       }
       var rec = { mood:v15(d.mood), soc:v15(d.soc), act:v15(d.act), body:v15(d.body), head:v15(d.head) };
       if(rec.mood!=null) s.vibe.days[k] = rec;
+    });
+  }
+
+  // ---- Spánek (ruční zápisy noci, dur povinná) ----
+  if(o.sleep && typeof o.sleep==="object" && o.sleep.days && typeof o.sleep.days==="object"){
+    Object.keys(o.sleep.days).forEach(function(k){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+      var d = o.sleep.days[k];
+      if(!d || typeof d!=="object") return;
+      function num(v, lo, hi){
+        var n = +v;
+        return (v!=null && v!=="" && isFinite(n) && n>=lo && n<=hi) ? n : null;
+      }
+      var dur = num(d.dur, 0.5, 24);
+      if(dur==null) return;
+      var bed = (typeof d.bed==="string" && /^\d{4}$/.test(d.bed)) ? d.bed : null;
+      var rec = {
+        dur: Math.round(dur*2)/2,
+        bed: bed,
+        feel: num(d.feel, 1, 10)!=null ? Math.round(+d.feel) : null,
+        fall: num(d.fall, 0, 600)!=null ? Math.round(+d.fall) : null,
+        dream: num(d.dream, 0, 99)!=null ? Math.round(+d.dream) : null
+      };
+      s.sleep.days[k] = rec;
     });
   }
 
@@ -3642,7 +3713,7 @@ var SEC_DEFAULT_VIEW = [0,0,1,1,0,0];
 
 function applyViewToTrack(trackEl, animate){
   trackEl.style.transition = animate ? "transform .25s ease" : "none";
-  // Posun z počtu panelů: Litánie 1 (žádný posun), většina 2, Move 3.
+  // Posun z počtu panelů: Litánie 1 (žádný posun), většina 2, Move 5.
   // curView se clampuje, ať track s méně panely neodjede do prázdna.
   var n = trackEl.children.length || 1;
   var v = Math.min(curView, n-1);
@@ -3672,13 +3743,14 @@ function updateUI(){
   document.querySelectorAll("#pager .dot").forEach(function(d){
     d.classList.toggle("on", +d.dataset.view===curView);
   });
-  // Move má čtyři plochy s vlastními názvy (Nálada / Garmin / běh / otužování)
+  // Move má pět ploch s vlastními názvy (Nálada / Spánek / Garmin / běh / otužování)
   document.getElementById("hTitle").textContent =
     (curSection===4 && curView===0) ? "Nálada" :
-    (curSection===4 && curView===2) ? "Běh" :
-    (curSection===4 && curView===3) ? "Otužování" : SEC_TITLES[curSection];
-  // třetí a čtvrtá tečka pageru existují jen pro Move
-  [2,3].forEach(function(v){
+    (curSection===4 && curView===1) ? "Spánek" :
+    (curSection===4 && curView===3) ? "Běh" :
+    (curSection===4 && curView===4) ? "Otužování" : SEC_TITLES[curSection];
+  // třetí až pátá tečka pageru existují jen pro Move
+  [2,3,4].forEach(function(v){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
     if(d) d.style.display = (curSection===4) ? "" : "none";
   });
@@ -4010,7 +4082,7 @@ document.getElementById("moveUnlock").onclick = function(){
 document.getElementById("moveCancel").onclick = closeMoveEdit;
 document.getElementById("moveScrim").onclick = function(e){ if(e.target===this) closeMoveEdit(); };
 
-/* ================= OTUŽOVÁNÍ (třetí plocha sekce Move) =================
+/* ================= OTUŽOVÁNÍ (pátá plocha sekce Move) =================
    Čistě ruční zápisy, žádný sync — proto ani overrides, ani zámky. Mřížka je
    stejná jako u Move (týden = řádek, datum si buňka bere z kalendáře), jen
    kolečko kóduje jiných pět údajů:
@@ -4309,7 +4381,158 @@ document.getElementById("vibeDelete").onclick = function(){
 document.getElementById("vibeCancel").onclick = closeVibeEdit;
 document.getElementById("vibeScrim").onclick = function(e){ if(e.target===this) closeVibeEdit(); };
 
-/* ================= BĚH (druhá plocha sekce Move) =================
+/* ================= SPÁNEK (druhá plocha sekce Move) =================
+   Čistě ruční zápisy noci:
+     velikost kolečka  = délka spánku (4h min → 8h max, mimo rozsah se ořízne,
+                         číslo uvnitř ukazuje reálnou hodnotu)
+     barva kolečka     = zelená ≥ 7h, červená ≤ 6.5h
+     levý půlprstenec  = čas usnutí (žlutá; 23:00 plno → 4:00 nic)
+     pravý půlprstenec = pocit ze spánku (modrá; 1 strašný → 10 nejlepší)
+     čísla dole        = usínání v min / počet snů */
+
+// "HHMM" → podíl vyplnění levého prstence; 23:00 = 1, 4:00 = 0, mimo se ořízne
+// (hodiny 14–22 berou jako "před 23" → plno, 5–13 jako "po 4" → nic)
+function sleepBedRatio(bed){
+  if(!bed || !/^\d{4}$/.test(bed)) return null;
+  var hh = +bed.slice(0,2), mm = +bed.slice(2);
+  if(hh>23 || mm>59) return null;
+  var t = (hh>=14 ? (hh-23)*60+mm : 60+hh*60+mm); // minuty od 23:00 (záporné = dřív)
+  return Math.max(0, Math.min(1, 1 - t/300));
+}
+
+function sleepCell(rec, isFuture, dateKey){
+  var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
+  var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit');
+  if(isFuture || !rec || rec.dur==null){
+    return '<div class="'+cls+'"'+editAttr+'><div class="move-slot"><span class="move-dot"></span></div><span class="mk">&nbsp;</span></div>';
+  }
+  var cx = 50, cy = 50;
+  var STROKE = 9, GAP = 4, MINR = 22, MAXR = 48;
+  var tt = Math.max(0, Math.min(1, (rec.dur-4)/4));
+  var R = MINR + (MAXR-MINR) * tt;
+  var ringR = R - STROKE/2;
+  var innerR = Math.max(8, ringR - STROKE/2 - GAP);
+  var fill = rec.dur>=7 ? "var(--done)" : "var(--missed)";
+  var bedRatio  = sleepBedRatio(rec.bed);
+  var feelRatio = rec.feel!=null ? rec.feel/10 : null;
+  var L  = moveSemi(cx,cy,ringR,+1, bedRatio==null ? 0 : bedRatio);
+  var Rr = moveSemi(cx,cy,ringR,-1, feelRatio==null ? 0 : feelRatio);
+  var durTxt = (rec.dur%1===0) ? String(rec.dur) : rec.dur.toFixed(1);
+  var svg =
+    '<svg viewBox="0 0 100 100">'+
+      '<circle cx="50" cy="50" r="'+innerR+'" fill="'+fill+'"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="var(--empty)" stroke-width="'+STROKE+'" stroke-linecap="round"/>'+
+      '<path d="'+L.d+'" fill="none" stroke="var(--accent)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+L.on+' '+L.len+'"/>'+
+      '<path d="'+Rr.d+'" fill="none" stroke="var(--god)" stroke-width="'+STROKE+'" stroke-linecap="round" stroke-dasharray="'+Rr.on+' '+Rr.len+'"/>'+
+      '<text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="var(--sans)" font-weight="700" font-size="'+Math.max(13, Math.min(innerR*0.95, 26))+'" fill="#15120E">'+durTxt+'</text>'+
+    '</svg>';
+  var foot = (rec.fall!=null ? rec.fall : '–')+'/'+(rec.dream!=null ? rec.dream : '–');
+  return '<div class="'+cls+'"'+editAttr+'><div class="move-disc">'+svg+'</div><span class="mk">'+foot+'</span></div>';
+}
+
+function renderSleep(){
+  var grid = document.getElementById("sleepGrid");
+  var empty = document.getElementById("sleepEmpty");
+  if(!grid) return;
+  var days = state.sleep.days || {};
+  var keys = Object.keys(days).sort();
+  if(empty) empty.style.display = keys.length ? "none" : "";
+  var t = today();
+  var endMon = mondayOf(t);
+  var startMon = addDays(endMon, -7*7);
+  if(keys.length){
+    var firstMon = mondayOf(new Date(keys[0]+"T00:00:00"));
+    if(firstMon < startMon) startMon = firstMon;
+  }
+  var html = "";
+  for(var wk=new Date(endMon); wk>=startMon; wk=addDays(wk,-7)){
+    html += '<div class="move-week">';
+    for(var i=0;i<7;i++){
+      var d = addDays(wk,i), dk = key(d);
+      html += sleepCell(days[dk], d>t, dk);
+    }
+    html += '</div>';
+  }
+  grid.innerHTML = html;
+}
+
+/* ---- Ruční zápis noci ---- */
+var sleepEditDate = null;
+
+function openSleepEdit(dk){
+  sleepEditDate = dk;
+  var rec = (state.sleep.days || {})[dk] || null;
+  function set(id, v){ document.getElementById(id).value = (v==null ? "" : v); }
+  set("sleepDur",   rec ? rec.dur   : null);
+  set("sleepBed",   rec ? rec.bed   : null);
+  set("sleepFeel",  rec ? rec.feel  : null);
+  set("sleepFall",  rec ? rec.fall  : null);
+  set("sleepDream", rec ? rec.dream : null);
+  document.getElementById("sleepEditTitle").textContent = (rec ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
+  document.getElementById("sleepDelete").style.display = rec ? "" : "none";
+  document.getElementById("sleepScrim").classList.add("open");
+}
+function closeSleepEdit(){
+  document.getElementById("sleepScrim").classList.remove("open");
+  sleepEditDate = null;
+}
+
+document.getElementById("sleepGrid").addEventListener("click", function(e){
+  var cell = e.target.closest ? e.target.closest(".move-cell--edit") : null;
+  if(!cell) return;
+  var dk = cell.getAttribute("data-date");
+  if(dk) openSleepEdit(dk);
+});
+
+document.getElementById("sleepSave").onclick = function(){
+  if(!sleepEditDate) return;
+  var dur = +document.getElementById("sleepDur").value;
+  if(!isFinite(dur) || dur<0.5 || dur>24){ toast("Vyplň délku spánku (0.5–24 h)."); return; }
+  dur = Math.round(dur*2)/2;
+  // usnutí: volitelné; "2320" / "040" / "23:20" → "HHMM"
+  var bedRaw = document.getElementById("sleepBed").value.replace(/\D/g,"");
+  var bed = null;
+  if(bedRaw){
+    if(bedRaw.length===3) bedRaw = "0"+bedRaw;
+    if(!/^\d{4}$/.test(bedRaw) || +bedRaw.slice(0,2)>23 || +bedRaw.slice(2)>59){
+      toast("Usnutí zadej jako HHMM, třeba 2320 nebo 0040."); return;
+    }
+    bed = bedRaw;
+  }
+  function opt(id, lo, hi){
+    var v = document.getElementById(id).value;
+    if(v==="") return null;
+    var n = Math.round(+v);
+    return (isFinite(n) && n>=lo && n<=hi) ? n : undefined; // undefined = mimo rozsah
+  }
+  var feel = opt("sleepFeel", 1, 10);
+  var fall = opt("sleepFall", 0, 600);
+  var dream = opt("sleepDream", 0, 99);
+  if(feel===undefined){ toast("Pocit je 1–10."); return; }
+  if(fall===undefined){ toast("Usínání zadej v minutách (0–600)."); return; }
+  if(dream===undefined){ toast("Sny zadej jako počet (0–99)."); return; }
+  if(!state.sleep.days) state.sleep.days = {};
+  state.sleep.days[sleepEditDate] = { dur:dur, bed:bed, feel:feel, fall:fall, dream:dream };
+  save();
+  renderSleep();
+  toast("Noc zapsána. 🌙");
+  closeSleepEdit();
+};
+
+document.getElementById("sleepDelete").onclick = function(){
+  if(!sleepEditDate) return;
+  if(state.sleep.days) delete state.sleep.days[sleepEditDate];
+  save();
+  renderSleep();
+  toast("Zápis smazán.");
+  closeSleepEdit();
+};
+
+document.getElementById("sleepCancel").onclick = closeSleepEdit;
+document.getElementById("sleepScrim").onclick = function(e){ if(e.target===this) closeSleepEdit(); };
+
+/* ================= BĚH (čtvrtá plocha sekce Move) =================
    Data ze syncu (run_data.json, merge do state.run.days — localStorage drží
    i historii starší než 90denní okno syncu) + ruční pocity (state.run.manual).
    Kolečko dne:
@@ -5032,7 +5255,7 @@ document.getElementById("undoBtn").onclick = function(){
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
   renderProgresPanel(); renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
-  renderMove(); renderCold(); renderVibe(); renderRun(); refreshLit();
+  renderMove(); renderCold(); renderVibe(); renderSleep(); renderRun(); refreshLit();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
 var freeSearchEls = [document.getElementById("freeSearch"), document.getElementById("freeSearchOv")];
