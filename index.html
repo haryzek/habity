@@ -1252,11 +1252,9 @@
       <button class="btn btn-ghost" id="btnImport">Načíst zálohu ze souboru</button>
       <button class="btn btn-danger" id="btnClearOv" style="margin-top:0">Vymazat historii úkolů</button>
       <button class="btn btn-ghost" id="btnRefreshMove">Znovu načíst Move data z GitHubu</button>
-      <button class="btn btn-ghost" id="btnImportOt">Import otázek (JSON z disku)</button>
       <button class="btn btn-ghost" id="setClose">Zavřít</button>
     </div>
     <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
-    <input type="file" id="fileImportOt" accept="application/json,.json" style="display:none">
   </div>
 </div>
 
@@ -1369,7 +1367,7 @@ var LIT_COLS = {
     temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[],
     prioMax:10, prioDef:6, idPrefix:"uq",
     dom:{ search:"otSearch", favQuick:"otFavQuick", filterBar:"otFilterBar", count:"otCount", list:"otList", empty:"otEmpty" },
-    lab:{ one:"Otázky", ph:"Text otázky…", del:"Vyhodit otázku", deleted:"Otázka vyhozena.", loading:"Zatím žádné otázky — naimportuj je v ⚙ Data." }
+    lab:{ one:"Otázky", ph:"Text otázky…", del:"Vyhodit otázku", deleted:"Otázka vyhozena.", loading:"Zatím žádné otázky." }
   }
 };
 function litColBlank(c){
@@ -3719,21 +3717,6 @@ document.getElementById("fileImport").onchange = function(e){
       });
     }catch(err){ toast("Tohle nevypadá jako platná záloha Habitů."); }
     document.getElementById("fileImport").value = "";
-  };
-  reader.readAsText(file);
-};
-// Dočasné: jednorázový import otazky.json (local/otazky) do localStorage. Po nasátí
-// na všech zařízeních tlačítko smazat (stejně jako kdysi #btnImportLit).
-document.getElementById("btnImportOt").onclick = function(){ document.getElementById("fileImportOt").click(); };
-document.getElementById("fileImportOt").onchange = function(e){
-  var file = e.target.files[0]; if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(){
-    try{
-      var n = litImport(LIT_COLS.ot, JSON.parse(reader.result));
-      closeSettings(); toast("Naimportováno "+n+" otázek.");
-    }catch(err){ toast("Tohle nevypadá jako otazky.json."); }
-    document.getElementById("fileImportOt").value = "";
   };
   reader.readAsText(file);
 };

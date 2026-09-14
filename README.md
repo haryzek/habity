@@ -754,9 +754,8 @@ kolekce, naplní `litLoadFromState(c)` při startu / po importu.
 **Import (`litImport(c, d)`):** formát `{ polozky:[…], temata:[], casti:[], skupiny:[] }`
 (`litanie.json` má klíč `litanie` místo `polozky` — bere se obojí). Naplní `state[c.base]`
 + definice tagů, `save()`, `litLoadFromState(c)`; reimport drží overlay/new přes stabilní
-id. **Litánie:** UI tlačítko dávno odstraněno (data nasátá). **Otázky:** dočasné tlačítko
-`#btnImportOt` v ⚙ Data „Import otázek (JSON z disku)" — po nasátí na všech zařízeních
-smazat. Zdroj `local/otazky/Otazky.xlsx` (Otázka | Skóre | Kategorie, 980 řádků) →
+id. Obě kolekce **už jsou nasáté** (litánie dávno, otázky 14. 9. 2026), import tlačítka
+odstraněná — `litImport` je bez UI volajícího, při potřebě reimportu dočasně zavěsit. Zdroj `local/otazky/Otazky.xlsx` (Otázka | Skóre | Kategorie, 980 řádků) →
 `local/otazky/xlsx2json.py` → `local/otazky/otazky.json` (id `q0001…` = pořadí řádků).
 
 **Slití (`litEffective(c)`):** vezme `c.BASE`, na každou větu napasuje
