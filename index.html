@@ -909,6 +909,17 @@
           Nic nesedí filtru.<br>Zkus <b style="color:var(--accent)">Reset</b> nebo přidej novou přes <b style="color:var(--accent)">+</b>.
         </div>
       </div>
+      <!-- druhá plocha: Otázky (stejný motor, vlastní data) -->
+      <div class="panel">
+        <div class="free-search-row lit-search-row">
+          <input type="text" id="otSearch" class="free-search" placeholder="Hledat v otázkách…" autocomplete="off">
+          <button type="button" id="otFavQuick" class="lit-fav-toggle" title="Jen oblíbené">☆</button>
+        </div>
+        <div class="free-filter-row" id="otFilterBar"></div>
+        <div class="lit-count" id="otCount"></div>
+        <div id="otList"></div>
+        <div class="empty-state" id="otEmpty" style="display:none"></div>
+      </div>
     </div>
   </section>
 </div>
@@ -1241,9 +1252,11 @@
       <button class="btn btn-ghost" id="btnImport">Načíst zálohu ze souboru</button>
       <button class="btn btn-danger" id="btnClearOv" style="margin-top:0">Vymazat historii úkolů</button>
       <button class="btn btn-ghost" id="btnRefreshMove">Znovu načíst Move data z GitHubu</button>
+      <button class="btn btn-ghost" id="btnImportOt">Import otázek (JSON z disku)</button>
       <button class="btn btn-ghost" id="setClose">Zavřít</button>
     </div>
     <input type="file" id="fileImport" accept="application/json,.json" style="display:none">
+    <input type="file" id="fileImportOt" accept="application/json,.json" style="display:none">
   </div>
 </div>
 
@@ -1348,6 +1361,15 @@ var LIT_COLS = {
     prioMax:5, prioDef:2, idPrefix:"ul",
     dom:{ search:"litSearch", favQuick:"litFavQuick", filterBar:"litFilterBar", count:"litCount", list:"litList", empty:"litEmpty" },
     lab:{ one:"Litánie", ph:"Text litánie…", del:"Vyhodit litánii", deleted:"Litánie vyhozena.", loading:"Načítám litánie…" }
+  },
+  // Otázky na dlouhou cestu (poznávací otázky pro dva). Skóre 1–10 z původního xlsx.
+  // Kategorie z xlsx = první sada tagů (temata); casti/skupiny zatím prázdné (doplní se).
+  ot: {
+    key:"ot", base:"otBase", overlay:"otOverlay", nw:"otNew", filter:"otFilter",
+    temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[],
+    prioMax:10, prioDef:6, idPrefix:"uq",
+    dom:{ search:"otSearch", favQuick:"otFavQuick", filterBar:"otFilterBar", count:"otCount", list:"otList", empty:"otEmpty" },
+    lab:{ one:"Otázky", ph:"Text otázky…", del:"Vyhodit otázku", deleted:"Otázka vyhozena.", loading:"Zatím žádné otázky — naimportuj je v ⚙ Data." }
   }
 };
 function litColBlank(c){
@@ -3700,6 +3722,21 @@ document.getElementById("fileImport").onchange = function(e){
   };
   reader.readAsText(file);
 };
+// Dočasné: jednorázový import otazky.json (local/otazky) do localStorage. Po nasátí
+// na všech zařízeních tlačítko smazat (stejně jako kdysi #btnImportLit).
+document.getElementById("btnImportOt").onclick = function(){ document.getElementById("fileImportOt").click(); };
+document.getElementById("fileImportOt").onchange = function(e){
+  var file = e.target.files[0]; if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var n = litImport(LIT_COLS.ot, JSON.parse(reader.result));
+      closeSettings(); toast("Naimportováno "+n+" otázek.");
+    }catch(err){ toast("Tohle nevypadá jako otazky.json."); }
+    document.getElementById("fileImportOt").value = "";
+  };
+  reader.readAsText(file);
+};
 document.getElementById("btnClearOv").onclick = function(){
   askConfirm("Vymazat celou historii úkolů (zelené i červené čtverečky v Přehledu)? Úkoly samotné to nesmaže, jen jejich stopy v Přehledu.", "Vymazat", function(){
     state.daily = {};
@@ -3717,7 +3754,7 @@ var SEC_DEFAULT_VIEW = [0,0,1,1,0,0];
 
 function applyViewToTrack(trackEl, animate){
   trackEl.style.transition = animate ? "transform .25s ease" : "none";
-  // Posun z počtu panelů: Litánie 1 (žádný posun), většina 2, Move 5.
+  // Posun z počtu panelů: většina 2, Move 5.
   // curView se clampuje, ať track s méně panely neodjede do prázdna.
   var n = trackEl.children.length || 1;
   var v = Math.min(curView, n-1);
@@ -3752,18 +3789,15 @@ function updateUI(){
     (curSection===4 && curView===0) ? "Nálada" :
     (curSection===4 && curView===1) ? "Spánek" :
     (curSection===4 && curView===3) ? "Běh" :
-    (curSection===4 && curView===4) ? "Otužování" : SEC_TITLES[curSection];
+    (curSection===4 && curView===4) ? "Otužování" :
+    (curSection===5 && curView===1) ? "Otázky" : SEC_TITLES[curSection];
   // třetí až pátá tečka pageru existují jen pro Move
   [2,3,4].forEach(function(v){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
     if(d) d.style.display = (curSection===4) ? "" : "none";
   });
-  // Move: bez FABu (obě plochy se plní klikem na puntík). Litánie: FAB má, pager ne.
-  var isMove = curSection===4;
-  var noPager = curSection===5;
-  document.getElementById("fab").style.display = isMove ? "none" : "";
-  var pgr = document.getElementById("pager");
-  if(pgr) pgr.style.visibility = noPager ? "hidden" : "";
+  // Move: bez FABu (obě plochy se plní klikem na puntík).
+  document.getElementById("fab").style.display = (curSection===4) ? "none" : "";
 }
 
 function attachSwipe(pageEl, trackEl){
@@ -3808,7 +3842,6 @@ function attachSwipe(pageEl, trackEl){
   pageEl.addEventListener("pointercancel", end);
 }
 SEC_PAGES.forEach(function(id, i){
-  if(id==="secLitanie") return; // jedna plocha, swipe nepřipojujeme
   attachSwipe(document.getElementById(id), document.getElementById(SEC_TRACKS[i]));
 });
 
@@ -3826,7 +3859,7 @@ document.getElementById("fab").onclick = function(){
   }
   else if(curSection===1) openUtSheet(null);
   else if(curSection===4) return; // Move nemá přidávání přes FAB
-  else if(curSection===5) openLitSheet(LIT_COLS.lit, null); // Litánie – přidat novou větu
+  else if(curSection===5) openLitSheet(curView===1 ? LIT_COLS.ot : LIT_COLS.lit, null); // Litánie / Otázky
   else openSheet(curSection-2, null); // sekce 2/3 -> habit sekce 0/1
 };
 

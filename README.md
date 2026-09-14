@@ -86,9 +86,9 @@ obráceně:**
   (`applyViewToTrack`: `translateX(-v*100/n%)`), pager má třetí až pátou tečku,
   které `updateUI` ukazuje jen v Move; `hTitle` se přepíná na
   „Nálada"/„Spánek"/„Běh"/„Otužování".
-  **Litánie (5) je jediná výjimka** — jedna plocha, bez swipu i pageru. Move
-  nemá FAB (plochy se plní klikem na puntík dne), **Litánie FAB má**.
-  `updateUI` proto řeší `noPager = jen 5` a `fab hidden = jen 4`.
+  Litánie (5) má dvě plochy: **Litánie** (view 0) a **Otázky** (view 1), `hTitle`
+  se přepíná. Move nemá FAB (plochy se plní klikem na puntík dne); `updateUI` proto
+  řeší `fab hidden = jen 4`. FAB v sekci 5 přidává do kolekce podle `curView`.
   ⚠️ **Past:** `#trackMove .panel` **nesmí dostat `overflow-y:auto`**. Vlastní
   scrollovací kontejner sebere na Androidu vodorovné gesto (Chrome zahájí scroll
   a pošle `pointercancel`) → swipe jen cukne a odskočí. Move scrolluje oknem jako
@@ -103,7 +103,7 @@ obráceně:**
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
 | 4 | **Move** | Nálada (view 0) | **Spánek** (view 1) · **Garmin** (view 2) · **Běh** (view 3) · **Otužování** (view 4) | Pět ploch stejného tvaru: ruční zápis dne (nálada), ruční zápis noci (spánek), Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e, 5f, 5g a 5h.** |
-| 5 | **Litánie** | — (jedna plocha) | — | Podpůrné věty/přerámování, filtrované tagy. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
+| 5 | **Litánie** | Litánie (view 0) | **Otázky** (view 1) | Dvě kolekce vět s tagy nad jedním motorem: podpůrné věty/přerámování a poznávací otázky na cestu. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
 
 Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
 česky. `hTitle` nahoře ukazuje jen název sekce (ne rozlišuje Check/Přehled).
@@ -722,31 +722,46 @@ slider priority.
 > od Move (Garmin data = veřejně OK) se litánie do repa nedostanou. Pozor při
 > jakémkoli commitu, ať to tam omylem neproklouzne.
 
-Zdroj se **jednorázově naimportoval z disku** do localStorage (import už hotový,
-tlačítko odstraněno — viz níž). Odtud data žijí jen v localStorage a v JSON exportu
-— **jako zbytek appky** (návyky/tasky). Čtyři kusy ve `state`:
-- `litBase[]` — základní věty (z importu). `litTemata[]` / `litCasti[]` = definice
-  tagů z hlavičky jsonu. **Toto je jen v localStorage, git to nekryje → zálohovat
+**Kolekce (`LIT_COLS`, 9/2026):** motor je parametrizovaný — každá kolekce je
+objekt `{key, base, overlay, nw, filter, temata, casti, skupiny, prioMax, prioDef,
+idPrefix, dom:{…}, lab:{…}}` říkající, pod jakými klíči ve `state` žije, jaké má DOM
+idčka (search/favQuick/filterBar/count/list/empty) a jaký rozsah priority. Všechny
+funkce motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
+`openLitSheet(c,id)`, `litToggleFav(c,id)`…); `refreshLit()` / `litLoadFromState()`
+bez argumentu = všechny kolekce. Sheet `#litSheet` je **sdílený** — `litEditCol`
+drží, komu patří; placeholder, text delete tlačítka a `max` slideru se nastaví při
+otevření. Prázdné sady tagů se ve filtru i sheetu schovávají.
+
+| klíč | kolekce | state prefix | priorita | id nových | tagy |
+|---|---|---|---|---|---|
+| `lit` | **Litánie** (view 0) | `lit*` | 1–5, default 2 | `ul…` | temata (22) · casti (13) · skupiny (seed Otázky/Litánie/Udělat/Výzvy) |
+| `ot` | **Otázky** (view 1) | `ot*` | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx · casti/skupiny zatím prázdné (doplní se) |
+
+Zdroj se **jednorázově importuje z disku** do localStorage. Odtud data žijí jen
+v localStorage a v JSON exportu — **jako zbytek appky** (návyky/tasky). Per kolekci
+pět kusů ve `state` (`litColBlank(c)` / `litColNormalize(o,s,c)`):
+- `<k>Base[]` — základní věty (z importu). `<k>Temata[]` / `<k>Casti[]` / `<k>Skupiny[]`
+  = definice tagů z hlavičky jsonu. **Jen v localStorage, git to nekryje → zálohovat
   exportem.**
-- `litOverlay[id]` — částečné přepisy základních vět (text/temata/casti/priorita/
-  oblibena/aktivni). Klíč = **string** id. Ukládá se jen změněné pole.
-- `litNew[]` — uživatelem přidané věty (id `"ul"+timestamp`).
-- `litFilter` — persistovaný stav filtru.
+- `<k>Overlay[id]` — částečné přepisy základních vět (text/temata/casti/skupiny/
+  priorita/oblibena/aktivni). Klíč = **string** id. Ukládá se jen změněné pole.
+- `<k>New[]` — uživatelem přidané věty (id `c.idPrefix+timestamp`).
+- `<k>Filter` — persistovaný stav filtru.
 
-**Runtime cache:** `LIT_BASE`/`LIT_TEMATA`/`LIT_CASTI` (globály) se při startu
-naplní ze `state` přes `litLoadFromState()` (v initu, místo dřívějšího fetche).
-`LIT_LOADED = LIT_BASE.length>0`.
+**Runtime cache:** `c.BASE`/`c.TEMATA`/`c.CASTI`/`c.SKUPINY`/`c.LOADED` na objektu
+kolekce, naplní `litLoadFromState(c)` při startu / po importu.
 
-**Import:** funkce `importLitanie(d)` v kódu **zůstala** (naparsuje `litanie.json`,
-naplní `state.litBase` + definice tagů, `save()`, `litLoadFromState()`, reimport drží
-overlay/litNew přes stabilní id), ale **UI tlačítko `#btnImportLit` už bylo odstraněno**
-— data jsou dávno nasátá v localStorage/exportu (stejně jako se to udělalo s Garmin
-importem). Funkce je tak momentálně bez UI volajícího; kdyby byl potřeba reimport, dá
-se dočasně zavěsit zpět.
+**Import (`litImport(c, d)`):** formát `{ polozky:[…], temata:[], casti:[], skupiny:[] }`
+(`litanie.json` má klíč `litanie` místo `polozky` — bere se obojí). Naplní `state[c.base]`
++ definice tagů, `save()`, `litLoadFromState(c)`; reimport drží overlay/new přes stabilní
+id. **Litánie:** UI tlačítko dávno odstraněno (data nasátá). **Otázky:** dočasné tlačítko
+`#btnImportOt` v ⚙ Data „Import otázek (JSON z disku)" — po nasátí na všech zařízeních
+smazat. Zdroj `local/otazky/Otazky.xlsx` (Otázka | Skóre | Kategorie, 980 řádků) →
+`local/otazky/xlsx2json.py` → `local/otazky/otazky.json` (id `q0001…` = pořadí řádků).
 
-**Slití (`litEffective`):** vezme `LIT_BASE`, na každou větu napasuje
-`litOverlay[id]` (přebije základ), přidá `litNew`. Vrací sjednocený seznam s
-flagem `_new`.
+**Slití (`litEffective(c)`):** vezme `c.BASE`, na každou větu napasuje
+`state[c.overlay][id]` (přebije základ), přidá `state[c.nw]`. Vrací sjednocený seznam
+s flagem `_new`.
 
 **Proč import a ne Pages fetch:** Pages je veřejné bez auth (viz sekce 5d, stejný
 důvod proč se osobní sekce nesmí vystavovat). „Push na jedno stažení a pak smazat"
