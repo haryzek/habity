@@ -1338,13 +1338,80 @@ function litRenArr(a){
   (a||[]).forEach(function(t){ var r = litRen(t); if(!seen[r]){ seen[r]=1; out.push(r); } });
   return out;
 }
+// Kolekce „vět s tagy" sdílející jeden motor (seznam, filtr, search, sheet).
+// Každá má vlastní klíče ve state, vlastní DOM plochu a vlastní rozsah priority.
+// Tři sady tagů (temata/casti/skupiny) mají per-kolekci vlastní definice.
+var LIT_COLS = {
+  lit: {
+    key:"lit", base:"litBase", overlay:"litOverlay", nw:"litNew", filter:"litFilter",
+    temata:"litTemata", casti:"litCasti", skupiny:"litSkupiny", seedSkupiny:LIT_SKUPINY_SEED,
+    prioMax:5, prioDef:2, idPrefix:"ul",
+    dom:{ search:"litSearch", favQuick:"litFavQuick", filterBar:"litFilterBar", count:"litCount", list:"litList", empty:"litEmpty" },
+    lab:{ one:"Litánie", ph:"Text litánie…", del:"Vyhodit litánii", deleted:"Litánie vyhozena.", loading:"Načítám litánie…" }
+  }
+};
+function litColBlank(c){
+  var s = {};
+  s[c.base] = []; s[c.temata] = []; s[c.casti] = []; s[c.skupiny] = (c.seedSkupiny||[]).slice();
+  s[c.overlay] = {}; s[c.nw] = [];
+  s[c.filter] = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" };
+  return s;
+}
+function litColNormalize(o, s, c){
+  var PM = c.prioMax;
+  function strArr(a){ return litRenArr(Array.isArray(a) ? a.filter(function(t){ return typeof t==="string"; }) : []); }
+  function prio(v, def){ return (typeof v==="number" && v>=1 && v<=PM) ? Math.round(v) : def; }
+  if(Array.isArray(o[c.base])){
+    s[c.base] = o[c.base].filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
+      .map(function(x){
+        return { id:String(x.id), text:String(x.text), temata:strArr(x.temata), casti:strArr(x.casti), skupiny:strArr(x.skupiny),
+                 priorita:prio(x.priorita, c.prioDef), oblibena:!!x.oblibena, aktivni:x.aktivni!==false };
+      });
+  }
+  if(Array.isArray(o[c.temata])) s[c.temata] = strArr(o[c.temata]);
+  if(Array.isArray(o[c.casti])) s[c.casti] = strArr(o[c.casti]);
+  if(Array.isArray(o[c.skupiny])) s[c.skupiny] = strArr(o[c.skupiny]);
+  if(o[c.overlay] && typeof o[c.overlay]==="object"){
+    Object.keys(o[c.overlay]).forEach(function(id){
+      var ov = o[c.overlay][id];
+      if(!ov || typeof ov!=="object") return;
+      var clean = {};
+      if(typeof ov.text==="string") clean.text = ov.text.slice(0,4000);
+      if(Array.isArray(ov.temata)) clean.temata = strArr(ov.temata);
+      if(Array.isArray(ov.casti)) clean.casti = strArr(ov.casti);
+      if(Array.isArray(ov.skupiny)) clean.skupiny = strArr(ov.skupiny);
+      if(typeof ov.priorita==="number" && ov.priorita>=1 && ov.priorita<=PM) clean.priorita = Math.round(ov.priorita);
+      if(typeof ov.oblibena==="boolean") clean.oblibena = ov.oblibena;
+      if(typeof ov.aktivni==="boolean") clean.aktivni = ov.aktivni;
+      if(Object.keys(clean).length) s[c.overlay][id] = clean;
+    });
+  }
+  if(Array.isArray(o[c.nw])){
+    s[c.nw] = o[c.nw].filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
+      .map(function(x){
+        return { id:(typeof x.id==="string") ? x.id : litNewId(c), text:x.text.slice(0,4000),
+                 temata:strArr(x.temata), casti:strArr(x.casti), skupiny:strArr(x.skupiny),
+                 priorita:prio(x.priorita, c.prioDef), oblibena:!!x.oblibena, aktivni:x.aktivni!==false };
+      });
+  }
+  var lf = o[c.filter], f = s[c.filter];
+  if(lf && typeof lf==="object"){
+    if(Array.isArray(lf.temata)) f.temata = strArr(lf.temata);
+    if(Array.isArray(lf.casti)) f.casti = strArr(lf.casti);
+    if(Array.isArray(lf.skupiny)) f.skupiny = strArr(lf.skupiny);
+    if(typeof lf.prioMin==="number" && lf.prioMin>=1 && lf.prioMin<=PM) f.prioMin = Math.round(lf.prioMin);
+    f.fav = !!lf.fav; f.noTags = !!lf.noTags; f.expanded = !!lf.expanded;
+    if(typeof lf.search==="string") f.search = lf.search.slice(0,100);
+  }
+}
+function litNewId(c){ return c.idPrefix+Date.now()+Math.random().toString(36).slice(2,6); }
 
 var state = load();
 
 function blankState(){
   // Move: výchozí stropy prstenců (kcal/dist se přepočítají z dat při importu;
   // hrBase/hrCap dle Bobova režimu — klidový ~55, zátěž ~130)
-  return {
+  var s = {
     sections:[ {habits:[],log:{}}, {habits:[],log:{}} ],
     tasks:[], backlogs:["Wip","Done","Future"], utasks:[], daily:{},
     taskBacklogSel:["Wip"],
@@ -1368,14 +1435,17 @@ function blankState(){
     // localStorage přežívá 90denní okno syncu, baseline EF se z ní počítá);
     // manual[date] = ruční pocity {heavy, ach} 0–10, sync na ně nesahá.
     run:{ days:{}, manual:{} },
-    // Litánie: SOUKROMÁ data, nikdy ne online. Zdroj se JEDNORÁZOVĚ naimportuje z disku
-    // (⚙ Data) do localStorage — odtud je kryje jen JSON export, jako zbytek appky.
-    //  litBase = základní věty (import z litanie.json), litTemata/litCasti = definice tagů
-    //  litOverlay[id] = částečné přepisy základních vět, litNew = uživatelem přidané věty
-    litBase:[], litTemata:[], litCasti:[], litSkupiny:LIT_SKUPINY_SEED.slice(),
-    litOverlay:{}, litNew:[],
-    litFilter:{ temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" }
+    // Litánie (a další kolekce z LIT_COLS): SOUKROMÁ data, nikdy ne online. Zdroj se
+    // JEDNORÁZOVĚ naimportuje z disku (⚙ Data) do localStorage — odtud je kryje jen JSON export.
+    //  <k>Base = základní věty (import), <k>Temata/Casti/Skupiny = definice tagů
+    //  <k>Overlay[id] = částečné přepisy základních vět, <k>New = uživatelem přidané věty
+    //  <k>Filter = persistovaný stav filtru
   };
+  Object.keys(LIT_COLS).forEach(function(k){
+    var b = litColBlank(LIT_COLS[k]);
+    Object.keys(b).forEach(function(key){ s[key] = b[key]; });
+  });
+  return s;
 }
 
 function normalize(o){
@@ -1686,67 +1756,8 @@ function normalize(o){
     }
   }
 
-  // ---- Litánie (base v localStorage + overlay přepisy + uživatelské věty + filtr) ----
-  if(Array.isArray(o.litBase)){
-    s.litBase = o.litBase.filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
-      .map(function(x){
-        return {
-          id: String(x.id),
-          text: String(x.text),
-          temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
-          casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
-          skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : []),
-          priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
-          oblibena: !!x.oblibena,
-          aktivni: x.aktivni!==false
-        };
-      });
-  }
-  if(Array.isArray(o.litTemata)) s.litTemata = litRenArr(o.litTemata.filter(function(t){ return typeof t==="string"; }));
-  if(Array.isArray(o.litCasti)) s.litCasti = litRenArr(o.litCasti.filter(function(t){ return typeof t==="string"; }));
-  if(Array.isArray(o.litSkupiny)) s.litSkupiny = litRenArr(o.litSkupiny.filter(function(t){ return typeof t==="string"; }));
-  if(o.litOverlay && typeof o.litOverlay==="object"){
-    Object.keys(o.litOverlay).forEach(function(id){
-      var ov = o.litOverlay[id];
-      if(!ov || typeof ov!=="object") return;
-      var clean = {};
-      if(typeof ov.text==="string") clean.text = ov.text.slice(0,4000);
-      if(Array.isArray(ov.temata)) clean.temata = litRenArr(ov.temata.filter(function(t){ return typeof t==="string"; }));
-      if(Array.isArray(ov.casti)) clean.casti = litRenArr(ov.casti.filter(function(t){ return typeof t==="string"; }));
-      if(Array.isArray(ov.skupiny)) clean.skupiny = litRenArr(ov.skupiny.filter(function(t){ return typeof t==="string"; }));
-      if(typeof ov.priorita==="number" && ov.priorita>=1 && ov.priorita<=5) clean.priorita = Math.round(ov.priorita);
-      if(typeof ov.oblibena==="boolean") clean.oblibena = ov.oblibena;
-      if(typeof ov.aktivni==="boolean") clean.aktivni = ov.aktivni;
-      if(Object.keys(clean).length) s.litOverlay[id] = clean;
-    });
-  }
-  if(Array.isArray(o.litNew)){
-    s.litNew = o.litNew.filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
-      .map(function(x){
-        return {
-          id: (typeof x.id==="string") ? x.id : ("ul"+Date.now()+Math.random().toString(36).slice(2,6)),
-          text: x.text.slice(0,4000),
-          temata: litRenArr(Array.isArray(x.temata) ? x.temata.filter(function(t){ return typeof t==="string"; }) : []),
-          casti: litRenArr(Array.isArray(x.casti) ? x.casti.filter(function(t){ return typeof t==="string"; }) : []),
-          skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : []),
-          priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
-          oblibena: !!x.oblibena,
-          aktivni: x.aktivni!==false
-        };
-      });
-  }
-  s.litFilter = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" };
-  if(o.litFilter && typeof o.litFilter==="object"){
-    var lf = o.litFilter;
-    if(Array.isArray(lf.temata)) s.litFilter.temata = litRenArr(lf.temata.filter(function(t){ return typeof t==="string"; }));
-    if(Array.isArray(lf.casti)) s.litFilter.casti = litRenArr(lf.casti.filter(function(t){ return typeof t==="string"; }));
-    if(Array.isArray(lf.skupiny)) s.litFilter.skupiny = litRenArr(lf.skupiny.filter(function(t){ return typeof t==="string"; }));
-    if(typeof lf.prioMin==="number" && lf.prioMin>=1 && lf.prioMin<=5) s.litFilter.prioMin = Math.round(lf.prioMin);
-    s.litFilter.fav = !!lf.fav;
-    s.litFilter.noTags = !!lf.noTags;
-    s.litFilter.expanded = !!lf.expanded;
-    if(typeof lf.search==="string") s.litFilter.search = lf.search.slice(0,100);
-  }
+  // ---- Kolekce vět (Litánie, …): base v localStorage + overlay přepisy + uživatelské věty + filtr ----
+  Object.keys(LIT_COLS).forEach(function(k){ litColNormalize(o, s, LIT_COLS[k]); });
   return s;
 }
 
@@ -3815,7 +3826,7 @@ document.getElementById("fab").onclick = function(){
   }
   else if(curSection===1) openUtSheet(null);
   else if(curSection===4) return; // Move nemá přidávání přes FAB
-  else if(curSection===5) openLitSheet(null); // Litánie – přidat novou větu
+  else if(curSection===5) openLitSheet(LIT_COLS.lit, null); // Litánie – přidat novou větu
   else openSheet(curSection-2, null); // sekce 2/3 -> habit sekce 0/1
 };
 
@@ -4823,51 +4834,54 @@ function fetchRunData(){
     .catch(function(){});
 }
 
-/* ================= LITÁNIE ================= */
-// Zdroj = litanie.json (read-only, v gitu). Změny žijí v state.litOverlay / state.litNew.
-var LIT_BASE = [], LIT_TEMATA = [], LIT_CASTI = [], LIT_SKUPINY = [], LIT_LOADED = false;
+/* ================= LITÁNIE & spol. (kolekce vět s tagy) ================= */
+// Jeden motor pro všechny kolekce z LIT_COLS. Data žijí v localStorage
+// (state[c.base] atd.), nikdy ne online. Runtime cache (c.BASE, c.TEMATA, …)
+// se naplní ze state při startu / po importu.
 var LIT_COL_TEMATA = "#6E8FAE", LIT_COL_CASTI = "#BC5B43", LIT_COL_SKUPINY = "#74955E";
 
-// Data žijí v localStorage (state.litBase/litTemata/litCasti) — nikdy ne online.
-// Runtime cache (LIT_*) se z nich naplní při startu.
-function litLoadFromState(){
-  LIT_BASE   = state.litBase || [];
-  LIT_TEMATA = state.litTemata || [];
-  LIT_CASTI  = state.litCasti || [];
-  LIT_SKUPINY = state.litSkupiny || [];
-  LIT_LOADED = LIT_BASE.length > 0;
-  refreshLit();
+function litLoadFromState(c){
+  if(!c){ Object.keys(LIT_COLS).forEach(function(k){ litLoadFromState(LIT_COLS[k]); }); return; }
+  c.BASE    = state[c.base] || [];
+  c.TEMATA  = state[c.temata] || [];
+  c.CASTI   = state[c.casti] || [];
+  c.SKUPINY = state[c.skupiny] || [];
+  c.LOADED  = c.BASE.length > 0;
+  refreshLit(c);
 }
 
-// Jednorázový import litanie.json z disku (⚙ Data). Naplní state.litBase +
-// definice tagů z hlavičky. Overlay/litNew zůstanou (id jsou stabilní).
-function importLitanie(d){
-  if(!d || typeof d!=="object" || !Array.isArray(d.litanie)) throw new Error("bad");
-  state.litBase = d.litanie.filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
+// Jednorázový import zdrojového jsonu z disku (⚙ Data). Naplní state[c.base] +
+// definice tagů z hlavičky. Overlay/New zůstanou (id jsou stabilní).
+// Formát: { polozky:[{id,text,temata,casti,skupiny,priorita,oblibena,aktivni}], temata:[], casti:[], skupiny:[] }
+// (litanie.json používá klíč `litanie` místo `polozky` — bereme oba).
+function litImport(c, d){
+  var arr = d && (Array.isArray(d.polozky) ? d.polozky : d.litanie);
+  if(!Array.isArray(arr)) throw new Error("bad");
+  state[c.base] = arr.filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
     .map(function(x){
       return {
         id: String(x.id),
         text: String(x.text),
         temata: litRenArr(Array.isArray(x.temata) ? x.temata.slice() : []),
         casti: litRenArr(Array.isArray(x.casti) ? x.casti.slice() : []),
-        skupiny: Array.isArray(x.skupiny) ? x.skupiny.slice() : [],
-        priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
+        skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.slice() : []),
+        priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=c.prioMax) ? Math.round(x.priorita) : c.prioDef,
         oblibena: !!x.oblibena,
         aktivni: x.aktivni!==false
       };
     });
-  state.litTemata = litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []);
-  state.litCasti  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
-  state.litSkupiny = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : LIT_SKUPINY_SEED.slice());
+  state[c.temata] = litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []);
+  state[c.casti]  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
+  state[c.skupiny] = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : (c.seedSkupiny||[]).slice());
   save();
-  litLoadFromState();
-  return state.litBase.length;
+  litLoadFromState(c);
+  return state[c.base].length;
 }
 
 // Sloučí základ (json) + overlay (přepisy) + uživatelské věty do jednoho seznamu.
-function litEffective(){
-  var ov = state.litOverlay || {}, out = [];
-  LIT_BASE.forEach(function(b){
+function litEffective(c){
+  var ov = state[c.overlay] || {}, out = [];
+  c.BASE.forEach(function(b){
     var o = ov[b.id];
     out.push({
       id: b.id,
@@ -4881,15 +4895,20 @@ function litEffective(){
       _new: false
     });
   });
-  (state.litNew||[]).forEach(function(n){
+  (state[c.nw]||[]).forEach(function(n){
     out.push({ id:n.id, text:n.text, temata:n.temata, casti:n.casti, skupiny:n.skupiny||[],
       priorita:n.priorita, oblibena:n.oblibena, aktivni:n.aktivni!==false, _new:true });
   });
   return out;
 }
-function litFindEff(id){
-  var all = litEffective();
+function litFindEff(c, id){
+  var all = litEffective(c);
   for(var i=0;i<all.length;i++) if(all[i].id===id) return all[i];
+  return null;
+}
+function litFindNew(c, id){
+  var arr = state[c.nw];
+  for(var i=0;i<arr.length;i++) if(arr[i].id===id) return arr[i];
   return null;
 }
 function matchesLitSearch(l, search){
@@ -4910,10 +4929,10 @@ function matchesLitFilter(l, f){
   if(!matchesLitSearch(l, f.search)) return false;
   return true;
 }
-function litView(){
-  var all = litEffective();
+function litView(c){
+  var all = litEffective(c);
   var active = all.filter(function(l){ return l.aktivni!==false; });
-  var f = state.litFilter;
+  var f = state[c.filter];
   var shown = active.filter(function(l){ return matchesLitFilter(l, f); });
   shown.sort(function(a,b){
     if(a.oblibena!==b.oblibena) return a.oblibena ? -1 : 1;
@@ -4927,47 +4946,47 @@ function litEsc(s){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];
   });
 }
-function litFilterActiveCount(){
-  var f = state.litFilter, n = 0;
+function litFilterActiveCount(c){
+  var f = state[c.filter], n = 0;
   n += f.temata.length + f.casti.length + f.skupiny.length;
   if(f.prioMin>1) n++;
   if(f.fav) n++;
   if(f.noTags) n++;
   return n;
 }
-function renderLitFavQuick(){
-  var b = document.getElementById("litFavQuick");
+function renderLitFavQuick(c){
+  var b = document.getElementById(c.dom.favQuick);
   if(!b) return;
-  var on = state.litFilter.fav;
+  var on = state[c.filter].fav;
   b.classList.toggle("on", on);
   b.textContent = on ? "★" : "☆";
 }
-document.getElementById("litFavQuick").onclick = function(){
-  state.litFilter.fav = !state.litFilter.fav; save(); refreshLit();
-};
-function refreshLit(){ renderLitFavQuick(); renderLitFilterBar(); renderLitList(); }
+function refreshLit(c){
+  if(!c){ Object.keys(LIT_COLS).forEach(function(k){ refreshLit(LIT_COLS[k]); }); return; }
+  renderLitFavQuick(c); renderLitFilterBar(c); renderLitList(c);
+}
 
-function renderLitCount(){
-  var el = document.getElementById("litCount");
+function renderLitCount(c){
+  var el = document.getElementById(c.dom.count);
   if(!el) return;
-  if(!LIT_LOADED){ el.textContent = ""; return; }
-  var v = litView();
+  if(!c.LOADED){ el.textContent = ""; return; }
+  var v = litView(c);
   var s = "<b>"+v.shown.length+"</b> z "+v.activeTotal;
   if(v.trashed>0) s += " · <b>"+v.trashed+"</b> vyházeno";
   el.innerHTML = s;
 }
-function renderLitList(){
-  var list = document.getElementById("litList");
-  var empty = document.getElementById("litEmpty");
+function renderLitList(c){
+  var list = document.getElementById(c.dom.list);
+  var empty = document.getElementById(c.dom.empty);
   if(!list) return;
-  renderLitCount();
-  if(!LIT_LOADED){
+  renderLitCount(c);
+  if(!c.LOADED){
     list.innerHTML = "";
-    empty.textContent = "Načítám litánie…";
+    empty.textContent = c.lab.loading;
     empty.style.display = "block";
     return;
   }
-  var v = litView();
+  var v = litView(c);
   if(!v.shown.length){
     list.innerHTML = "";
     empty.innerHTML = 'Nic nesedí filtru.<br>Zkus <b style="color:var(--accent)">Reset</b> nebo přidej novou přes <b style="color:var(--accent)">+</b>.';
@@ -4994,19 +5013,11 @@ function renderLitList(){
   }
   list.innerHTML = html;
 }
-// Delegace kliků v seznamu (1 handler místo 1254×)
-document.getElementById("litList").addEventListener("click", function(e){
-  var card = e.target.closest(".lit-card");
-  if(!card) return;
-  var id = card.dataset.id;
-  if(e.target.closest('[data-act="fav"]')) litToggleFav(id);
-  else openLitSheet(id);
-});
 
-function renderLitFilterBar(){
-  var wrap = document.getElementById("litFilterBar");
+function renderLitFilterBar(c){
+  var wrap = document.getElementById(c.dom.filterBar);
   if(!wrap) return;
-  var f = state.litFilter;
+  var f = state[c.filter];
   wrap.innerHTML = "";
 
   var box = document.createElement("div");
@@ -5014,14 +5025,14 @@ function renderLitFilterBar(){
   wrap.appendChild(box);
 
   var head = document.createElement("div"); head.className = "ff-head";
-  var cnt = litFilterActiveCount();
+  var cnt = litFilterActiveCount(c);
   head.innerHTML = '<span>Filtr</span>'+(cnt?'<span class="ff-count">'+cnt+'</span>':'')+'<span class="ff-chev">›</span>';
-  head.onclick = function(){ f.expanded = !f.expanded; save(); renderLitFilterBar(); };
+  head.onclick = function(){ f.expanded = !f.expanded; save(); renderLitFilterBar(c); };
   box.appendChild(head);
   if(!f.expanded) return;
 
   var body = document.createElement("div"); body.className = "ff-body";
-  body.onclick = function(e){ if(e.target===body){ f.expanded=false; save(); renderLitFilterBar(); } };
+  body.onclick = function(e){ if(e.target===body){ f.expanded=false; save(); renderLitFilterBar(c); } };
 
   function tagGroup(label, allTags, selArr, color){
     var grp = document.createElement("div"); grp.className = "tag-group";
@@ -5035,28 +5046,28 @@ function renderLitFilterBar(){
       chip.onclick = function(){
         var idx = selArr.indexOf(tg);
         if(idx>=0) selArr.splice(idx,1); else selArr.push(tg);
-        save(); renderLitFilterBar(); renderLitList();
+        save(); renderLitFilterBar(c); renderLitList(c);
       };
       chips.appendChild(chip);
     });
     grp.appendChild(chips);
     return grp;
   }
-  body.appendChild(tagGroup("", LIT_TEMATA, f.temata, LIT_COL_TEMATA));
-  body.appendChild(tagGroup("", LIT_CASTI, f.casti, LIT_COL_CASTI));
-  body.appendChild(tagGroup("", LIT_SKUPINY, f.skupiny, LIT_COL_SKUPINY));
+  if(c.TEMATA.length)  body.appendChild(tagGroup("", c.TEMATA, f.temata, LIT_COL_TEMATA));
+  if(c.CASTI.length)   body.appendChild(tagGroup("", c.CASTI, f.casti, LIT_COL_CASTI));
+  if(c.SKUPINY.length) body.appendChild(tagGroup("", c.SKUPINY, f.skupiny, LIT_COL_SKUPINY));
 
   // priorita min slider
   var prioWrap = document.createElement("div");
   var prioLab = document.createElement("div"); prioLab.className = "ss-lab";
   prioLab.innerHTML = 'Priorita min <span class="ss-val">'+f.prioMin+'</span>';
   var prioSl = document.createElement("div"); prioSl.className = "sslider";
-  prioSl.innerHTML = '<input type="range" min="1" max="5" step="1" value="'+f.prioMin+'">';
+  prioSl.innerHTML = '<input type="range" min="1" max="'+c.prioMax+'" step="1" value="'+f.prioMin+'">';
   var prioInp = prioSl.querySelector("input");
   prioInp.oninput = function(){
     f.prioMin = +prioInp.value;
     prioLab.querySelector(".ss-val").textContent = f.prioMin;
-    save(); renderLitList();
+    save(); renderLitList(c);
   };
   prioWrap.appendChild(prioLab); prioWrap.appendChild(prioSl); body.appendChild(prioWrap);
 
@@ -5066,7 +5077,7 @@ function renderLitFilterBar(){
   noTags.type = "button";
   noTags.className = "lit-mini-toggle"+(f.noTags?" on":"");
   noTags.textContent = "Bez tagů";
-  noTags.onclick = function(){ f.noTags = !f.noTags; save(); renderLitFilterBar(); renderLitList(); };
+  noTags.onclick = function(){ f.noTags = !f.noTags; save(); renderLitFilterBar(c); renderLitList(c); };
   tRow.appendChild(noTags);
 
   body.appendChild(tRow);
@@ -5077,11 +5088,11 @@ function renderLitFilterBar(){
   reset.onclick = function(e){
     e.stopPropagation();
     f.temata = []; f.casti = []; f.skupiny = []; f.prioMin = 1; f.fav = false; f.noTags = false;
-    save(); renderLitFilterBar(); renderLitList();
+    save(); renderLitFilterBar(c); renderLitList(c);
   };
   var close = document.createElement("button");
   close.type = "button"; close.className = "ff-close"; close.textContent = "˄";
-  close.onclick = function(e){ e.stopPropagation(); f.expanded = false; save(); renderLitFilterBar(); };
+  close.onclick = function(e){ e.stopPropagation(); f.expanded = false; save(); renderLitFilterBar(c); };
   foot.appendChild(reset); foot.appendChild(close);
   body.appendChild(foot);
 
@@ -5089,14 +5100,33 @@ function renderLitFilterBar(){
 }
 // klik mimo filtr ho zavře
 document.addEventListener("pointerdown", function(e){
-  var f = state.litFilter;
-  if(!f || !f.expanded) return;
-  var bar = document.getElementById("litFilterBar");
-  if(bar && !bar.contains(e.target)){ f.expanded = false; save(); renderLitFilterBar(); }
+  Object.keys(LIT_COLS).forEach(function(k){
+    var c = LIT_COLS[k], f = state[c.filter];
+    if(!f || !f.expanded) return;
+    var bar = document.getElementById(c.dom.filterBar);
+    if(bar && !bar.contains(e.target)){ f.expanded = false; save(); renderLitFilterBar(c); }
+  });
+});
+// Per-kolekci DOM: delegace kliků v seznamu (1 handler místo 1254×), rychlá hvězdička, search.
+Object.keys(LIT_COLS).forEach(function(k){
+  var c = LIT_COLS[k];
+  document.getElementById(c.dom.list).addEventListener("click", function(e){
+    var card = e.target.closest(".lit-card");
+    if(!card) return;
+    var id = card.dataset.id;
+    if(e.target.closest('[data-act="fav"]')) litToggleFav(c, id);
+    else openLitSheet(c, id);
+  });
+  document.getElementById(c.dom.favQuick).onclick = function(){
+    state[c.filter].fav = !state[c.filter].fav; save(); refreshLit(c);
+  };
+  var sEl = document.getElementById(c.dom.search);
+  sEl.value = state[c.filter].search || "";
+  sEl.oninput = function(){ state[c.filter].search = sEl.value; save(); renderLitList(c); };
 });
 
-/* ---- editační sheet ---- */
-var litEditId = null, litEditNew = false, litEditFav = false;
+/* ---- editační sheet (sdílený všemi kolekcemi; litEditCol říká, které patří) ---- */
+var litEditCol = null, litEditId = null, litEditNew = false, litEditFav = false;
 var litEditTemata = [], litEditCasti = [], litEditSkupiny = [];
 var litPrioInp = document.getElementById("litPrio"), litPrioVal = document.getElementById("litPrioVal");
 litPrioInp.oninput = function(){ litPrioVal.textContent = litPrioInp.value; };
@@ -5109,9 +5139,11 @@ document.getElementById("litFavToggle").onclick = function(){
   this.querySelector(".st").textContent = litEditFav ? "★" : "☆";
 };
 function renderLitSheetChips(){
+  var c = litEditCol;
   function fill(wrapId, allTags, selArr, color){
     var wrap = document.getElementById(wrapId);
     wrap.innerHTML = "";
+    wrap.parentNode.style.display = allTags.length ? "" : "none";
     allTags.forEach(function(tg){
       var chip = document.createElement("div");
       chip.className = "tag-chip"+(selArr.indexOf(tg)>=0?" on":"");
@@ -5125,16 +5157,20 @@ function renderLitSheetChips(){
       wrap.appendChild(chip);
     });
   }
-  fill("litTemataChips", LIT_TEMATA, litEditTemata, LIT_COL_TEMATA);
-  fill("litCastiChips", LIT_CASTI, litEditCasti, LIT_COL_CASTI);
-  fill("litSkupinyChips", LIT_SKUPINY, litEditSkupiny, LIT_COL_SKUPINY);
+  fill("litTemataChips", c.TEMATA, litEditTemata, LIT_COL_TEMATA);
+  fill("litCastiChips", c.CASTI, litEditCasti, LIT_COL_CASTI);
+  fill("litSkupinyChips", c.SKUPINY, litEditSkupiny, LIT_COL_SKUPINY);
 }
-function openLitSheet(id){
+function openLitSheet(c, id){
+  litEditCol = c;
   litEditId = id || null;
   var del = document.getElementById("deleteLit");
   var favT = document.getElementById("litFavToggle");
+  litTextEl.placeholder = c.lab.ph;
+  del.textContent = c.lab.del;
+  litPrioInp.max = c.prioMax;
   if(litEditId){
-    var l = litFindEff(litEditId);
+    var l = litFindEff(c, litEditId);
     if(!l) return;
     litEditNew = !!l._new;
     litTextEl.value = l.text;
@@ -5145,7 +5181,7 @@ function openLitSheet(id){
   } else {
     litEditNew = false;
     litTextEl.value = "";
-    litPrioInp.value = 2; litPrioVal.textContent = 2;
+    litPrioInp.value = c.prioDef; litPrioVal.textContent = c.prioDef;
     litEditFav = false;
     litEditTemata = []; litEditCasti = []; litEditSkupiny = [];
     del.style.display = "none";
@@ -5160,60 +5196,58 @@ function closeLitSheet(){ document.getElementById("litScrim").classList.remove("
 document.getElementById("cancelLit").onclick = closeLitSheet;
 document.getElementById("litScrim").onclick = function(e){ if(e.target===this) closeLitSheet(); };
 document.getElementById("saveLit").onclick = function(){
+  var c = litEditCol;
   var text = litTextEl.value.trim();
   if(!text){ litTextEl.focus(); return; }
   var prio = +litPrioInp.value;
   var tem = litEditTemata.slice(), cas = litEditCasti.slice(), sku = litEditSkupiny.slice();
   if(litEditId){
     if(litEditNew){
-      var n = null;
-      for(var i=0;i<state.litNew.length;i++) if(state.litNew[i].id===litEditId){ n = state.litNew[i]; break; }
+      var n = litFindNew(c, litEditId);
       if(n){ n.text=text; n.priorita=prio; n.temata=tem; n.casti=cas; n.skupiny=sku; n.oblibena=litEditFav; }
     } else {
-      var ov = state.litOverlay[litEditId] || {};
+      var ov = state[c.overlay][litEditId] || {};
       ov.text = text; ov.priorita = prio; ov.temata = tem; ov.casti = cas; ov.skupiny = sku; ov.oblibena = litEditFav;
-      state.litOverlay[litEditId] = ov;
+      state[c.overlay][litEditId] = ov;
     }
   } else {
-    state.litNew.push({
-      id: "ul"+Date.now()+Math.random().toString(36).slice(2,6),
+    state[c.nw].push({
+      id: litNewId(c),
       text:text, temata:tem, casti:cas, skupiny:sku, priorita:prio, oblibena:litEditFav, aktivni:true
     });
   }
-  save(); closeLitSheet(); refreshLit();
+  save(); closeLitSheet(); refreshLit(c);
 };
 
-function litSetAktivni(id, val){
-  var isNew = false, obj = null;
-  for(var i=0;i<state.litNew.length;i++) if(state.litNew[i].id===id){ isNew=true; obj=state.litNew[i]; break; }
-  if(isNew){ obj.aktivni = val; }
+function litSetAktivni(c, id, val){
+  var obj = litFindNew(c, id);
+  if(obj){ obj.aktivni = val; }
   else {
-    var ov = state.litOverlay[id] || {};
+    var ov = state[c.overlay][id] || {};
     if(val){
       // vrácení: pokud overlay držel jen aktivni, ať nezůstává balast
       delete ov.aktivni;
-      if(Object.keys(ov).length) state.litOverlay[id] = ov; else delete state.litOverlay[id];
+      if(Object.keys(ov).length) state[c.overlay][id] = ov; else delete state[c.overlay][id];
     } else {
-      ov.aktivni = false; state.litOverlay[id] = ov;
+      ov.aktivni = false; state[c.overlay][id] = ov;
     }
   }
 }
 var litLastDel = null, undoTimer = null;
-function litDelete(id){
-  litSetAktivni(id, false);
-  litLastDel = id;
-  save(); closeLitSheet(); refreshLit();
-  showUndo("Litánie vyhozena.");
+function litDelete(c, id){
+  litSetAktivni(c, id, false);
+  litLastDel = { c:c, id:id };
+  save(); closeLitSheet(); refreshLit(c);
+  showUndo(c.lab.deleted);
 }
-document.getElementById("deleteLit").onclick = function(){ if(litEditId) litDelete(litEditId); };
-function litToggleFav(id){
-  var l = litFindEff(id); if(!l) return;
+document.getElementById("deleteLit").onclick = function(){ if(litEditId) litDelete(litEditCol, litEditId); };
+function litToggleFav(c, id){
+  var l = litFindEff(c, id); if(!l) return;
   var val = !l.oblibena;
-  var isNew = false, obj = null;
-  for(var i=0;i<state.litNew.length;i++) if(state.litNew[i].id===id){ isNew=true; obj=state.litNew[i]; break; }
-  if(isNew){ obj.oblibena = val; }
-  else { var ov = state.litOverlay[id] || {}; ov.oblibena = val; state.litOverlay[id] = ov; }
-  save(); refreshLit();
+  var obj = litFindNew(c, id);
+  if(obj){ obj.oblibena = val; }
+  else { var ov = state[c.overlay][id] || {}; ov.oblibena = val; state[c.overlay][id] = ov; }
+  save(); refreshLit(c);
 }
 function showUndo(msg){
   var bar = document.getElementById("undoBar");
@@ -5223,7 +5257,7 @@ function showUndo(msg){
   undoTimer = setTimeout(function(){ bar.classList.remove("show"); litLastDel = null; }, 6000);
 }
 document.getElementById("undoBtn").onclick = function(){
-  if(litLastDel){ litSetAktivni(litLastDel, true); litLastDel = null; save(); refreshLit(); }
+  if(litLastDel){ litSetAktivni(litLastDel.c, litLastDel.id, true); save(); refreshLit(litLastDel.c); litLastDel = null; }
   document.getElementById("undoBar").classList.remove("show");
   clearTimeout(undoTimer);
 };
@@ -5245,12 +5279,6 @@ freeSearchEls.forEach(function(el){
     save(); refreshFreeLists();
   };
 });
-var litSearchEl = document.getElementById("litSearch");
-litSearchEl.value = state.litFilter.search || "";
-litSearchEl.oninput = function(){
-  state.litFilter.search = litSearchEl.value;
-  save(); renderLitList();
-};
 document.getElementById("hDate").textContent = fmtLong(today());
 renderAll();
 updateUI();
