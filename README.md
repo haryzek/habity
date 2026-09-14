@@ -289,6 +289,9 @@ stav).
   view jako u úkolů — návyky nemají co schovávat, dropdown jen filtruje na místě.
 - **Přehled rovina:** beze změny, **agreguje úplně všechno napříč všemi backlogy**
   (backlog je čistě Check-organizace, dlouhodobá historie ho ignoruje).
+  **„+" vlevo od poměru nn/90** (`.hhead .tofut`, jen Free) → `addHabitToFuture(name)`:
+  pošle stejnojmenný task bez data do Tasks/backlog **Future** (priorita 1). Ranní
+  plánování „co budu po práci dělat z Free". Nehotový duplikát ve Future jen toastne.
 - **Sheet** (přidat/upravit návyk): backlog picker (`habitBacklogWrap` /
   `habitBacklog` + `habitNewBacklog`) se zobrazí **jen** když `editingSection===1`
   (Free). Pro Habits zůstává skrytý.

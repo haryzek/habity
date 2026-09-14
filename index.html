@@ -143,6 +143,15 @@
   .hhead .prio{font-family:var(--mono);font-size:11px;color:var(--dim);}
   .hhead .stat{font-family:var(--mono);font-size:11px;color:var(--done);margin-left:auto;}
   .hhead .chev{color:var(--dim);font-size:12px;}
+  /* Free přehled: nenápadný „+" → pošle stejnojmenný task do Tasks/Future */
+  .hhead .tofut{
+    flex-shrink:0;width:18px;height:18px;border-radius:50%;border:1px solid var(--border);
+    background:none;color:var(--dim);font-size:13px;line-height:1;padding:0;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;align-self:center;
+  }
+  .hhead .tofut{margin-left:auto;}
+  .hhead .tofut + .stat{margin-left:0;}
+  .hhead .tofut:active{border-color:var(--accent);color:var(--accent);}
   .grid{
     display:grid;grid-template-columns:repeat(30,1fr);gap:3px;
   }
@@ -2149,14 +2158,29 @@ function renderOverviewPanel(si){
     head.innerHTML =
       '<span class="name"></span>'+(h.star?'<span class="hstar">★</span>':'')+
       '<span class="prio">'+(si===1?"Z":"P")+h.priority+'</span>'+
+      (si===1?'<button type="button" class="tofut" aria-label="Do Future">+</button>':'')+
       '<span class="stat"></span><span class="chev">›</span>';
     head.querySelector(".name").textContent = h.name;
     head.querySelector(".stat").textContent = doneCount+"/90";
+    if(si===1) head.querySelector(".tofut").onclick = function(ev){ ev.stopPropagation(); addHabitToFuture(h.name); };
     // Nadpis → editace aktivity; čísílka + šipka vpravo → celkový přehled.
     head.querySelector(".name").onclick = function(ev){ ev.stopPropagation(); openSheet(si, h.id); };
     head.onclick = function(){ openDetail(si, h.id); };
     block.appendChild(head); block.appendChild(grid); list.appendChild(block);
   });
+}
+// Free → Tasks: ranní plánování. Stejnojmenný task bez data do backlogu Future
+// (priorita 1 = default sheetu). Nehotový duplikát tam podruhé nedáváme.
+function addHabitToFuture(name){
+  var dup = state.utasks.some(function(t){ return t.name===name && t.date===null && t.backlog==="Future" && !t.done; });
+  if(dup){ toast('„'+name+'“ už ve Future je.'); return; }
+  state.utasks.push({
+    id:"u"+Date.now()+Math.random().toString(36).slice(2,6),
+    name:name, priority:1, createdAt:Date.now(),
+    date:null, backlog:"Future", repeat:"none", bouncer:null, done:false
+  });
+  save(); renderCheck();
+  toast('„'+name+'“ přidáno do Future.');
 }
 function renderHeadStat(head, si, habitId){
   var t = today(), c=0;
