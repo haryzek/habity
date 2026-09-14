@@ -729,7 +729,7 @@ tlačítko odstraněno — viz níž). Odtud data žijí jen v localStorage a v 
   tagů z hlavičky jsonu. **Toto je jen v localStorage, git to nekryje → zálohovat
   exportem.**
 - `litOverlay[id]` — částečné přepisy základních vět (text/temata/casti/priorita/
-  oblibena/videno/aktivni). Klíč = **string** id. Ukládá se jen změněné pole.
+  oblibena/aktivni). Klíč = **string** id. Ukládá se jen změněné pole.
 - `litNew[]` — uživatelem přidané věty (id `"ul"+timestamp`).
 - `litFilter` — persistovaný stav filtru.
 
@@ -763,16 +763,13 @@ disk/localStorage. Viz Bobova paměť „litánie jsou soukromé".
   Běžná DB (~1250) se zobrazí celá. Přes strop se ukáže poznámka „…a dalších N".
   Řazení: oblíbené nahoře → priorita DESC → id ASC.
 - **Filtr** (`renderLitFilterBar`, klon Free): dvě chip skupiny (Témata modré,
-  Části červené), slider priorita-min (1–5), mini-toggly „Bez tagů" a **„👁 Neviděné"**
-  (reverse — ukáže jen položky s `videno=false`, tj. ještě neprošlé), Reset, sbalení.
+  Části červené), slider priorita-min (1–5), mini-toggle „Bez tagů", Reset, sbalení.
   **Rychlá hvězdička** (jen oblíbené, `#litFavQuick`) sedí **vedle keyword searche**
   (ne ve filter baru), aby měl filtr plnou šířku. Fulltext (`litSearch`) sdílí fuzzy
   engine s Free (`normSearchText`/`fuzzyWordMatch`).
 - **Editace/přidání** (`litSheet`): `<textarea>` (věty jsou i dlouhé odstavce, max
-  1570 znaků — auto-grow do 40vh), slider priority 1–5, řádek se dvěma toggly —
-  **oblíbená** (☆/★) a **shlédnuto** (👁 očíčko, `#litSeenToggle` → `videno`), chipy
-  témat a částí. Očíčko slouží k **procházení databáze** — po dokončení editace věty
-  ho cvakneš a věta zmizí z filtru „Neviděné". Přidání přes FAB (`openLitSheet(null)`).
+  1570 znaků — auto-grow do 40vh), slider priority 1–5, toggle **oblíbená** (☆/★),
+  chipy témat a částí. Přidání přes FAB (`openLitSheet(null)`).
   Ukládání: nová → `litNew.push`, úprava základní → zápis do `litOverlay[id]`, úprava
   `_new` → mutace objektu.
 - **Mazání = `aktivni:false`** (`litSetAktivni`), ne fyzické smazání — Bob může
@@ -847,9 +844,9 @@ data z localStorage, celý state v exportu), fuzzy search, chip filtry, strop 50
 undo lišta. Ověřeno, že appka na startu `litanie.json` **nikde nestahuje**
 (žádný síťový request). Screenshot nástroj v prostředí timeoutoval, ale reflow
 6 ms + 0 chyb → appka svižná. Import **už proběhl** (data v localStorage/exportu),
-import tlačítko odstraněno. Přibylo **procházení databáze**: flag `videno` na položce
-(toggle 👁 v editaci) + filtr „👁 Neviděné" na odškrtávání, co Bob ještě neprošel.
-Čištění databáze je na Bobovi (dlouhodobě); rotace „piňa dne" odložená (6c).
+import tlačítko odstraněno. Dočasný flag `videno` (👁 v editaci + filtr „Neviděné")
+sloužil k jednorázovému pročištění databáze — hotovo 9/2026, odstraněno (Viktor Čistič).
+Rotace „piňa dne" odložená (6c).
 
 **Filozofie dalšího vývoje:** Bob řekl „základ máme, bude to o dolaďování během
 úkolování". Čekej drobné UX úpravy z reálného provozu, ne velké přestavby.

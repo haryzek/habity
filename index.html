@@ -700,9 +700,6 @@
   .lit-sheet-star.on .st{color:var(--accent);}
   .lit-sheet-star.on{color:var(--text);}
   /* očíčko je emoji (nejde přebarvit textem), on-stav odlišíme pillem */
-  .lit-sheet-seen .st{filter:grayscale(1);opacity:.55;}
-  .lit-sheet-seen.on .st{filter:none;opacity:1;}
-  .lit-sheet-seen.on{background:var(--surface2);border-color:var(--border);color:var(--text);}
   .lit-toggle-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px;}
   .lit-mini-toggle{
     background:var(--surface);border:1px solid var(--border);border-radius:10px;
@@ -970,7 +967,6 @@
     </div>
     <div class="lit-sheet-toggles">
       <div class="lit-sheet-star" id="litFavToggle"><span class="st">☆</span><span>Oblíbená</span></div>
-      <div class="lit-sheet-star lit-sheet-seen" id="litSeenToggle"><span class="st">👁</span><span>Shlédnuto</span></div>
     </div>
     <div style="margin-bottom:8px">
       <div class="tag-chips" id="litTemataChips"></div>
@@ -1378,7 +1374,7 @@ function blankState(){
     //  litOverlay[id] = částečné přepisy základních vět, litNew = uživatelem přidané věty
     litBase:[], litTemata:[], litCasti:[], litSkupiny:LIT_SKUPINY_SEED.slice(),
     litOverlay:{}, litNew:[],
-    litFilter:{ temata:[], casti:[], skupiny:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" }
+    litFilter:{ temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" }
   };
 }
 
@@ -1720,7 +1716,6 @@ function normalize(o){
       if(Array.isArray(ov.skupiny)) clean.skupiny = litRenArr(ov.skupiny.filter(function(t){ return typeof t==="string"; }));
       if(typeof ov.priorita==="number" && ov.priorita>=1 && ov.priorita<=5) clean.priorita = Math.round(ov.priorita);
       if(typeof ov.oblibena==="boolean") clean.oblibena = ov.oblibena;
-      if(typeof ov.videno==="boolean") clean.videno = ov.videno;
       if(typeof ov.aktivni==="boolean") clean.aktivni = ov.aktivni;
       if(Object.keys(clean).length) s.litOverlay[id] = clean;
     });
@@ -1736,12 +1731,11 @@ function normalize(o){
           skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.filter(function(t){ return typeof t==="string"; }) : []),
           priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=5) ? Math.round(x.priorita) : 2,
           oblibena: !!x.oblibena,
-          videno: !!x.videno,
           aktivni: x.aktivni!==false
         };
       });
   }
-  s.litFilter = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, unseen:false, noTags:false, expanded:false, search:"" };
+  s.litFilter = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" };
   if(o.litFilter && typeof o.litFilter==="object"){
     var lf = o.litFilter;
     if(Array.isArray(lf.temata)) s.litFilter.temata = litRenArr(lf.temata.filter(function(t){ return typeof t==="string"; }));
@@ -1749,7 +1743,6 @@ function normalize(o){
     if(Array.isArray(lf.skupiny)) s.litFilter.skupiny = litRenArr(lf.skupiny.filter(function(t){ return typeof t==="string"; }));
     if(typeof lf.prioMin==="number" && lf.prioMin>=1 && lf.prioMin<=5) s.litFilter.prioMin = Math.round(lf.prioMin);
     s.litFilter.fav = !!lf.fav;
-    s.litFilter.unseen = !!lf.unseen;
     s.litFilter.noTags = !!lf.noTags;
     s.litFilter.expanded = !!lf.expanded;
     if(typeof lf.search==="string") s.litFilter.search = lf.search.slice(0,100);
@@ -4884,14 +4877,13 @@ function litEffective(){
       skupiny: (o && o.skupiny!=null) ? o.skupiny : (b.skupiny||[]),
       priorita: (o && o.priorita!=null) ? o.priorita : b.priorita,
       oblibena: (o && o.oblibena!=null) ? o.oblibena : b.oblibena,
-      videno: (o && o.videno!=null) ? o.videno : !!b.videno,
       aktivni: (o && o.aktivni!=null) ? o.aktivni : b.aktivni,
       _new: false
     });
   });
   (state.litNew||[]).forEach(function(n){
     out.push({ id:n.id, text:n.text, temata:n.temata, casti:n.casti, skupiny:n.skupiny||[],
-      priorita:n.priorita, oblibena:n.oblibena, videno:!!n.videno, aktivni:n.aktivni!==false, _new:true });
+      priorita:n.priorita, oblibena:n.oblibena, aktivni:n.aktivni!==false, _new:true });
   });
   return out;
 }
@@ -4910,7 +4902,6 @@ function matchesLitSearch(l, search){
 }
 function matchesLitFilter(l, f){
   if(f.fav && !l.oblibena) return false;
-  if(f.unseen && l.videno) return false;
   if(f.noTags && (l.temata.length || l.casti.length || (l.skupiny||[]).length)) return false;
   if(f.temata.length && !l.temata.some(function(t){ return f.temata.indexOf(t)>=0; })) return false;
   if(f.casti.length && !l.casti.some(function(t){ return f.casti.indexOf(t)>=0; })) return false;
@@ -4941,7 +4932,6 @@ function litFilterActiveCount(){
   n += f.temata.length + f.casti.length + f.skupiny.length;
   if(f.prioMin>1) n++;
   if(f.fav) n++;
-  if(f.unseen) n++;
   if(f.noTags) n++;
   return n;
 }
@@ -5079,12 +5069,6 @@ function renderLitFilterBar(){
   noTags.onclick = function(){ f.noTags = !f.noTags; save(); renderLitFilterBar(); renderLitList(); };
   tRow.appendChild(noTags);
 
-  var unseen = document.createElement("button");
-  unseen.type = "button";
-  unseen.className = "lit-mini-toggle"+(f.unseen?" on":"");
-  unseen.textContent = "👁 Neviděné";
-  unseen.onclick = function(){ f.unseen = !f.unseen; save(); renderLitFilterBar(); renderLitList(); };
-  tRow.appendChild(unseen);
   body.appendChild(tRow);
 
   var foot = document.createElement("div"); foot.className = "ff-foot";
@@ -5092,7 +5076,7 @@ function renderLitFilterBar(){
   reset.type = "button"; reset.className = "ff-reset"; reset.textContent = "Reset";
   reset.onclick = function(e){
     e.stopPropagation();
-    f.temata = []; f.casti = []; f.skupiny = []; f.prioMin = 1; f.fav = false; f.unseen = false; f.noTags = false;
+    f.temata = []; f.casti = []; f.skupiny = []; f.prioMin = 1; f.fav = false; f.noTags = false;
     save(); renderLitFilterBar(); renderLitList();
   };
   var close = document.createElement("button");
@@ -5112,7 +5096,7 @@ document.addEventListener("pointerdown", function(e){
 });
 
 /* ---- editační sheet ---- */
-var litEditId = null, litEditNew = false, litEditFav = false, litEditSeen = false;
+var litEditId = null, litEditNew = false, litEditFav = false;
 var litEditTemata = [], litEditCasti = [], litEditSkupiny = [];
 var litPrioInp = document.getElementById("litPrio"), litPrioVal = document.getElementById("litPrioVal");
 litPrioInp.oninput = function(){ litPrioVal.textContent = litPrioInp.value; };
@@ -5123,10 +5107,6 @@ document.getElementById("litFavToggle").onclick = function(){
   litEditFav = !litEditFav;
   this.classList.toggle("on", litEditFav);
   this.querySelector(".st").textContent = litEditFav ? "★" : "☆";
-};
-document.getElementById("litSeenToggle").onclick = function(){
-  litEditSeen = !litEditSeen;
-  this.classList.toggle("on", litEditSeen);
 };
 function renderLitSheetChips(){
   function fill(wrapId, allTags, selArr, color){
@@ -5160,7 +5140,6 @@ function openLitSheet(id){
     litTextEl.value = l.text;
     litPrioInp.value = l.priorita; litPrioVal.textContent = l.priorita;
     litEditFav = !!l.oblibena;
-    litEditSeen = !!l.videno;
     litEditTemata = l.temata.slice(); litEditCasti = l.casti.slice(); litEditSkupiny = (l.skupiny||[]).slice();
     del.style.display = "block";
   } else {
@@ -5168,13 +5147,11 @@ function openLitSheet(id){
     litTextEl.value = "";
     litPrioInp.value = 2; litPrioVal.textContent = 2;
     litEditFav = false;
-    litEditSeen = false;
     litEditTemata = []; litEditCasti = []; litEditSkupiny = [];
     del.style.display = "none";
   }
   favT.classList.toggle("on", litEditFav);
   favT.querySelector(".st").textContent = litEditFav ? "★" : "☆";
-  document.getElementById("litSeenToggle").classList.toggle("on", litEditSeen);
   renderLitSheetChips();
   document.getElementById("litScrim").classList.add("open");
   setTimeout(function(){ litTextEl.focus(); litAutoGrow(); }, 100);
@@ -5191,16 +5168,16 @@ document.getElementById("saveLit").onclick = function(){
     if(litEditNew){
       var n = null;
       for(var i=0;i<state.litNew.length;i++) if(state.litNew[i].id===litEditId){ n = state.litNew[i]; break; }
-      if(n){ n.text=text; n.priorita=prio; n.temata=tem; n.casti=cas; n.skupiny=sku; n.oblibena=litEditFav; n.videno=litEditSeen; }
+      if(n){ n.text=text; n.priorita=prio; n.temata=tem; n.casti=cas; n.skupiny=sku; n.oblibena=litEditFav; }
     } else {
       var ov = state.litOverlay[litEditId] || {};
-      ov.text = text; ov.priorita = prio; ov.temata = tem; ov.casti = cas; ov.skupiny = sku; ov.oblibena = litEditFav; ov.videno = litEditSeen;
+      ov.text = text; ov.priorita = prio; ov.temata = tem; ov.casti = cas; ov.skupiny = sku; ov.oblibena = litEditFav;
       state.litOverlay[litEditId] = ov;
     }
   } else {
     state.litNew.push({
       id: "ul"+Date.now()+Math.random().toString(36).slice(2,6),
-      text:text, temata:tem, casti:cas, skupiny:sku, priorita:prio, oblibena:litEditFav, videno:litEditSeen, aktivni:true
+      text:text, temata:tem, casti:cas, skupiny:sku, priorita:prio, oblibena:litEditFav, aktivni:true
     });
   }
   save(); closeLitSheet(); refreshLit();
