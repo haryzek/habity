@@ -99,7 +99,7 @@ obráceně:**
 | pos (`curSection`) | tab dole | Check rovina | Přehled rovina | Co to je |
 |-----|-----|-------------|----------------|----------|
 | 0 | **Progress** | seznam projektů + kroky | — (jediná plocha, mřížka zrušena) | **Projektový** tracker — projekt (např. „Stěhování bytu") se odškrtávacími kroky, proporční proužky. SOLO. |
-| 1 | **Tasks** | WiP náhled + kalendář | Dny/Měsíce | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
+| 1 | **Tasks** | WiP náhled + kalendář | — (jediná plocha, Dny/Měsíce zrušeny) | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
 | 4 | **Move** | Nálada (view 0) | **Spánek** (view 1) · **Garmin** (view 2) · **Běh** (view 3) · **Otužování** (view 4) | Pět ploch stejného tvaru: ruční zápis dne (nálada), ruční zápis noci (spánek), Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e, 5f, 5g a 5h.** |
@@ -134,8 +134,8 @@ je příčina.
 **Sourozenecký sync:** Check a Přehled jsou teď v jednom tracku vedle sebe a oba
 viditelné během swipe, takže akce na jedné straně **musí refreshnout i druhou**.
 Proto habit toggly volají `renderTodayPanel`+`renderOverviewPanel`, subtask toggly
-`renderTasksPanel` (Progress má jen jednu plochu), a `utComplete`/`utMiss` volají
-`renderCheck`+`renderUtOverview`.
+`renderTasksPanel` a `utComplete`/`utMiss` `renderCheck` (Progress i Tasks mají
+jen jednu plochu).
 
 **Ovládání Přehled roviny Habits/Free (`renderOverviewPanel`):** hlavička bloku
 je rozdělená — **klik na nadpis** (`.name`, `stopPropagation`) otevře **editaci**
@@ -477,14 +477,10 @@ už stojí → **zůstane viset na zítřku a dá se splnit i zítra znovu** (dr
 za jednu práci). U nezakotveného si splnění dopředu ukousne den z intervalu.
 Oprava by byla počítat od `max(dnešek, t.date)` — vědomě odloženo.
 
-### 4g. Přehled úkolů (`renderUtOverview`) — pozice 1 Přehled rovina
+### 4g. Přehled úkolů — ZRUŠENO
 
-Přepínač **Dny / Měsíce** (`utOvMode`). Data z `state.daily`. Mřížka 30 sloupců
-(stejný `.grid`/`.cell` jako návyky).
-- **Dny:** řádek = den (jen dny s aktivitou, nejnovější nahoře), zelené (done) +
-  červené (missed) čtverečky, vpravo `done / missed`. **Cap 30**, při přetečení
-  proporční osekání (zachová aspoň 1 z každé nenulové barvy).
-- **Měsíce:** řádek = měsíc, jen zelené = součet done za měsíc. **Cap 90** (3×30).
+Čtverečková plocha Tasks (Dny/Měsíce, `renderUtOverview`) je odstraněná, Bob ji
+nepoužíval. `state.daily` (done/missed za den) se dál počítá, jen se nezobrazuje.
 
 ---
 

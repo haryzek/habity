@@ -80,9 +80,9 @@
   /* Move má pět ploch (Nálada / Spánek / Garmin / Běh / Otužování) — track je širší a
      panely pětinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
   #trackMove{width:500%;}
-  /* Progress má jen jednu plochu (seznam projektů) — čtverečková plocha zrušena */
-  #trackProgress{width:100%;}
-  #trackProgress .panel{width:100%;flex:0 0 100%;}
+  /* Progress a Tasks mají jen jednu plochu — čtverečkové plochy zrušené */
+  #trackProgress,#trackTasks{width:100%;}
+  #trackProgress .panel,#trackTasks .panel{width:100%;flex:0 0 100%;}
   #trackMove .panel{width:20%;flex:0 0 20%;}
   /* Běh: řádek statistik nad mřížkou */
   .run-stats{
@@ -542,25 +542,6 @@
     border-radius:10px;padding:10px;font-family:var(--sans);font-size:13px;cursor:pointer;margin-bottom:0;
   }
 
-  /* --- Přehled úkolů: přepínač Dny/Měsíce + řádky --- */
-  .ovtoggle{display:flex;gap:8px;margin:2px 0 16px;}
-  .ovtoggle .ovt{
-    border:1px solid var(--border);background:var(--surface2);color:var(--dim);
-    border-radius:8px;padding:7px 16px;font-family:var(--sans);font-size:13px;cursor:pointer;
-    transition:all .12s ease;
-  }
-  .ovtoggle .ovt.on{background:var(--accent);border-color:var(--accent);color:#15120E;}
-  .ovtoggle .ovt:active{transform:scale(.96);}
-  .ovrow{margin-bottom:13px;}
-  .ovrow .ovl{
-    display:flex;align-items:baseline;gap:8px;margin-bottom:5px;
-  }
-  .ovrow .ovl .od{font-family:var(--mono);font-size:11px;color:var(--dim);}
-  .ovrow .ovl.is-today .od{color:var(--accent);}
-  .ovrow .ovl .ostat{font-family:var(--mono);font-size:10px;color:var(--dim);margin-left:auto;}
-  .ovrow .ovl .ostat .og{color:var(--done);}
-  .ovrow .ovl .ostat .or{color:var(--missed);}
-
   /* ---- Free: tagy + trvání ---- */
   .tag-chips{display:flex;flex-wrap:wrap;gap:6px;}
   .tag-chip{
@@ -793,21 +774,6 @@
           <div id="blogList"></div>
           <div class="cal-empty" id="blogEmpty" style="display:none">Tenhle backlog je prázdný.</div>
         </div>
-      </div>
-      <div class="panel">
-        <div class="ovtoggle" id="utOvToggle">
-          <div class="ovt on" data-mode="days">Dny</div>
-          <div class="ovt" data-mode="months">Měsíce</div>
-        </div>
-        <div class="legend" id="utOvLegendDays">
-          <span><i style="background:var(--done)"></i>splněno</span>
-          <span><i style="background:var(--missed)"></i>prokrastinace</span>
-        </div>
-        <div class="legend" id="utOvLegendMonths" style="display:none">
-          <span><i style="background:var(--done)"></i>splněné úkoly (max 90/měsíc)</span>
-        </div>
-        <div id="utOvList"></div>
-        <div class="empty-state" id="utOvEmpty" style="display:none">Zatím žádná historie úkolů.</div>
       </div>
     </div>
   </section>
@@ -2854,7 +2820,7 @@ function utComplete(t){
     t.date = null;
     t.done = true;
   }
-  save(); renderCheck(); renderUtOverview();
+  save(); renderCheck();
   pina(); // 🍹 odměna
 }
 /* ✕ Nesplněno (poctivá červená) – den zčervená + úkol na zítřek */
@@ -2862,7 +2828,7 @@ function utMiss(t){
   // missed se počítá k dnešku (den, kdy přiznávám lajdáctví)
   bumpDaily(key(today()), "missed", 1);
   t.date = key(addDays(today(),1));
-  save(); renderCheck(); renderUtOverview();
+  save(); renderCheck();
 }
 /* přesun bez penalizace */
 function utMove(t, mode){
@@ -3062,94 +3028,6 @@ function renderCheck(){
   if(document.getElementById("blogView").classList.contains("open")) renderBlogView();
   renderCheckDefault();
 }
-
-/* ================= Přehled ÚKOLŮ (Dny / Měsíce) ================= */
-var utOvMode = "days";  // "days" | "months"
-
-function renderUtOverview(){
-  var list = document.getElementById("utOvList");
-  var empty = document.getElementById("utOvEmpty");
-  list.innerHTML = "";
-  var keys = Object.keys(state.daily).filter(function(k){
-    var d = state.daily[k];
-    return d && (d.done>0 || d.missed>0);
-  });
-  empty.style.display = keys.length ? "none" : "block";
-
-  // legendy dle módu
-  document.getElementById("utOvLegendDays").style.display   = (utOvMode==="days")   ? "flex" : "none";
-  document.getElementById("utOvLegendMonths").style.display = (utOvMode==="months") ? "flex" : "none";
-
-  if(!keys.length) return;
-
-  var tk = key(today());
-
-  if(utOvMode==="days"){
-    // poslední dny sestupně (nejnovější nahoře); zobraz jen dny s aktivitou
-    keys.sort().reverse();
-    keys.forEach(function(k){
-      var d = state.daily[k];
-      var doneN = d.done||0, missN = d.missed||0;
-      var row = document.createElement("div"); row.className = "ovrow";
-      var lab = document.createElement("div"); lab.className = "ovl" + (k===tk?" is-today":"");
-      var dd = parseKey(k);
-      lab.innerHTML = '<span class="od"></span><span class="ostat"></span>';
-      lab.querySelector(".od").textContent = fmtCalLabel(dd);
-      lab.querySelector(".ostat").innerHTML =
-        '<span class="og">'+doneN+'</span> / <span class="or">'+missN+'</span>';
-      row.appendChild(lab);
-      var grid = document.createElement("div"); grid.className = "grid";
-      // cap 30 čtverečků celkem: zelené pak červené
-      var total = doneN + missN;
-      var greens = doneN, reds = missN;
-      if(total>30){
-        // proporčně osekni, ale zachovej aspoň 1 z každé nenulové
-        var scale = 30/total;
-        greens = Math.round(doneN*scale);
-        reds = 30 - greens;
-        if(doneN>0 && greens===0) greens=1;
-        if(missN>0 && reds===0) reds=1;
-      }
-      for(var g=0;g<greens;g++){ var c=document.createElement("div"); c.className="cell done"; grid.appendChild(c); }
-      for(var r=0;r<reds;r++){ var c2=document.createElement("div"); c2.className="cell missed"; grid.appendChild(c2); }
-      row.appendChild(grid);
-      list.appendChild(row);
-    });
-  } else {
-    // měsíce: seskup done podle YYYY-MM, sestupně
-    var months = {};
-    keys.forEach(function(k){
-      var ym = k.slice(0,7);
-      months[ym] = (months[ym]||0) + (state.daily[k].done||0);
-    });
-    var ymKeys = Object.keys(months).sort().reverse();
-    var MNAMES = ["leden","únor","březen","duben","květen","červen","červenec","srpen","září","říjen","listopad","prosinec"];
-    ymKeys.forEach(function(ym){
-      var cnt = months[ym];
-      if(cnt<=0) return;
-      var parts = ym.split("-");
-      var row = document.createElement("div"); row.className = "ovrow";
-      var lab = document.createElement("div"); lab.className = "ovl" + (ym===tk.slice(0,7)?" is-today":"");
-      lab.innerHTML = '<span class="od"></span><span class="ostat"></span>';
-      lab.querySelector(".od").textContent = MNAMES[+parts[1]-1]+" "+parts[0];
-      lab.querySelector(".ostat").innerHTML = '<span class="og">'+cnt+'</span> splněno';
-      row.appendChild(lab);
-      var grid = document.createElement("div"); grid.className = "grid";
-      var shown = Math.min(cnt, 90);
-      for(var i=0;i<shown;i++){ var c=document.createElement("div"); c.className="cell done"; grid.appendChild(c); }
-      row.appendChild(grid);
-      list.appendChild(row);
-    });
-  }
-}
-
-document.querySelectorAll("#utOvToggle .ovt").forEach(function(btn){
-  btn.onclick = function(){
-    utOvMode = btn.dataset.mode;
-    document.querySelectorAll("#utOvToggle .ovt").forEach(function(b){ b.classList.toggle("on", b===btn); });
-    renderUtOverview();
-  };
-});
 
 /* ================= zadávací / editační sheet úkolu ================= */
 var editingUtId = null;
@@ -3749,8 +3627,8 @@ function updateUI(){
     (curSection===4 && curView===3) ? "Běh" :
     (curSection===4 && curView===4) ? "Otužování" :
     (curSection===5 && curView===1) ? "Otázky" : SEC_TITLES[curSection];
-  // Progress má jedinou plochu → tečky nemají smysl (visibility, ať layout neposkočí)
-  document.getElementById("pager").style.visibility = (curSection===0) ? "hidden" : "";
+  // Progress a Tasks mají jedinou plochu → tečky nemají smysl (visibility, ať layout neposkočí)
+  document.getElementById("pager").style.visibility = (curSection<=1) ? "hidden" : "";
   // třetí až pátá tečka pageru existují jen pro Move
   [2,3,4].forEach(function(v){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
@@ -5258,7 +5136,7 @@ document.getElementById("undoBtn").onclick = function(){
 /* ---------- init ---------- */
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
-  renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
+  renderOverviewPanel(0); renderOverviewPanel(1);
   renderMove(); renderCold(); renderVibe(); renderSleep(); renderRun(); refreshLit();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
