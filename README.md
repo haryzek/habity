@@ -98,7 +98,7 @@ obráceně:**
 
 | pos (`curSection`) | tab dole | Check rovina | Přehled rovina | Co to je |
 |-----|-----|-------------|----------------|----------|
-| 0 | **Progress** | seznam projektů + kroky | mřížka náročnosti 3×30 | **Projektový** tracker — projekt (např. „Stěhování bytu") se odškrtávacími kroky, proporční proužky. SOLO. |
+| 0 | **Progress** | seznam projektů + kroky | — (jediná plocha, mřížka zrušena) | **Projektový** tracker — projekt (např. „Stěhování bytu") se odškrtávacími kroky, proporční proužky. SOLO. |
 | 1 | **Tasks** | WiP náhled + kalendář | Dny/Měsíce | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
 | 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
 | 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
@@ -134,7 +134,7 @@ je příčina.
 **Sourozenecký sync:** Check a Přehled jsou teď v jednom tracku vedle sebe a oba
 viditelné během swipe, takže akce na jedné straně **musí refreshnout i druhou**.
 Proto habit toggly volají `renderTodayPanel`+`renderOverviewPanel`, subtask toggly
-`renderTasksPanel`+`renderProgresPanel`, a `utComplete`/`utMiss` volají
+`renderTasksPanel` (Progress má jen jednu plochu), a `utComplete`/`utMiss` volají
 `renderCheck`+`renderUtOverview`.
 
 **Ovládání Přehled roviny Habits/Free (`renderOverviewPanel`):** hlavička bloku
@@ -308,7 +308,10 @@ stav).
   přeskládají živě v editoru, uložení převezme DOM pořadí (`renumberSubRows`
   po každém přidání/smazání/přesunu).
 - **Výpis kroků v rozbalené placce**: nehotové v pořadí pole, hotové dole.
-  Progres mřížka/proužek nechává hotové **vlevo** (naplňovací bar, `displayOrder`).
+  Proužek nechává hotové **vlevo** (naplňovací bar, `displayOrder`).
+- **Splněný projekt (🍹)**: proužek se nekreslí, název je `--dim` (`.taskc.done`);
+  přidáním kroku se vrátí normální vzhled. Čtverečková plocha Progressu je zrušená
+  (`#trackProgress` 100 %, pager v sekci 0 skrytý).
 - **Řazení projektů**: `sortedTasks()` = nehotové v pořadí pole, hotové na konci
   (completedAt DESC). Check i Přehled jedou z téhle jedné funkce → vždy stejně.
 - **Placka projektu** (task-head): malý serif nadpis (14px, nízký padding —

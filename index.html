@@ -80,6 +80,9 @@
   /* Move má pět ploch (Nálada / Spánek / Garmin / Běh / Otužování) — track je širší a
      panely pětinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
   #trackMove{width:500%;}
+  /* Progress má jen jednu plochu (seznam projektů) — čtverečková plocha zrušena */
+  #trackProgress{width:100%;}
+  #trackProgress .panel{width:100%;flex:0 0 100%;}
   #trackMove .panel{width:20%;flex:0 0 20%;}
   /* Běh: řádek statistik nad mřížkou */
   .run-stats{
@@ -761,14 +764,6 @@
         <div class="empty-state" id="tasksEmpty" style="display:none">
           Zatím žádný projekt.<br>Ťukni na <b style="color:var(--accent)">+</b> a přidej první.
         </div>
-      </div>
-      <div class="panel">
-        <div class="legend">
-          <span><i style="background:var(--done)"></i>hotovo</span>
-          <span><i style="background:var(--empty)"></i>zbývá</span>
-        </div>
-        <div id="progresList"></div>
-        <div class="empty-state" id="progresEmpty" style="display:none">Žádné projekty k zobrazení.</div>
       </div>
     </div>
   </section>
@@ -2535,7 +2530,6 @@ function renderTasksPanel(){
         row.onclick = function(){
           s.done = !s.done; updateTaskCompletedAt(task); save();
           renderTasksPanel(); // přerovnání proužku až po renderu
-          renderProgresPanel();
         };
         body.appendChild(row);
       });
@@ -2548,51 +2542,6 @@ function renderTasksPanel(){
 
     c.appendChild(body);
     list.appendChild(c);
-  });
-}
-
-/* --- PROGRES panel (logika Přehled) – mřížka 3×30 na úkol --- */
-function renderProgresPanel(){
-  var list = document.getElementById("progresList");
-  var empty = document.getElementById("progresEmpty");
-  var ts = sortedTasks();
-  list.innerHTML = "";
-  empty.style.display = ts.length ? "none" : "block";
-
-  ts.forEach(function(task){
-    var block = document.createElement("div"); block.className = "hblock";
-    var head = document.createElement("div"); head.className = "hhead";
-    var isDone = task.subtasks.length>0 && taskProgress(task)>=1;
-    head.innerHTML = '<span class="name"></span><span class="stat"></span>';
-    head.querySelector(".name").textContent = task.name;
-    head.querySelector(".stat").textContent = isDone ? "🍹" : Math.round(taskProgress(task)*100)+"%";
-    head.style.cursor = "default";
-    block.appendChild(head);
-
-    var grid = document.createElement("div"); grid.className = "grid";
-    var ordered = displayOrder(task);
-    if(ordered.length===0){
-      for(var e=0;e<GRID;e++){ var ec=document.createElement("div"); ec.className="cell e0"; grid.appendChild(ec); }
-    } else {
-      var counts = cellCounts(ordered);
-      ordered.forEach(function(s, oi){
-        var cls = s.done ? (oi%2?"d1":"d0") : (oi%2?"e1":"e0");
-        for(var j=0;j<counts[oi];j++){
-          var cell = document.createElement("div");
-          cell.className = "cell "+cls;
-          (function(sub){
-            cell.onclick = function(){
-              sub.done = !sub.done; updateTaskCompletedAt(task); save();
-              renderProgresPanel(); // přerovná splněné doleva
-              renderTasksPanel();
-            };
-          })(s);
-          grid.appendChild(cell);
-        }
-      });
-    }
-    block.appendChild(grid);
-    list.appendChild(block);
   });
 }
 
@@ -2757,7 +2706,7 @@ document.getElementById("saveTask").onclick = function(){
     state.tasks.push(nt);
     if(!taskIsDone(nt)) reorderTaskInState(nt, +taskOrder.value);
   }
-  save(); closeTaskSheet(); renderTasksPanel(); renderProgresPanel();
+  save(); closeTaskSheet(); renderTasksPanel();
 };
 document.getElementById("deleteTask").onclick = function(){
   if(!editingTaskId) return;
@@ -2765,7 +2714,7 @@ document.getElementById("deleteTask").onclick = function(){
   askConfirm('Smazat projekt „'+t.name+'" i všechny jeho kroky?', "Smazat", function(){
     state.tasks = state.tasks.filter(function(x){ return x.id!==editingTaskId; });
     delete expanded[editingTaskId];
-    save(); closeTaskSheet(); renderTasksPanel(); renderProgresPanel();
+    save(); closeTaskSheet(); renderTasksPanel();
   });
 };
 
@@ -3417,7 +3366,7 @@ document.getElementById("utSave").onclick = function(){
       });
       updateTaskCompletedAt(pj);
       if(editingUtId) state.utasks = state.utasks.filter(function(x){ return x.id!==editingUtId; });
-      save(); closeUtSheet(); renderCheck(); renderTasksPanel(); renderProgresPanel();
+      save(); closeUtSheet(); renderCheck(); renderTasksPanel();
       toast('Přesunuto jako krok do „'+pj.name+'“.');
       return;
     }
@@ -3800,6 +3749,8 @@ function updateUI(){
     (curSection===4 && curView===3) ? "Běh" :
     (curSection===4 && curView===4) ? "Otužování" :
     (curSection===5 && curView===1) ? "Otázky" : SEC_TITLES[curSection];
+  // Progress má jedinou plochu → tečky nemají smysl (visibility, ať layout neposkočí)
+  document.getElementById("pager").style.visibility = (curSection===0) ? "hidden" : "";
   // třetí až pátá tečka pageru existují jen pro Move
   [2,3,4].forEach(function(v){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
@@ -5307,7 +5258,7 @@ document.getElementById("undoBtn").onclick = function(){
 /* ---------- init ---------- */
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
-  renderProgresPanel(); renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
+  renderUtOverview(); renderOverviewPanel(0); renderOverviewPanel(1);
   renderMove(); renderCold(); renderVibe(); renderSleep(); renderRun(); refreshLit();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
