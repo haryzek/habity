@@ -208,11 +208,12 @@ destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
   // normalize() jednorázově seřadí podle nich a čísla zahodí.
 
   // ----- TASKS (kalendářní úkolová sekce) -----
-  backlogs: ["Wip","Done","Future", ...],   // Wip+Done+Future vždy garantované a první tři; pak vlastní
+  backlogs: ["Chill","Done","Wip", ...],   // Chill+Done+Wip vždy garantované a první tři; pak vlastní
+  blV: 2,                        // verze názvů systémových backlogů; <2 → normalize přejmenuje starý Wip→Chill, Future→Wip
   utasks: [ {
     id, name, priority(1-10), createdAt,
     date: "YYYY-MM-DD" | null,     // null = nedatovaný (bydlí v backlogu); jinak v kalendáři
-    backlog: "Wip",                // domovský backlog
+    backlog: "Chill",              // domovský backlog
     repeat: "none"|"daily"|"weekly"|"biweekly"|"monthly"|"quarterly"|"halfyear"|"yearly",
     bouncer: null | {dow:0-6} | {date:"YYYY-MM-DD"},
     done: false
@@ -290,8 +291,8 @@ stav).
 - **Přehled rovina:** beze změny, **agreguje úplně všechno napříč všemi backlogy**
   (backlog je čistě Check-organizace, dlouhodobá historie ho ignoruje).
   **„+" vlevo od poměru nn/90** (`.hhead .tofut`, jen Free) → `addHabitToFuture(name)`:
-  pošle stejnojmenný task bez data do Tasks/backlog **Future** (priorita 1). Ranní
-  plánování „co budu po práci dělat z Free". Nehotový duplikát ve Future jen toastne.
+  pošle stejnojmenný task bez data do Tasks/backlog **Chill** (priorita 1). Ranní
+  plánování „co budu po práci dělat z Free". Nehotový duplikát v Chill jen toastne.
 - **Sheet** (přidat/upravit návyk): backlog picker (`habitBacklogWrap` /
   `habitBacklog` + `habitNewBacklog`) se zobrazí **jen** když `editingSection===1`
   (Free). Pro Habits zůstává skrytý.
@@ -330,7 +331,7 @@ stav).
 ### 4a. Check stránka (default obrazovka)
 
 **Jedna scroll-plocha**, shora dolů:
-1. **WiP náhled** — top nedatované úkoly z backlogu „Wip", řazené priorita DESC →
+1. **Náhled** — top nedatované úkoly z backlogu „Chill", řazené priorita DESC →
    createdAt ASC (starší = vyšší sekundární priorita). Zobrazuje **min. 10**
    (`WIP_PREVIEW_MIN`), když je jich víc, ukáže prvních 10 + odkaz „+ N dalších →".
    Malé serif písmo, kompaktní (Bob má rád hustotu informace). Scrollem odjede
@@ -343,9 +344,9 @@ stav).
 (`.wip-sel--mini`, `data-notext` ať do něj `fselSync` nepíše text), otvírá plný
 picker s multi-výběrem. Vedle **vodorovně scrollovatelný řádek rychlých voleb**
 (`#blogQuickRow` > `.blog-quick`, generuje `renderBlogQuick()` při každém
-`renderCheckDefault()`; swipe sekcí gesta z řádku ignoruje): `WIP` a `FUT`
-otevřou backlogy Wip a Future; dál **všechny prefixy backlogů, jejichž název
-začíná dvěma velkými písmeny** (systémové Wip/Done/Future se nepočítají).
+`renderCheckDefault()`; swipe sekcí gesta z řádku ignoruje): `CHILL` a `WIP`
+otevřou backlogy Chill a Wip; dál **všechny prefixy backlogů, jejichž název
+začíná dvěma velkými písmeny** (systémové Chill/Done/Wip se nepočítají).
 Řazení prefixů podle **pořadí** (`state.backlogOrder = {název: číslo}`,
 skupina bere nejnižší pořadí svých backlogů), bez pořadí na konec, shoda →
 abecedně. Pořadí se nastavuje v **editaci backlogu** (✎ v pickeru → sheet
@@ -354,7 +355,7 @@ přenese/smaže). Prefix otevře **multi-výběr všech backlogů, jejichž náz
 začíná daným prefixem** (case-sensitive, `applyTaskBacklogMulti`). Rychlé volby jsou záměrně jen na
 hlavní stránce (v backlog view by se s „‹ Zpět" nevešly na mobil).
 
-**Backlog view** (samostatný režim): klik na lištu „Wip" → plnoobrazovkový výpis.
+**Backlog view** (samostatný režim): klik na rychlou volbu / backlog → plnoobrazovkový výpis.
 Otvírá se **vždy nascrollovaný nahoru** (`blogScrollTop()` v `openBlogView` i
 `applyTaskBacklogMulti` — jen při otevření, ne při re-renderu, ať to neskáče
 uprostřed práce). Ukazuje **jen nedatované** úkoly vybraných backlogů; při více
@@ -364,15 +365,16 @@ vědomě „zabořený" za dropdown — Bobovi to tak stačí (archiv).
 **Kompaktní picker backlogů (`fselOpen`):** nativní `<select>` zůstává skrytý
 jako zdroj pravdy, viditelné je tlačítko `.fsel-trigger` otvírající vlastní sheet.
 Řazení položek: prázdná hodnota („žádný") první → **systémové backlogy Done /
-Future / Wip nahoře a bold** (`.picker-item.sys`) → zbytek abecedně. **Future**
-je třetí garantovaný backlog (`normalize()` ho doplní). U vlastních backlogů má
+Wip / Chill nahoře a bold** (`.picker-item.sys`) → zbytek abecedně. **Wip**
+(dřív Future) je třetí garantovaný backlog (`normalize()` ho doplní). **FAB „+" v Tasks**
+předvyplní backlog **Wip** (v otevřeném backlog view ten aktuální). U vlastních backlogů má
 řádek **tužtičku ✎** (přejmenování přes prompt, `renameTaskBacklog` — přepíše
 název i na úkolech a ve výběrech) a **✕** (smazání); systémové nejdou ani
 přejmenovat, ani smazat. Multi-výběr (checkboxy) má dole tři tlačítka
 **Reset · Zrušit · Potvrdit** — Reset jen odškrtne všechny checkboxy a sheet
 nechá otevřený. Multi-výběr se **nepamatuje**: sheet se vždy otevře bez
 zaškrtnutých (`working = []`), i když v `state.taskBacklogSel` něco je.
-Klik na název backlogu (včetně **Wip**) otevře rovnou jeho backlog view.
+Klik na název backlogu (včetně **Chill**) otevře rovnou jeho backlog view.
 
 ### 4b. Akce na úkolu
 
