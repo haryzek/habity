@@ -462,7 +462,8 @@
   }
   .blog-quick-row::-webkit-scrollbar{display:none;}
   .blog-quick{
-    flex:0 0 auto;min-width:0;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;
+    /* roste do volného místa (vyplní řádek); scroll až když se nevejdou ani v minimu (text + 2px) */
+    flex:1 0 auto;min-width:0;background:var(--surface2);border:1px solid var(--accent);border-radius:6px;
     color:var(--text);font-family:var(--mono);font-size:11px;padding:0 2px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
   }
