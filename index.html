@@ -455,9 +455,15 @@
     margin:2px 0 7px;
   }
   /* rychlé volby backlogů vpravo od dropdownu (stejná výška i centr) */
+  /* řádek rychlých voleb – vodorovně scrollovatelný, ať se vejdou všechny prefixy */
+  .blog-quick-row{
+    flex:1 1 0;min-width:0;display:flex;gap:5px;overflow-x:auto;overflow-y:hidden;
+    touch-action:pan-x;-webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .blog-quick-row::-webkit-scrollbar{display:none;}
   .blog-quick{
-    flex:1 1 0;min-width:0;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;
-    color:var(--text);font-family:var(--mono);font-size:11px;padding:0 2px;cursor:pointer;
+    flex:0 0 auto;min-width:46px;background:var(--surface2);border:1px solid var(--accent);border-radius:8px;
+    color:var(--text);font-family:var(--mono);font-size:11px;padding:0 10px;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
   }
   .blog-quick:active{background:var(--accent);color:#15120E;}
@@ -758,6 +764,7 @@
             <select class="wip-sel" id="wipSelect" style="display:none"></select>
             <button type="button" class="wip-sel wip-sel--mini fsel-trigger" id="wipSelectBtn" data-target="wipSelect" data-scope="tasks" data-multi="1" data-notext="1" title="Backlogy"></button>
             <!-- rychlé volby (WIP/FUT + prefixy) se generují v renderBlogQuick() -->
+            <div class="blog-quick-row" id="blogQuickRow"></div>
           </div>
           <div class="wip-wrap" id="wipPreview"></div>
           <div id="calList"></div>
@@ -1239,6 +1246,23 @@
   </div>
 </div>
 
+<!-- EDITACE BACKLOGU (název + pořadí v řádku rychlých voleb) -->
+<div class="scrim cfm" id="blEditScrim">
+  <div class="sheet cfm-sheet">
+    <h2>Upravit backlog</h2>
+    <label>Název</label>
+    <input type="text" id="blEditName" autocomplete="off">
+    <div class="move-edit-f" style="margin-bottom:14px">
+      <label>Pořadí v rychlých volbách</label>
+      <input type="number" id="blEditOrder" min="1" max="99" inputmode="numeric" placeholder="prázdné = na konec">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="blEditNo">Zrušit</button>
+      <button class="btn btn-primary" id="blEditYes">Uložit</button>
+    </div>
+  </div>
+</div>
+
 <!-- BACKLOG PICKER (kompaktní náhrada nativního <select> dropdownu) -->
 <div class="scrim" id="pickerScrim">
   <div class="sheet picker-sheet">
@@ -1555,6 +1579,15 @@ function normalize(o){
     });
   }
   s.taskBacklogSel = tbs.length ? tbs : ["Wip"];
+  // pořadí backlogů v řádku rychlých voleb: { název: číslo }, chybí = na konec
+  var bo = {};
+  if(o.backlogOrder && typeof o.backlogOrder==="object"){
+    Object.keys(o.backlogOrder).forEach(function(n){
+      var v = +o.backlogOrder[n];
+      if(bl.indexOf(n)>=0 && isFinite(v) && v>=1) bo[n] = Math.round(v);
+    });
+  }
+  s.backlogOrder = bo;
 
   var REPEATS = ["none","daily","weekly","biweekly","monthly","quarterly","halfyear","yearly"];
   if(Array.isArray(o.utasks)){
@@ -3308,6 +3341,10 @@ function renameTaskBacklog(oldName, newName){
   var i = state.backlogs.indexOf(oldName);
   if(i<0) return;
   state.backlogs[i] = newName;
+  if(state.backlogOrder && state.backlogOrder.hasOwnProperty(oldName)){
+    state.backlogOrder[newName] = state.backlogOrder[oldName];
+    delete state.backlogOrder[oldName];
+  }
   state.utasks.forEach(function(t){ if(t.backlog===oldName) t.backlog = newName; });
   if(Array.isArray(state.taskBacklogSel)){
     state.taskBacklogSel = state.taskBacklogSel.map(function(n){ return n===oldName ? newName : n; });
@@ -3325,6 +3362,7 @@ function renameTaskBacklog(oldName, newName){
 function deleteTaskBacklog(name){
   if(name==="Wip" || name==="Done" || name==="Future") return;
   state.backlogs = state.backlogs.filter(function(n){ return n!==name; });
+  if(state.backlogOrder) delete state.backlogOrder[name];
   state.utasks = state.utasks.filter(function(t){ return !(t.backlog===name && t.date===null); });
   state.utasks.forEach(function(t){ if(t.backlog===name) t.backlog="Wip"; });
   if(Array.isArray(state.taskBacklogSel)){
@@ -3415,13 +3453,8 @@ function fselOpen(selectId, title){
         ed.type = "button"; ed.className = "picker-del picker-edit"; ed.textContent = "✎";
         ed.onclick = function(e){
           e.stopPropagation();
-          var nn = prompt("Nový název backlogu:", it.text);
-          if(!nn) return;
-          nn = nn.trim();
-          if(!nn || nn===it.value) return;
-          if(state.backlogs.indexOf(nn)>=0){ toast("Backlog „"+nn+"“ už existuje."); return; }
-          cfg.ren(it.value, nn);
           closePickerSheet();
+          openBacklogEdit(it.value, cfg);
         };
         row.appendChild(ed);
       }
@@ -3465,28 +3498,65 @@ document.querySelectorAll(".fsel-trigger").forEach(function(btn){
   btn.onclick = function(){ fselOpen(this.dataset.target, this.dataset.title || "Backlog"); };
 });
 
+/* editace backlogu: název + pořadí v řádku rychlých voleb */
+var blEditName = null, blEditCfg = null;
+function openBacklogEdit(name, cfg){
+  blEditName = name; blEditCfg = cfg;
+  document.getElementById("blEditName").value = name;
+  var o = state.backlogOrder && state.backlogOrder[name];
+  document.getElementById("blEditOrder").value = o ? o : "";
+  document.getElementById("blEditScrim").classList.add("open");
+}
+function closeBacklogEdit(){ document.getElementById("blEditScrim").classList.remove("open"); blEditName = null; }
+document.getElementById("blEditNo").onclick = closeBacklogEdit;
+document.getElementById("blEditScrim").onclick = function(e){ if(e.target===this) closeBacklogEdit(); };
+document.getElementById("blEditYes").onclick = function(){
+  var old = blEditName;
+  if(!old) return;
+  var nn = document.getElementById("blEditName").value.trim();
+  if(!nn){ toast("Název nesmí být prázdný."); return; }
+  if(nn!==old && state.backlogs.indexOf(nn)>=0){ toast("Backlog „"+nn+"“ už existuje."); return; }
+  var ov = document.getElementById("blEditOrder").value.trim();
+  var ord = ov==="" ? null : Math.round(+ov);
+  if(ov!=="" && !(isFinite(ord) && ord>=1)){ toast("Pořadí musí být číslo od 1."); return; }
+  if(!state.backlogOrder) state.backlogOrder = {};
+  if(ord) state.backlogOrder[old] = ord; else delete state.backlogOrder[old];
+  closeBacklogEdit();
+  if(nn!==old) blEditCfg.ren(old, nn);   // přenese i pořadí, uloží a přerenderuje
+  else { save(); renderCheck(); toast("Backlog uložen."); }
+};
+
 /* rychlé volby backlogů vedle mini dropdownu: WIP/FUT = systémové backlogy,
-   dál prvních 6 dvoupísmenných prefixů uživatelských backlogů (abecedně);
+   dál VŠECHNY prefixy backlogů, jejichž název začíná dvěma velkými písmeny
+   (řádek se scrolluje vodorovně). Řazení skupin podle nastaveného pořadí
+   (nejnižší pořadí v rámci prefixu), bez pořadí na konec, pak abecedně.
    prefix = multi-výběr všech backlogů s daným začátkem názvu */
+function isUpperLetter(ch){ return !!ch && ch!==ch.toLowerCase() && ch===ch.toUpperCase(); }
 function renderBlogQuick(){
-  var bar = document.getElementById("wipBar");
-  bar.querySelectorAll(".blog-quick").forEach(function(b){ b.remove(); });
+  var bar = document.getElementById("blogQuickRow");
+  bar.innerHTML = "";
   var SYS_BL = ["Wip","Done","Future"];
-  var prefixes = [];
+  var BO = state.backlogOrder || {};
+  var rank = {};  // prefix -> nejnižší pořadí
   state.backlogs.forEach(function(n){
     if(SYS_BL.indexOf(n)>=0) return;
-    var p = n.slice(0,2).toUpperCase();
-    if(prefixes.indexOf(p)===-1) prefixes.push(p);
+    if(!isUpperLetter(n.charAt(0)) || !isUpperLetter(n.charAt(1))) return;
+    var p = n.slice(0,2);
+    var o = BO[n] || Infinity;
+    rank[p] = rank.hasOwnProperty(p) ? Math.min(rank[p], o) : o;
   });
-  prefixes.sort();
+  var prefixes = Object.keys(rank).sort(function(a,b){
+    if(rank[a]!==rank[b]) return rank[a] < rank[b] ? -1 : 1;
+    return a.localeCompare(b,"cs");
+  });
   var defs = [{label:"WIP", open:"Wip"}, {label:"FUT", open:"Future"}];
-  prefixes.slice(0,6).forEach(function(p){ defs.push({label:p, prefix:p}); });
+  prefixes.forEach(function(p){ defs.push({label:p, prefix:p}); });
   defs.forEach(function(d){
     var b = document.createElement("button");
     b.type = "button"; b.className = "blog-quick"; b.textContent = d.label;
     b.onclick = function(){
       if(d.open){ openBlogView(d.open); return; }
-      var names = state.backlogs.filter(function(n){ return n.toUpperCase().indexOf(d.prefix)===0; });
+      var names = state.backlogs.filter(function(n){ return n.indexOf(d.prefix)===0; });
       if(!names.length){ toast("Žádný backlog nezačíná na „"+d.prefix+"“."); return; }
       applyTaskBacklogMulti(names);
     };
@@ -3645,6 +3715,7 @@ function attachSwipe(pageEl, trackEl){
   pageEl.addEventListener("pointerdown", function(e){
     if(e.pointerType==="mouse" && e.button!==0) return;
     if(e.target.closest("input[type=range]")) return;
+    if(e.target.closest(".blog-quick-row")) return; // vodorovný scroll rychlých voleb
     x0=e.clientX; y0=e.clientY; dx=0; dy=0;
     dragging=true; decided=false; horizontal=false;
     w=pageEl.clientWidth; pid=e.pointerId;

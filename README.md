@@ -341,13 +341,17 @@ stav).
 
 **Lišta backlogů (wipbar):** vlevo u kraje **mini dropdown** — jen šipčička
 (`.wip-sel--mini`, `data-notext` ať do něj `fselSync` nepíše text), otvírá plný
-picker s multi-výběrem. Vedle **8 rychlých voleb** (`.blog-quick`, generuje
-`renderBlogQuick()` při každém `renderCheckDefault()`): `WIP` a `FUT` otevřou
-backlogy Wip a Future; dalších **6 tlačítek = prvních šest dvoupísmenných
-prefixů uživatelských backlogů abecedně** (systémové Wip/Done/Future se do
-prefixů nepočítají; sedmý a další prefix v abecedě vypadne). Prefix otevře
-**multi-výběr všech backlogů, jejichž název začíná daným prefixem**
-(case-insensitive, `applyTaskBacklogMulti`). Rychlé volby jsou záměrně jen na
+picker s multi-výběrem. Vedle **vodorovně scrollovatelný řádek rychlých voleb**
+(`#blogQuickRow` > `.blog-quick`, generuje `renderBlogQuick()` při každém
+`renderCheckDefault()`; swipe sekcí gesta z řádku ignoruje): `WIP` a `FUT`
+otevřou backlogy Wip a Future; dál **všechny prefixy backlogů, jejichž název
+začíná dvěma velkými písmeny** (systémové Wip/Done/Future se nepočítají).
+Řazení prefixů podle **pořadí** (`state.backlogOrder = {název: číslo}`,
+skupina bere nejnižší pořadí svých backlogů), bez pořadí na konec, shoda →
+abecedně. Pořadí se nastavuje v **editaci backlogu** (✎ v pickeru → sheet
+`#blEditScrim`: název + pořadí; přejmenování/smazání klíč v `backlogOrder`
+přenese/smaže). Prefix otevře **multi-výběr všech backlogů, jejichž název
+začíná daným prefixem** (case-sensitive, `applyTaskBacklogMulti`). Rychlé volby jsou záměrně jen na
 hlavní stránce (v backlog view by se s „‹ Zpět" nevešly na mobil).
 
 **Backlog view** (samostatný režim): klik na lištu „Wip" → plnoobrazovkový výpis.
