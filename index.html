@@ -2860,6 +2860,9 @@ function utComplete(t){
       if(t.bouncer && t.bouncer.date) t.bouncer = {date:nd};
       t.done = false;
     }
+  } else if(t.backlog==="Chill" && t.date===null){
+    // Chill: odškrtnutý úkol prostě zmizí, do Done se nearchivuje
+    state.utasks = state.utasks.filter(function(x){ return x!==t; });
   } else {
     // ne-repeat: do Done, bez data
     t.backlog = "Done";

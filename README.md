@@ -383,7 +383,9 @@ Klik na název backlogu (včetně **Chill**) otevře rovnou jeho backlog view.
 **Klik na název** = editace (VŠUDE, jednotné gesto; žádná tužtička — zrušená).
 
 - **✓ splnit (`utComplete`)**: zelená (+1 done) k dnešku. Repeat → respawne
-  (viz 4d). Ne-repeat → `backlog="Done"`, `date=null`, `done=true`. Spustí piňa 🍹.
+  (viz 4d). Ne-repeat → `backlog="Done"`, `date=null`, `done=true`. **Výjimka:
+  nedatovaný ne-repeat v backlogu Chill se po odškrtnutí smaže** (do Done se
+  nearchivuje). Spustí piňa 🍹.
 - **✕ Nesplněno (`utMiss`)**: poctivá červená (+1 missed) k dnešku. Sesun na
   zítřek. **Jediné dobrovolné přiznání lajdáctví, platí na repeat i ne-repeat.**
 - **přesun → / » (`utMove`)**: bez penalizace, žádná stopa v Přehledu. „Převálcovalo
