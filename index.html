@@ -1348,7 +1348,15 @@ var LIT_TAG_RENAME = {
   "Postoje":"Litánie"
 };
 var LIT_SKUPINY_SEED = ["Otázky","Litánie","Udělat","Výzvy"];
+// témata (modrá), která v Litániích musí existovat vždy – doplní se na konec,
+// pokud chybí (bez ohledu na velikost písmen). „terapie" + Otázky = terapeutické otázky.
+var LIT_TEMATA_SEED = ["terapie"];
 function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
+function litEnsureTags(arr, seed){
+  var low = arr.map(function(t){ return t.toLowerCase(); });
+  (seed||[]).forEach(function(t){ if(low.indexOf(t.toLowerCase())===-1){ arr.push(t); low.push(t.toLowerCase()); } });
+  return arr;
+}
 function litRenArr(a){
   var out = [], seen = {};
   (a||[]).forEach(function(t){ var r = litRen(t); if(!seen[r]){ seen[r]=1; out.push(r); } });
@@ -1360,7 +1368,7 @@ function litRenArr(a){
 var LIT_COLS = {
   lit: {
     key:"lit", base:"litBase", overlay:"litOverlay", nw:"litNew", filter:"litFilter",
-    temata:"litTemata", casti:"litCasti", skupiny:"litSkupiny", seedSkupiny:LIT_SKUPINY_SEED,
+    temata:"litTemata", casti:"litCasti", skupiny:"litSkupiny", seedSkupiny:LIT_SKUPINY_SEED, seedTemata:LIT_TEMATA_SEED,
     prioMax:5, prioDef:2, idPrefix:"ul",
     dom:{ search:"litSearch", favQuick:"litFavQuick", filterBar:"litFilterBar", count:"litCount", list:"litList", empty:"litEmpty" },
     lab:{ one:"Litánie", ph:"Text litánie…", del:"Vyhodit litánii", deleted:"Litánie vyhozena.", loading:"Načítám litánie…" }
@@ -1377,7 +1385,7 @@ var LIT_COLS = {
 };
 function litColBlank(c){
   var s = {};
-  s[c.base] = []; s[c.temata] = []; s[c.casti] = []; s[c.skupiny] = (c.seedSkupiny||[]).slice();
+  s[c.base] = []; s[c.temata] = (c.seedTemata||[]).slice(); s[c.casti] = []; s[c.skupiny] = (c.seedSkupiny||[]).slice();
   s[c.overlay] = {}; s[c.nw] = [];
   s[c.filter] = { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" };
   return s;
@@ -1394,6 +1402,7 @@ function litColNormalize(o, s, c){
       });
   }
   if(Array.isArray(o[c.temata])) s[c.temata] = strArr(o[c.temata]);
+  litEnsureTags(s[c.temata], c.seedTemata);
   if(Array.isArray(o[c.casti])) s[c.casti] = strArr(o[c.casti]);
   if(Array.isArray(o[c.skupiny])) s[c.skupiny] = strArr(o[c.skupiny]);
   if(o[c.overlay] && typeof o[c.overlay]==="object"){
@@ -4878,7 +4887,7 @@ function litImport(c, d){
         aktivni: x.aktivni!==false
       };
     });
-  state[c.temata] = litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []);
+  state[c.temata] = litEnsureTags(litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []), c.seedTemata);
   state[c.casti]  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
   state[c.skupiny] = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : (c.seedSkupiny||[]).slice());
   save();
