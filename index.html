@@ -382,7 +382,7 @@
   .picker-del:active{color:var(--missed);}
   .picker-edit{font-size:14px;}
   .picker-edit:active{color:var(--accent);}
-  /* systémové backlogy (Done/Wip/Chill) nahoře a tučně */
+  /* systémové backlogy (Done/Wip/Chill/Mix) nahoře a tučně */
   .picker-item.sys .picker-label{font-weight:700;}
   .picker-check{
     width:16px;height:16px;border-radius:4px;border:1.5px solid var(--dim);flex-shrink:0;
@@ -438,6 +438,7 @@
   .titem .tname{font-family:var(--serif);font-size:14px;line-height:1.25;flex:1;min-width:0;word-break:break-word;cursor:pointer;}
   .titem.done .tname{color:var(--dim);text-decoration:line-through;}
   .titem .trepeat{font-family:var(--mono);font-size:9px;color:var(--dim);flex-shrink:0;letter-spacing:.3px;}
+  .titem .thome{font-family:var(--mono);font-size:9px;color:var(--dim);flex-shrink:0;letter-spacing:.3px;opacity:.75;}
   .titem .tacts{display:flex;gap:5px;flex-shrink:0;}
   .tbtn{
     width:26px;height:26px;border-radius:6px;border:1px solid var(--border);
@@ -764,7 +765,7 @@
           <div class="wipbar" id="wipBar">
             <select class="wip-sel" id="wipSelect" style="display:none"></select>
             <button type="button" class="wip-sel wip-sel--mini fsel-trigger" id="wipSelectBtn" data-target="wipSelect" data-scope="tasks" data-multi="1" data-notext="1" title="Backlogy"></button>
-            <!-- rychlé volby (CHILL/WIP + prefixy) se generují v renderBlogQuick() -->
+            <!-- rychlé volby (CHILL/MIX + prefixy) se generují v renderBlogQuick() -->
             <div class="blog-quick-row" id="blogQuickRow"></div>
           </div>
           <div class="wip-wrap" id="wipPreview"></div>
@@ -1301,7 +1302,8 @@
    {
      sections: [ {habits,log}, {habits,log} ],   // 0=povinnosti(01), 1=volnočas(02)
      tasks: [ {id,name,priority,createdAt, subtasks:[{id,name,weight,done}]} ],
-     backlogs: ["Chill","Done","Wip"],    // názvy; Chill+Done+Wip vždy první tři, pořadí = řazení
+     backlogs: ["Chill","Done","Wip","Mix"], // názvy; Chill+Done+Wip+Mix vždy první čtyři, pořadí = řazení
+                                          // Mix = jen agregátor (viz MIX_* níže), nic v něm nebydlí
      utasks: [ {id,name,priority,createdAt,
                 date:"YYYY-MM-DD"|null,    // null = nedatovaný (bydlí v backlogu)
                 backlog:"Chill",             // domovský backlog
@@ -1430,8 +1432,8 @@ function blankState(){
   // hrBase/hrCap dle Bobova režimu — klidový ~55, zátěž ~130)
   var s = {
     sections:[ {habits:[],log:{}}, {habits:[],log:{}} ],
-    tasks:[], backlogs:["Chill","Done","Wip"], utasks:[], daily:{},
-    blV:2,   // verze názvů systémových backlogů (2 = Chill/Done/Wip, viz migrace v normalize)
+    tasks:[], backlogs:["Chill","Done","Wip","Mix"], utasks:[], daily:{},
+    blV:3,   // verze systémových backlogů (2 = Chill/Done/Wip, 3 = + Mix, viz migrace v normalize)
     taskBacklogSel:["Chill"],
     freeFilter:{ tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false, search:"" },
     // days = data ze syncu (přepisuje import); overrides = ruční přepisy dne, které
@@ -1574,8 +1576,19 @@ function normalize(o){
       Object.keys(boOld).forEach(function(n){ o.backlogOrder[blRen(n)] = boOld[n]; });
     }
   }
-  // backlogy: Chill, Done a Wip jsou vždy garantované a první tři
-  var bl = ["Chill","Done","Wip"];
+  // migrace blV<3: přibyl systémový agregátor Mix. Případný Bobův vlastní backlog
+  // „Mix" se přejmenuje na „Mix 2", ať jeho úkoly nezmizí v agregátoru.
+  if(!(o.blV>=3)){
+    var mixRen = function(n){ return n==="Mix" ? "Mix 2" : n; };
+    if(Array.isArray(o.backlogs)) o.backlogs = o.backlogs.map(mixRen);
+    if(Array.isArray(o.taskBacklogSel)) o.taskBacklogSel = o.taskBacklogSel.map(mixRen);
+    if(Array.isArray(o.utasks)) o.utasks.forEach(function(t){ if(t && typeof t==="object") t.backlog = mixRen(t.backlog); });
+    if(o.backlogOrder && typeof o.backlogOrder==="object" && o.backlogOrder.hasOwnProperty("Mix")){
+      o.backlogOrder["Mix 2"] = o.backlogOrder["Mix"]; delete o.backlogOrder["Mix"];
+    }
+  }
+  // backlogy: Chill, Done, Wip a Mix jsou vždy garantované a první čtyři
+  var bl = ["Chill","Done","Wip","Mix"];
   if(Array.isArray(o.backlogs)){
     o.backlogs.forEach(function(name){
       if(typeof name==="string"){
@@ -1612,7 +1625,7 @@ function normalize(o){
           if(typeof t.bouncer.dow==="number" && t.bouncer.dow>=0 && t.bouncer.dow<=6) bnc = {dow:t.bouncer.dow};
           else if(typeof t.bouncer.date==="string" && /^\d{4}-\d{2}-\d{2}$/.test(t.bouncer.date)) bnc = {date:t.bouncer.date};
         }
-        var bk = (typeof t.backlog==="string" && bl.indexOf(t.backlog)>=0) ? t.backlog : "Chill";
+        var bk = (typeof t.backlog==="string" && bl.indexOf(t.backlog)>=0 && t.backlog!=="Mix") ? t.backlog : "Chill";
         return {
           id: t.id || ("u"+Date.now()+Math.random().toString(36).slice(2,6)),
           name: t.name,
@@ -2764,8 +2777,17 @@ function sortUtasks(arr){
     return a.createdAt-b.createdAt;
   });
 }
+/* Mix = agregátor: nedatované úkoly s prioritou >= MIX_MIN_PRIO ze všech
+   backlogů kromě MIX_EXCLUDE. Nic v něm nebydlí, nejde do něj vkládat. */
+var MIX_MIN_PRIO = 8;
+var MIX_EXCLUDE = ["Chill","Done","Wip","Mix"];
 /* nedatované úkoly daného backlogu */
 function backlogTasks(name){
+  if(name==="Mix"){
+    return sortUtasks(state.utasks.filter(function(t){
+      return t.date===null && t.priority>=MIX_MIN_PRIO && MIX_EXCLUDE.indexOf(t.backlog)===-1;
+    }));
+  }
   return sortUtasks(state.utasks.filter(function(t){ return t.date===null && t.backlog===name; }));
 }
 /* datované úkoly seskupené dle data -> [{dateKey, tasks:[]}] vzestupně */
@@ -2890,8 +2912,8 @@ function utMove(t, mode){
 }
 
 /* ---- render: jeden řádek úkolu ---- */
-function makeUtaskRow(t, ctx){
-  // ctx: "cal" (kalendář) | "backlog"
+function makeUtaskRow(t, ctx, showHome){
+  // ctx: "cal" (kalendář) | "backlog"; showHome = ukázat domovský backlog (Mix)
   var row = document.createElement("div");
   row.className = "titem" + (t.done?" done":"");
 
@@ -2905,6 +2927,13 @@ function makeUtaskRow(t, ctx){
   name.textContent = t.name;
   name.onclick = function(){ openUtSheet(t.id); };
   row.appendChild(name);
+
+  if(showHome){
+    var home = document.createElement("span");
+    home.className = "thome";
+    home.textContent = t.backlog;
+    row.appendChild(home);
+  }
 
   if(t.repeat!=="none"){
     var rep = document.createElement("span");
@@ -3013,19 +3042,21 @@ function renderBlogView(){
   var empty = document.getElementById("blogEmpty");
   list.innerHTML = "";
   var total = 0;
+  var seen = {};  // Mix + zdrojový backlog naráz: každý úkol jen jednou
   ordered.forEach(function(nm){
-    var items = backlogTasks(nm);
+    var items = backlogTasks(nm).filter(function(t){ return !seen[t.id]; });
+    items.forEach(function(t){ seen[t.id] = true; });
     if(ordered.length>1){
       var gh = document.createElement("div"); gh.className = "blog-group-head";
       gh.innerHTML = '<span class="bl"></span><span class="bline"></span>'+
-                     '<button class="bplus" type="button" title="+ úkol do ‚'+nm+'‘">+</button>';
+                     (nm==="Mix" ? '' : '<button class="bplus" type="button" title="+ úkol do ‚'+nm+'‘">+</button>');
       gh.querySelector(".bl").textContent = nm;
-      gh.querySelector(".bplus").onclick = (function(bk){
+      if(nm!=="Mix") gh.querySelector(".bplus").onclick = (function(bk){
         return function(e){ e.stopPropagation(); openUtSheet(null, bk); };
       })(nm);
       list.appendChild(gh);
     }
-    items.forEach(function(t){ list.appendChild(makeUtaskRow(t,"backlog")); });
+    items.forEach(function(t){ list.appendChild(makeUtaskRow(t,"backlog",nm==="Mix")); });
     total += items.length;
   });
   empty.style.display = total ? "none" : "block";
@@ -3150,7 +3181,7 @@ function fillBacklogPicker(selected){
   var sel = document.getElementById("utBacklog");
   sel.innerHTML = "";
   state.backlogs.forEach(function(name){
-    if(name==="Done") return; // do Done se ručně nezakládá
+    if(name==="Done" || name==="Mix") return; // do Done se ručně nezakládá, Mix je jen agregátor
     var o = document.createElement("option");
     o.value = name; o.textContent = name;
     if(name===selected) o.selected = true;
@@ -3218,6 +3249,7 @@ function openUtSheet(id, presetBacklog){
     utPrioEl.value = 1; utPrioValEl.textContent = 1;
     var defaultBk = (presetBacklog && state.backlogs.indexOf(presetBacklog)>=0) ? presetBacklog
                   : (document.getElementById("blogView").classList.contains("open") ? blogCurrent : "Wip");
+    if(defaultBk==="Mix") defaultBk = "Wip"; // do agregátoru se nevkládá
     fillBacklogPicker(defaultBk);
     del.style.display = "none";
   }
@@ -3376,7 +3408,7 @@ function renameTaskBacklog(oldName, newName){
 }
 
 function deleteTaskBacklog(name){
-  if(name==="Chill" || name==="Done" || name==="Wip") return;
+  if(name==="Chill" || name==="Done" || name==="Wip" || name==="Mix") return;
   state.backlogs = state.backlogs.filter(function(n){ return n!==name; });
   if(state.backlogOrder) delete state.backlogOrder[name];
   state.utasks = state.utasks.filter(function(t){ return !(t.backlog===name && t.date===null); });
@@ -3397,7 +3429,7 @@ function deleteTaskBacklog(name){
   toast("Backlog „"+name+"“ smazán.");
 }
 var BACKLOG_SCOPES = {
-  tasks: { protectedNames:["Chill","Done","Wip"], del:deleteTaskBacklog, ren:renameTaskBacklog }
+  tasks: { protectedNames:["Chill","Done","Wip","Mix"], del:deleteTaskBacklog, ren:renameTaskBacklog }
 };
 
 function fselOpen(selectId, title){
@@ -3407,9 +3439,9 @@ function fselOpen(selectId, title){
   var cfg = BACKLOG_SCOPES[triggerBtn ? triggerBtn.dataset.scope : ""];
   var multi = !!(triggerBtn && triggerBtn.dataset.multi==="1");
   var items = Array.prototype.map.call(sel.options, function(o){ return {value:o.value, text:o.textContent}; });
-  // řazení: prázdná hodnota („žádný") první, systémové backlogy (Done/Wip/Chill)
+  // řazení: prázdná hodnota („žádný") první, systémové backlogy (Done/Wip/Chill/Mix)
   // nahoře v tomhle pořadí, zbytek abecedně
-  var SYS_BL = ["Done","Wip","Chill"];
+  var SYS_BL = ["Done","Wip","Chill","Mix"];
   items.sort(function(a,b){
     var ea = (a.value==="")?0:1, eb = (b.value==="")?0:1;
     if(ea!==eb) return ea-eb;
@@ -3542,7 +3574,8 @@ document.getElementById("blEditYes").onclick = function(){
   else { save(); renderCheck(); toast("Backlog uložen."); }
 };
 
-/* rychlé volby backlogů vedle mini dropdownu: CHILL/WIP = systémové backlogy,
+/* rychlé volby backlogů vedle mini dropdownu: CHILL/MIX = systémové backlogy napevno
+   první dva (Wip a Done se sem nedávají, jsou jen v dropdownu),
    dál VŠECHNY prefixy backlogů, jejichž název začíná dvěma velkými písmeny
    (řádek se scrolluje vodorovně). Řazení skupin podle nastaveného pořadí
    (nejnižší pořadí v rámci prefixu), bez pořadí na konec, pak abecedně.
@@ -3551,7 +3584,7 @@ function isUpperLetter(ch){ return !!ch && ch!==ch.toLowerCase() && ch===ch.toUp
 function renderBlogQuick(){
   var bar = document.getElementById("blogQuickRow");
   bar.innerHTML = "";
-  var SYS_BL = ["Chill","Done","Wip"];
+  var SYS_BL = ["Chill","Done","Wip","Mix"];
   var BO = state.backlogOrder || {};
   var rank = {};  // prefix -> nejnižší pořadí
   state.backlogs.forEach(function(n){
@@ -3565,7 +3598,7 @@ function renderBlogQuick(){
     if(rank[a]!==rank[b]) return rank[a] < rank[b] ? -1 : 1;
     return a.localeCompare(b,"cs");
   });
-  var defs = [{label:"CHILL", open:"Chill"}, {label:"WIP", open:"Wip"}];
+  var defs = [{label:"CHILL", open:"Chill"}, {label:"MIX", open:"Mix"}];
   prefixes.forEach(function(p){ defs.push({label:p, prefix:p}); });
   defs.forEach(function(d){
     var b = document.createElement("button");
