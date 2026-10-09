@@ -291,6 +291,7 @@
   .prio-lab{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
   input[type=range]{flex:1;accent-color:var(--accent);height:22px;}
   .prio-val{font-family:var(--mono);font-size:18px;color:var(--accent);width:24px;text-align:center;flex-shrink:0;}
+  .mix-prio{margin:4px 2px 10px;}
   .btn{
     width:100%;border:none;border-radius:12px;padding:12px;font-family:var(--sans);
     font-size:15px;cursor:pointer;font-weight:500;
@@ -779,6 +780,11 @@
             <button class="blog-back" id="blogBack">‹ Zpět</button>
             <select class="blog-sel" id="blogSelect" style="display:none"></select>
             <button type="button" class="blog-sel fsel-trigger" id="blogSelectBtn" data-target="blogSelect" data-scope="tasks" data-multi="1"></button>
+          </div>
+          <div class="prio-row mix-prio" id="mixPrioRow" style="display:none">
+            <span class="prio-lab">Priorita od</span>
+            <input type="range" id="mixPrio" min="1" max="10" step="1" value="10">
+            <span class="prio-val" id="mixPrioVal">10</span>
           </div>
           <div id="blogList"></div>
           <div class="cal-empty" id="blogEmpty" style="display:none">Tenhle backlog je prázdný.</div>
@@ -1435,6 +1441,7 @@ function blankState(){
     tasks:[], backlogs:["Chill","Done","Wip","Mix"], utasks:[], daily:{},
     blV:3,   // verze systémových backlogů (2 = Chill/Done/Wip, 3 = + Mix, viz migrace v normalize)
     taskBacklogSel:["Chill"],
+    mixMinPrio:10,  // práh priority agregátoru Mix (slider v pohledu Mix), N = N a víc
     freeFilter:{ tags:{}, durationMin:0, durationMax:16, funMin:1, expanded:false, search:"" },
     // days = data ze syncu (přepisuje import); overrides = ruční přepisy dne, které
     // sync NEPŘEPÍŠE (zámek natvrdo). Efektivní hodnota dne = overrides ?? days.
@@ -1605,6 +1612,7 @@ function normalize(o){
     });
   }
   s.taskBacklogSel = tbs.length ? tbs : ["Chill"];
+  if(typeof o.mixMinPrio==="number" && o.mixMinPrio>=1 && o.mixMinPrio<=10) s.mixMinPrio = Math.round(o.mixMinPrio);
   // pořadí backlogů v řádku rychlých voleb: { název: číslo }, chybí = na konec
   var bo = {};
   if(o.backlogOrder && typeof o.backlogOrder==="object"){
@@ -2777,15 +2785,15 @@ function sortUtasks(arr){
     return a.createdAt-b.createdAt;
   });
 }
-/* Mix = agregátor: nedatované úkoly s prioritou >= MIX_MIN_PRIO ze všech
-   backlogů kromě MIX_EXCLUDE. Nic v něm nebydlí, nejde do něj vkládat. */
-var MIX_MIN_PRIO = 8;
+/* Mix = agregátor: nedatované úkoly s prioritou >= state.mixMinPrio (slider
+   v pohledu Mix, default 10) ze všech backlogů kromě MIX_EXCLUDE.
+   Nic v něm nebydlí, nejde do něj vkládat. */
 var MIX_EXCLUDE = ["Chill","Done","Wip","Mix"];
 /* nedatované úkoly daného backlogu */
 function backlogTasks(name){
   if(name==="Mix"){
     return sortUtasks(state.utasks.filter(function(t){
-      return t.date===null && t.priority>=MIX_MIN_PRIO && MIX_EXCLUDE.indexOf(t.backlog)===-1;
+      return t.date===null && t.priority>=state.mixMinPrio && MIX_EXCLUDE.indexOf(t.backlog)===-1;
     }));
   }
   return sortUtasks(state.utasks.filter(function(t){ return t.date===null && t.backlog===name; }));
@@ -3038,6 +3046,10 @@ function renderBlogView(){
   var btn = document.getElementById("blogSelectBtn");
   if(btn) btn.textContent = names.length>1 ? (names.length+" vybrané") : names[0];
   var ordered = names.slice().sort(function(a,b){ return a.localeCompare(b,"cs",{sensitivity:"base"}); });
+  // slider prahu priority – jen když je ve výběru Mix
+  document.getElementById("mixPrioRow").style.display = (names.indexOf("Mix")>=0) ? "" : "none";
+  document.getElementById("mixPrio").value = state.mixMinPrio;
+  document.getElementById("mixPrioVal").textContent = state.mixMinPrio;
   var list = document.getElementById("blogList");
   var empty = document.getElementById("blogEmpty");
   list.innerHTML = "";
@@ -3061,6 +3073,11 @@ function renderBlogView(){
   });
   empty.style.display = total ? "none" : "block";
 }
+document.getElementById("mixPrio").oninput = function(){
+  state.mixMinPrio = +this.value;
+  save();
+  renderBlogView();
+};
 function applyTaskBacklogMulti(names){
   var uniq = [];
   names.forEach(function(n){ if(state.backlogs.indexOf(n)>=0 && uniq.indexOf(n)===-1) uniq.push(n); });
