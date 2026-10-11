@@ -30,8 +30,10 @@ pracovní pravidla.
 - **Litánie a otázky jsou soukromé.** Nikdy necommituj jejich zdroje
   (`local/…`) ani jejich obsah do repa. Pages je veřejné.
 - `move_data.json` a `run_data.json` v kořeni zapisuje Bobův Garmin skript
-  (commity „Auto: update Garmin data“). Ručně do nich nesahej. Před pushem
-  udělej fetch nebo pull.
+  (commity „Auto: update Garmin data“). Ručně do nich nesahej. Skript běží
+  v Bobově lokálním repu, takže lokál kvůli němu pullovat nemusí. Pull je
+  potřeba jen po práci v cloudu. Cloudová session má před pushem udělat
+  fetch, protože na GitHubu mezitím mohly přibýt Garmin commity.
 - Repeat úkol se nikdy neklonuje, respawn je jen po ✓. Červená v Tasks vzniká
   jen z ručního ✕. Auto-rollup je zrušený, nevracet bez Boba.
 - Na `moveSemi` (side +1 = LEVÁ) ani na kotvení biweekly na `t.date`

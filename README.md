@@ -68,8 +68,12 @@ plochu, ale offline cache nemá.
   `.claude/` a `_scratch/`.
 - **localStorage přežívá update** (je vázaná na doménu). Je to **jediná ostrá
   kopie dat**. Záloha = export JSON (viz 5d).
-- **Automatické commity „Auto: update Garmin data“** chodí z Bobova PC (Task
-  Scheduler, viz 5c). Před pushem proto vždycky udělej `git fetch` nebo `git pull`.
+- **Automatické commity „Auto: update Garmin data“** vznikají **přímo
+  v Bobově lokálním repu** (`E:\_dev\habity`, Task Scheduler, viz 5c). Skript
+  je odtud pushuje a předtím si udělá `pull --rebase`. Lokál je jejich zdroj,
+  takže **lokálně se kvůli nim pullovat nemusí**. Pull je potřeba jen po práci
+  v cloudu. **Cloudová session** má naopak před pushem nebo mergem udělat
+  `git fetch`, protože na GitHubu mezitím mohly přibýt Garmin commity.
 
 ### Workflow pro Claude
 
