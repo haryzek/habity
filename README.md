@@ -221,8 +221,8 @@ akce úkolů `renderCheck`.
 
 Klíč zůstal `habity.v2`. Nové struktury přidává `normalize()` nedestruktivně a
 doplní chybějící pole. Migrace v1→v2 existuje: `load()` načte `habity.v1`,
-znormalizuje ho a zapíše jako v2. Komentářový blok se schématem na začátku
-`<script>` (kolem ř. 1307) je **zastaralý**, platí tenhle:
+znormalizuje ho a zapíše jako v2. Komentář na začátku `<script>` schéma
+neudržuje a odkazuje sem. Platí tohle:
 
 ```
 // localStorage "habity.v2"; normalize() doplní vše chybějící
@@ -488,7 +488,8 @@ skupiny. Tlačítko „‹ Zpět“ vrací na default obrazovku.
 
 - **V kalendáři** (ctx `"cal"`): `✓` splnit · `→` zítřek · `»` týden · `✕`
   nesplněno.
-- **V backlogu a náhledu** (ctx `"backlog"`): jen `✓`.
+- **V backlogu a náhledu** (ctx `"backlog"`): jen `✓`. **V Done není nic**,
+  protože Done je log a nic se v něm neodškrtává.
 - **Klik na název** = editace, a to všude (jednotné gesto).
 
 Co jednotlivé akce dělají:
@@ -496,16 +497,13 @@ Co jednotlivé akce dělají:
   - Repeat → respawn (viz 4f).
   - Nedatovaný ne-repeat v **Chill** → úkol se **smaže**.
   - Jinak → Done (`date=null`, `done=true`).
-  - ⚠️ ✓ na úkolu, který už je v Done, ho „splní“ znovu: další zelená a další piňa.
 - **✕ (`utMiss`):** +1 missed k dnešku, přesune úkol na zítřek. Platí pro
   repeat i ne-repeat a je to **jediný zdroj červené**.
 - **→ (`utMove`):** datum úkolu + 1 den, i když je datum v minulosti (bez clampu).
   Bez penalizace.
-- **» (`utMove`):** datum + 7 dní.
-  ⚠️ **BUG:** u propadlého úkolu `»` **nedělá nic**. Kód nastaví
-  `base = today()`, ale kvůli `else` nezapíše datum (`utMove`, kolem ř. 2926).
-  Zamýšlené chování bylo „propadlý → týden od dneška“. Hlášeno Bobovi
-  11. 10. 2026, zatím neopraveno.
+- **» (`utMove`):** datum + 7 dní. Propadlý úkol se posune o **týden od
+  dneška** (clamp na dnešek). Do 11. 10. 2026 tu byl bug, kvůli kterému `»`
+  u propadlého úkolu nedělal nic.
 
 ### 4e. Prokrastinace a červená — FILOZOFIE (a zrušený rollup)
 
@@ -560,12 +558,13 @@ odloženo.
 - **Opakování:** 8 segmentů `0/d/t/tt/m/3m/6m/Y`.
 - **Kotva (bouncer):** zašedlá u none/daily. U weekly/biweekly se volí den v
   týdnu, druhým klikem na stejný den se kotva sundá. U monthly+ se volí datum.
-- **Dva pickery vedle sebe:** backlog (bez Done a Mix) a „→ projekt…“.
+- **Dva pickery vedle sebe:** backlog (bez Mix; Done jen u úkolu, který v Done
+  už je, ať ho editace nevyhodí jinam) a „→ projekt…“.
   Tlačítko **„+ backlog“** (prompt) je v řádku tlačítek.
 
 **Výchozí backlog** nového úkolu: `presetBacklog` (z „+“ u skupiny), jinak v
-otevřeném backlog view aktuální `blogCurrent`, jinak **Wip**. Mix se vždycky
-nahradí Wip.
+otevřeném backlog view aktuální `blogCurrent`, jinak **Wip**. Mix i Done se
+vždycky nahradí Wip.
 
 **Repeat bez data:**
 - daily → dnešek.
@@ -578,10 +577,6 @@ nahradí Wip.
 (weight 5, bez pevných čtverečků) a úkol smaže z `utasks`. Datum, priorita,
 repeat i backlog se zahodí a **cesta zpět není**. Zapisuje se tam i mrtvé pole
 `prio:5`, které `normalize()` při načtení zahodí.
-
-⚠️ **Edit úkolu v Done** a Uložit ho přesune do Chill. V pickeru Done není, a
-tak se uloží první možnost. `done=true` zůstane, takže je v Chill
-přeškrtnutý.
 
 ### 4h. Přehled úkolů — ZRUŠENO
 
@@ -673,8 +668,7 @@ GitHub Pages → appka je při startu tiše fetchne (fetchMoveData + fetchRunDat
 - **⚙ „Znovu načíst Move data z GitHubu“** (`#btnRefreshMove`) stáhne
   `move_data.json` s `?t=` a `cache:no-store` a ohlásí výsledek toastem. Po
   úspěchu tiše stáhne i `run_data.json` (bez cache-bustu) a zavře ⚙. **Ruční
-  import souboru v UI není.** Text empty-state Garminu („Naimportuj
-  move_data.json“) i komentář v `fetchMoveData` jsou zastaralé.
+  import souboru v UI není.**
 - **Agregace dne** (skript): kcal, trvání a vzdálenost se sčítají, tep je
   vážený délkou. Bere **všechny ručně spuštěné aktivity** (chůze, tenis,
   plavání…). Celodenní kroky bez záznamu ne, to je Bobovo vědomé rozhodnutí.
@@ -767,8 +761,7 @@ Ruční zápis (`vibeScrim`, v UI všech 5 povinných, škála 1–5).
 | čísla pod kruhem | tělo / hlava | **reverzně**: tělo 1 forma → 5 na hovno, hlava 1 klid → 5 ruminace turbo |
 
 Prstence se plní po pětinách od `v/5`. Kdyby se plnily od `(v−1)/4`, nula by
-splývala s nevyplněným dnem. Komentář v `vibeCell` má u těla škálu obráceně,
-platí dialog a tahle tabulka.
+splývala s nevyplněným dnem.
 
 ### 5h. Spánek (`renderSleep` / `sleepCell`, view 1)
 
@@ -785,10 +778,8 @@ Ruční zápis (`sleepScrim`), povinná je **jen délka**.
 - Prstence schválně nejsou zeleno-červené, protože barvu nese disk.
 - **Rozsahy:** délka 0.5–24 (zaokrouhlí se na 0.5), pocit 1–10, usínání
   0–600 min, sny 0–99. Mimo rozsah vyskočí konkrétní toast.
-- **Usnutí** se zadává jako `2320`, `0040` nebo `040` (normalizuje se na
-  "HHMM").
-  ⚠️ `23:20` **nefunguje**, protože input má `maxlength=4`, takže z toho
-  vznikne „23:2“ → „0232“.
+- **Usnutí** se zadává jako `2320`, `23:20`, `0040` nebo `040` (input má
+  `maxlength=5`, nečíslice se zahodí a normalizuje se na "HHMM").
 
 ---
 
@@ -950,24 +941,21 @@ novou zruší (`cancel()`).
 - Mix agregátor a slider (headless testy, 9. 10. 2026).
 - Seed „terapie“.
 
-**Známé bugy a drobnosti (zjištěné auditem 11. 10. 2026, neopravené):**
-1. **`»` u propadlého úkolu nedělá nic** (4d). Je to nejvýznamnější bug, protože
-   propadlé úkoly se kvůli zrušenému rollupu hromadí.
-2. Edit úkolu v Done + Uložit ho přesune do Chill a zůstane přeškrtnutý (4g).
-3. ✓ na úkolu v Done ho splní znovu (zelená a piňa navíc).
-4. Klik v detailu habitu nesyncuje Check panel (2).
-5. Spánek: `23:20` se kvůli `maxlength=4` uloží jako 02:32 (5h).
-6. Garmin: zámek dne na samé nuly není vidět (5a). Empty-state text a
-   komentář o ručním importu jsou zastaralé (5b).
-7. Litánie: Reset filtru nepřekreslí rychlou ☆ (může svítit ★, i když fav už
-   neplatí).
-8. Litánie: když je `<k>Base` prázdný, `LOADED=false` a vlastní nové věty
-   (`<k>New`) se nezobrazí (ukazuje se „Načítám…“). V praxi to Boba nepálí,
-   base má.
-9. Detail habitu ve Free píše „priorita N“ místo „Zábava N“.
-10. Zastaralé komentáře v kódu: schéma kolem ř. 1307, `GRID` „3 řádky × 30“,
-    `WIP_PREVIEW_MIN` „minimálně 10“, navigace „0..3“ / „Tasks / 01 / 02“,
-    `vibeCell` tělo. Opravuj je průběžně, když jsi poblíž.
+**Opraveno po auditu 11. 10. 2026:**
+- `»` u propadlého úkolu.
+- Editace úkolu v Done ho nevyhodí do Chill.
+- V Done není ✓ (žádná falešná zelená a piňa).
+- Spánek bere `23:20`.
+- Reset filtru Litánií zhasne ☆.
+- Detail Free píše „zábava“.
+- Text empty-state Garminu a zastaralé komentáře v kódu.
+
+**Známé drobnosti, vědomě nechané být:**
+1. Klik v detailu habitu nesyncuje Check panel (2). Srovná se při dalším
+   renderu.
+2. Garmin: zámek dne na samé nuly není vidět (5a).
+3. Litánie: když je `<k>Base` prázdný, `LOADED=false` a vlastní nové věty
+   (`<k>New`) se nezobrazí (ukazuje se „Načítám…“). Boba to nepálí, base má.
 
 **Reálně neověřené:** dlouhý výpadek syncu nad 90 dní udělá nedoplnitelnou
 díru (dá se zvednout okno `DAYS` ve skriptu). Token Garminu vyprší zhruba po

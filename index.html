@@ -65,7 +65,7 @@
   }
   .pager .dot.on{background:var(--accent);transform:scale(1.15);}
 
-  /* ---- pages + swipe track (3 pozice: Tasks / 01 / 02) ---- */
+  /* ---- pages + swipe track (počet panelů na sekci: 1 / 1 / 2 / 2 / 5 / 2) ---- */
   .page{display:none;overflow:hidden;touch-action:pan-y;}
   .page.active{display:flex;flex-direction:column;flex:1;}
   .track{display:flex;width:200%;flex:1;transition:transform .25s ease;will-change:transform;}
@@ -861,7 +861,7 @@
       <div class="panel">
         <div id="moveGrid"></div>
         <div class="empty-state" id="moveEmpty">
-          Zatím žádná Garmin data.<br>Naimportuj <b style="color:var(--accent)">move_data.json</b> ze syncu.
+          Zatím žádná Garmin data.<br>Načtou se samy z <b style="color:var(--accent)">move_data.json</b> (sync), ručně přes ⚙.
         </div>
       </div>
       <div class="panel">
@@ -1149,7 +1149,7 @@
       </div>
       <div class="move-edit-f">
         <label>Usnutí (HHMM)</label>
-        <input type="text" id="sleepBed" maxlength="4" placeholder="2320" inputmode="numeric" autocomplete="off">
+        <input type="text" id="sleepBed" maxlength="5" placeholder="2320" inputmode="numeric" autocomplete="off">
       </div>
       <div class="move-edit-f">
         <label>Pocit (1–10)</label>
@@ -1304,26 +1304,13 @@
      state.utasks  -> sekce TASKS (úkoly s termínem)
      state.sections[0] -> sekce HABITS, state.sections[1] -> sekce FREE
 
-   v2 struktura:
-   {
-     sections: [ {habits,log}, {habits,log} ],   // 0=povinnosti(01), 1=volnočas(02)
-     tasks: [ {id,name,priority,createdAt, subtasks:[{id,name,weight,done}]} ],
-     backlogs: ["Chill","Done","Wip","Mix"], // názvy; Chill+Done+Wip+Mix vždy první čtyři, pořadí = řazení
-                                          // Mix = jen agregátor (viz MIX_* níže), nic v něm nebydlí
-     utasks: [ {id,name,priority,createdAt,
-                date:"YYYY-MM-DD"|null,    // null = nedatovaný (bydlí v backlogu)
-                backlog:"Chill",             // domovský backlog
-                repeat:"none"|"daily"|"weekly"|"biweekly"|"monthly"|"quarterly"|"halfyear"|"yearly",
-                bouncer:null|{dow:0-6}|{date:"YYYY-MM-DD"},
-                done:false} ],
-     daily: { "YYYY-MM-DD": {done:n, missed:n} }  // agregát pro Přehled
-   }
-   Sekce (taby): 0=Progress, 1=Tasks, 2=Habits, 3=Free                        */
+   Úplné aktuální schéma state je v README.md, sekce 3 (tady se neudržuje).
+   Sekce (curSection): 0=Progress, 1=Tasks, 2=Habits, 3=Free, 4=Move, 5=Litánie */
 var KEY = "habity.v2";
 var OLDKEY = "habity.v1";
-var GRID = 90;       // čtverečků na projekt (3 řádky × 30)
-var curSection = 1;  // 0..3 – aktivní sekce (Progress/Tasks/Habits/Free), volí se tabama dole
-var curView = 0;     // 0=Check, 1=Přehled – swipe pozice, GLOBÁLNÍ (sdílená napříč sekcemi)
+var GRID = 90;       // čtverečků na projekt (dnes jen poměry mini proužku v Progressu)
+var curSection = 1;  // 0..5 – aktivní sekce (Progress/Tasks/Habits/Free/Move/Litánie), volí se tabama dole
+var curView = 0;     // index plochy v sekci (Habits/Free: 0=Check 1=Přehled; Move 0–4; Litánie 0–1), GLOBÁLNÍ
 var WIP_PREVIEW_MIN = 5;
 
 var TAG_GROUPS = [
@@ -2246,7 +2233,7 @@ function openDetail(si, id){
   var html = '<h2></h2><span class="sub"></span><div class="grid" id="detailGrid"></div>';
   body.innerHTML = html;
   body.querySelector("h2").textContent = h.name;
-  body.querySelector(".sub").textContent = "priorita "+h.priority+" · od "+fmtShort(startD)+" "+startD.getFullYear();
+  body.querySelector(".sub").textContent = (si===1 ? "zábava " : "priorita ")+h.priority+" · od "+fmtShort(startD)+" "+startD.getFullYear();
   // Jedna souvislá mřížka od nejstaršího dne po dnešek, bez měsíčních nadpisů.
   var g = body.querySelector("#detailGrid");
   for(var off=totalDays-1; off>=0; off--){
@@ -2923,8 +2910,9 @@ function utMove(t, mode){
   var base = t.date ? parseKey(t.date) : today();
   // „→" = prostě následující den po datu úkolu (i když je v minulosti)
   if(mode==="tomorrow"){ t.date = key(addDays(base,1)); save(); renderCheck(); return; }
+  // „»" = týden; propadlý úkol se posune o týden od dneška
   if(base < today()) base = today();
-  else if(mode==="week") t.date = key(addDays(base,7));
+  if(mode==="week") t.date = key(addDays(base,7));
   save(); renderCheck();
 }
 
@@ -2973,9 +2961,11 @@ function makeUtaskRow(t, ctx, showHome){
     var no = mkBtn("no","✕", function(){ utMiss(t); });
     acts.appendChild(ok); acts.appendChild(mv1); acts.appendChild(mv7); acts.appendChild(no);
   } else {
-    // backlog: jen ✓ (do Done)
-    var okb = mkBtn("ok","✓", function(){ utComplete(t); });
-    acts.appendChild(okb);
+    // backlog: jen ✓ (do Done); Done je log, tam se nic neodškrtává
+    if(t.backlog!=="Done"){
+      var okb = mkBtn("ok","✓", function(){ utComplete(t); });
+      acts.appendChild(okb);
+    }
   }
   row.appendChild(acts);
   return row;
@@ -3007,7 +2997,7 @@ function renderCheckDefault(){
   var wip = backlogTasks("Chill");
   var preview = document.getElementById("wipPreview");
   preview.innerHTML = "";
-  // ukaž minimálně 10; pokud je jich víc, zbytek se dozvíš scrollem
+  // ukaž max WIP_PREVIEW_MIN (5); zbytek je v backlog view Chill
   var shown = (wip.length<=WIP_PREVIEW_MIN) ? wip : wip.slice(0, WIP_PREVIEW_MIN);
   shown.forEach(function(t){ preview.appendChild(makeUtaskRow(t,"backlog")); });
 
@@ -3207,7 +3197,9 @@ function fillBacklogPicker(selected){
   var sel = document.getElementById("utBacklog");
   sel.innerHTML = "";
   state.backlogs.forEach(function(name){
-    if(name==="Done" || name==="Mix") return; // do Done se ručně nezakládá, Mix je jen agregátor
+    // do Done se ručně nezakládá (nabídne se jen úkolu, který už v Done je, ať ho
+    // editace nevyhodí do Chill), Mix je jen agregátor
+    if((name==="Done" && selected!=="Done") || name==="Mix") return;
     var o = document.createElement("option");
     o.value = name; o.textContent = name;
     if(name===selected) o.selected = true;
@@ -3275,7 +3267,7 @@ function openUtSheet(id, presetBacklog){
     utPrioEl.value = 1; utPrioValEl.textContent = 1;
     var defaultBk = (presetBacklog && state.backlogs.indexOf(presetBacklog)>=0) ? presetBacklog
                   : (document.getElementById("blogView").classList.contains("open") ? blogCurrent : "Wip");
-    if(defaultBk==="Mix") defaultBk = "Wip"; // do agregátoru se nevkládá
+    if(defaultBk==="Mix" || defaultBk==="Done") defaultBk = "Wip"; // do agregátoru ani do logu se nevkládá
     fillBacklogPicker(defaultBk);
     del.style.display = "none";
   }
@@ -3655,7 +3647,7 @@ function pina(){
   speakPina();
 }
 
-/* 🗣️ hlasová odměna – náhodná hláška, systémový TTS hlas (cs-CZ pokud dostupný) */
+/* 🗣️ hlasová odměna – hlášky v rotaci, systémový TTS hlas (cs-CZ pokud dostupný) */
 var PINA_LINES = ["Dej si piňu!","Šikovnej osel!","Král prdele!","Hustý, vole!","To je na piňu!","Híhá!"];
 var pinaLineIdx = 0;
 var pinaCsVoice = null, pinaVoicesReady = false;
@@ -3725,7 +3717,7 @@ document.getElementById("btnClearOv").onclick = function(){
     toast("Historie úkolů vymazána.");
   });
 };
-/* ---------- navigace: taby = sekce (0..3), swipe/pager = Check<->Přehled (globální) ---------- */
+/* ---------- navigace: taby = sekce (0..5), swipe/pager = plochy sekce (globální curView) ---------- */
 var SEC_PAGES  = ["secProgress","secTasks","secNavyky","secVolno","secMove","secLitanie"];
 var SEC_TRACKS = ["trackProgress","trackTasks","trackNavyky","trackVolno","trackMove","trackLitanie"];
 var SEC_TITLES = ["Progress","Tasks","Habits","Free","Move","Litánie"];
@@ -3735,7 +3727,7 @@ var SEC_DEFAULT_VIEW = [0,0,1,1,0,0];
 
 function applyViewToTrack(trackEl, animate){
   trackEl.style.transition = animate ? "transform .25s ease" : "none";
-  // Posun z počtu panelů: většina 2, Move 5.
+  // Posun z počtu panelů: Progress/Tasks 1, Habits/Free/Litánie 2, Move 5.
   // curView se clampuje, ať track s méně panely neodjede do prázdna.
   var n = trackEl.children.length || 1;
   var v = Math.min(curView, n-1);
@@ -3779,7 +3771,7 @@ function updateUI(){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
     if(d) d.style.display = (curSection===4) ? "" : "none";
   });
-  // Move: bez FABu (obě plochy se plní klikem na puntík).
+  // Move: bez FABu (všechny plochy se plní klikem na puntík).
   document.getElementById("fab").style.display = (curSection===4) ? "none" : "";
 }
 
@@ -4005,7 +3997,7 @@ function importMoveData(arr, silent){
 
 // Auto-sync: appka si při startu tiše stáhne move_data.json z Pages (píše ho
 // PC skript 3× denně). Selhání (offline / soubor chybí) se ignoruje — appka
-// jede s tím, co má v localStorage. Ruční import v ⚙ zůstává jako fallback.
+// jede s tím, co má v localStorage. Ruční refresh je v ⚙ (btnRefreshMove).
 function fetchMoveData(){
   fetch("move_data.json", {cache:"no-store"})
     .then(function(r){ return r.ok ? r.json() : null; })
@@ -4286,7 +4278,7 @@ document.getElementById("coldScrim").onclick = function(e){ if(e.target===this) 
      velikost kolečka  = nálada (žlutá; 1 blbá → 5 výborná)
      levý půlprstenec  = kontakt (zelená; 1 samota → 5 hodně společnosti)
      pravý půlprstenec = aktivita (červená; 1 línej den → 5 frmol)
-     čísla dole        = tělo/hlava (tělo 1 na hovno → 5 forma;
+     čísla dole        = tělo/hlava (tělo 1 forma → 5 na hovno;
                          hlava 1 klid → 5 ruminace turbo) */
 function vibeCell(rec, isFuture, dateKey){
   var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
@@ -5105,7 +5097,7 @@ function renderLitFilterBar(c){
   reset.onclick = function(e){
     e.stopPropagation();
     f.temata = []; f.casti = []; f.skupiny = []; f.prioMin = 1; f.fav = false; f.noTags = false;
-    save(); renderLitFilterBar(c); renderLitList(c);
+    save(); renderLitFilterBar(c); renderLitFavQuick(c); renderLitList(c);
   };
   var close = document.createElement("button");
   close.type = "button"; close.className = "ff-close"; close.textContent = "˄";
