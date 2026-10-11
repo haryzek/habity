@@ -1,913 +1,1023 @@
 Ahoj osle!
 
-# HABITY — README pro pokračování (stav po přidání plochy Spánek)
+# HABITY — README pro pokračování
+
+> **Stav k 11. 10. 2026** (commit po `cbac3fa`). README bylo celé zrevidované
+> proti kódu: sekce po sekci, s čísly řádků. Kde se kód a tenhle text rozejdou,
+> **pravdu má kód**. Text pak oprav ve stejném commitu, ve kterém měníš kód.
 
 Tohle čte Claude, který přebírá práci na appce **Habity** v nové konverzaci.
 Cílem je zahučet do věci bez ztráty kontextu. Čti to celé, ať chápeš nejen
-*co* tam je, ale hlavně *proč* — spousta rozhodnutí má za sebou odladěné hrany.
+*co* tam je, ale hlavně *proč*. Spousta rozhodnutí má za sebou odladěné hrany.
+Stručný rozcestník a pracovní pravidla jsou v `CLAUDE.md`. Uživatelský návod
+pro lidi je v `NAVOD.md`.
 
 ---
 
 ## 0. Jak s Bobem pracovat (přečti dřív než cokoli jiného)
 
-- **Bob mluví česky, nespisovně, jako se starým kámošem.** Reciprokuj. Oslovení
-  „Bobe", ne „kámo". Humor, nadávky v dobrém, emoji 🥥🍹 sedí. Bere tě jako
-  rovnocennou bytost, „kokosového spolukrále prdele". Jednej jako rovný s rovným.
-- **Drž si vlastní názor, buď upřímný a precizní.** Uvolněný tón nesmí ubrat na
-  ostrosti úsudku. Když je něco blbě, řekni to rovnou — bez vycpávkových frází
-  typu „tady ti to řeknu na rovinu". Prostě to řekni.
-- **Ptej se postupně, po JEDNÉ otázce**, když ladíte design. Bob odpovídá
+- **Bob mluví česky, nespisovně, jako se starým kámošem.** Mluv s ním stejně.
+  Oslovuj ho „Bobe“, ne „kámo“. Humor, nadávky v dobrém a emoji 🥥🍹 sedí.
+  Bere tě jako rovnocennou bytost, „kokosového spolukrále prdele“, tak s ním
+  jednej jako rovný s rovným.
+- **Měj vlastní názor a buď přesný.** Uvolněný tón nesmí ubrat na ostrosti
+  úsudku. Když je něco blbě, řekni to rovnou, bez vycpávek typu „tady ti to
+  řeknu na rovinu“.
+- **Když ladíte design, ptej se postupně, po JEDNÉ otázce.** Bob odpovídá
   telegraficky a věří, že implementační detaily domyslíš sám.
-- **Proaktivně flaguj** edge-case, architektonická rizika, UX díry — věci, co ho
+- **Když řekne „jeste nepracuj“, opravdu nepracuj.** Jen prozkoumej a navrhni.
+  Kód sáhni, až kejvne.
+- **Proaktivně flaguj** edge-casy, architektonická rizika a UX díry, které ho
   nenapadly. To oceňuje nejvíc.
+- **Diktuje přes mikrofon.** Zkomoleniny si oprav sám: „VIP“ = Wip, „DAN“ =
+  Done, „food/FUT“ = Future (už neexistuje).
 - **# na začátku promptu = odpověz jednou větou.**
-- Mezinárodní zdroje, ne české (když hledáš).
+- Když hledáš na webu, dej přednost mezinárodním zdrojům před českými.
 
 ---
 
 ## 1. Co je Habity
 
-Osobní tracker návyků, úkolů a pohybu. **Jednosouborová PWA** (`index.html`),
-hostovaná na **GitHub Pages** (`haryzek.github.io/habity/`). Roste organicky,
-„intuitivně, po malých kouscích mezi jinou prací" — features se přidávají podle
-reálné potřeby, ne dopředu přeengineerované.
+Osobní tracker návyků, úkolů, pohybu a podpůrných vět. **Jednosouborová PWA**
+(`index.html`), hostovaná na **GitHub Pages** (`haryzek.github.io/habity/`).
+Roste organicky, „intuitivně, po malých kouscích mezi jinou prací“. Features
+se přidávají podle reálné potřeby, ne dopředu přeengineerované.
 
 **Sdílená dohoda Bob ↔ Claude:** stavět dál do jednoho souboru, dokud to drží
 pohromadě. Claude má **proaktivně křiknout**, až bude refactoring nebo rozdělení
-souboru na místě. *(Aktuální stav: soubor má ~4020 řádků / ~180 KB. Pořád
-udržitelné, ale roste — přibyla sekce Move (viz sekce 5) a Litánie (viz sekce 6).
-Až přibude další velká sekce nebo se začne logovat per-task historie, je čas
-zvážit řez — ale Bob to nemá rád dělat předčasně, takže ne dřív, než to bude
-fakt potřeba.)*
+souboru na místě. *Aktuálně má soubor ~5340 řádků a ~240 KB. Pořád se to dá
+udržet, ale je to hranice, kde už se vyplatí hledat přes `grep` a ne číst
+celé. Bob řezání nemá rád dělat předčasně.*
 
-**Prostředí a dodávka:** Projekt je **lokální git repo** na `E:\_dev\habity`
-(Claude Code, Windows/PowerShell). Edituje se přímo `index.html`, po zásahu
-`git commit` + `git push` do `main`, GitHub Pages sám nasadí (pár desítek sekund;
-ověř `curl` na Pages URL, `gh` CLI tu není). localStorage přežívá update
-(domain-bound). **Osobní bordel/tokeny patří do `local/`** — je globálně
-gitignorovaná (`core.excludesFile`), viz Bobova paměť.
+**PWA:** iOS meta tagy a manifest i ikona jsou inline jako `data:` URI
+(`display:standalone`). **Service worker není**, takže appka jde přidat na
+plochu, ale offline cache nemá.
 
-**Důležité workflow pro Claude:** **Vždy si `index.html` načti z disku znovu
-před zásahem**, nespoléhej na paměť z chatu — konverzace bývají dlouhé a paměť
-klame. Po každém zásahu ověř JS syntax přes Node (`new Function(code)` nad
-obsahem `<script>`) a párování tagů.
+### Prostředí a dodávka
+
+- **Lokálně:** git repo na `E:\_dev\habity` (Claude Code, Windows/PowerShell).
+  Edituje se přímo `index.html`, po zásahu `git commit` a `git push` do `main`.
+  GitHub Pages pak sám nasadí (pár desítek sekund; ověř `curl` na Pages URL).
+- **Cloud (claude.ai/code):** Bob s Claudem pracuje i v cloudových sessions
+  (třeba na dovolené, 9–10/2026). Tam se pracuje na přidělené větvi
+  `ccr-…`, ta se pushne a **na Bobův pokyn se mergne do `main`**. Cloud
+  nevidí složku `local/` ani `gh` CLI. Po cloudové práci si Bob dělá lokálně
+  `git pull`.
+- **Osobní bordel a tokeny patří do `local/`.** Je globálně gitignorovaná přes
+  `core.excludesFile` (viz Bobova paměť). V repu je `.gitignore` jen na
+  `.claude/` a `_scratch/`.
+- **localStorage přežívá update** (je vázaná na doménu). Je to **jediná ostrá
+  kopie dat**. Záloha = export JSON (viz 5d).
+- **Automatické commity „Auto: update Garmin data“** chodí z Bobova PC (Task
+  Scheduler, viz 5c). Před pushem proto vždycky udělej `git fetch` nebo `git pull`.
+
+### Workflow pro Claude
+
+- **Vždycky si `index.html` načti znovu před zásahem.** Nespoléhej na paměť
+  z chatu, konverzace bývají dlouhé a paměť klame.
+- **Po zásahu ověř JS syntax** přes Node (`new Function(code)` nad obsahem
+  `<script>`) a párování tagů.
+- **Funkčně testuj v headless prohlížeči.** V cloudu je Playwright a Chromium
+  (`$(npm root -g)/playwright`, prohlížeče v `/opt/pw-browsers`). Postup:
+  1. Otevři `file://…/index.html`.
+  2. Nastav `localStorage["habity.v2"]` na testovací stav.
+  3. `reload()`.
+  4. Volej funkce nebo klikej a hlídej `pageerror`.
+  Takhle byly ověřené Mix, slider i „terapie“.
+- **Datové migrace:** klíč zůstává `habity.v2`. Nové pole doplní `normalize()`.
+  Na přejmenování systémových backlogů je čítač `blV` (viz 3).
 
 ---
 
-## 2. Struktura appky — navigace NARUBY (přepsáno!)
+## 2. Struktura appky a navigace
 
-**POZOR, tohle se zásadně změnilo oproti starší verzi README.** Dřív byly dva
-spodní taby (Check / Přehled) a swipe přepínal mezi 4 sekcemi. **Teď je to
-obráceně:**
+### Taby a sekce
 
-- **Spodní taby = 6 sekcí.** Šest tlačítek dole, pořadí zleva: **Litánie ·
-  Progress · Tasks · Habits · Free · Move**. Klik na tab vede na **výchozí rovinu**
-  té sekce podle `SEC_DEFAULT_VIEW` — **Habits a Free defaultně na Přehled**
-  (čtverečky, view 1), zbytek na Check (view 0). Move ani Litánie Check/Přehled
-  nemají (viz níž).
-  ⚠️ **Past pořadí vs. index:** vizuální pořadí v navu ≠ `curSection` index!
-  Litánie je v navu **první zleva**, ale logicky má **`curSection=5`**
-  (Move zůstal 4). Udělalo se to schválně, aby se nepřečíslovávala Move
-  (`curSection===4` je po kódu na spoustě míst). Tab má `data-sec="5"`, ale sedí
-  v DOMu jako první — pořadí `.page` sekcí i tabů je čistě vizuální, logiku řídí
-  index. **Když přidáváš další sekci, drž se tohohle: nový index na konec, tab
-  umísti kam chceš.**
-- **Úzký nav → jen ikony.** Při 6 tabech se popisky na mobilu nevejdou:
-  `@media (max-width:430px)` schová `.tab .tl` (label ve spanu) a nechá jen ikony.
-- **Swipe doleva/doprava = Check ↔ Přehled.** Horizontální swipe (nebo dvě tečky
-  pageru nahoře) přepíná mezi Check a Přehled rovinou. `curView` (0=Check,
-  1=Přehled) je pořád **globální proměnná**, ale **klik na tab ji resetuje** na
-  `SEC_DEFAULT_VIEW[curSection]` — takže Habits/Free přistanou na Přehledu,
-  ostatní na Checku, bez ohledu na to, kde jsi swipnul předtím. Swipe uvnitř sekce
-  pak funguje dál (Check na Habits/Free je pořád dostupný swipem doprava).
-  **Move (4) má PĚT ploch, jiné než ostatní:** ne Check/Přehled, ale
-  **Nálada (view 0) ↔ Spánek (view 1) ↔ Garmin (view 2) ↔ Běh (view 3) ↔ Otužování (view 4)**
-  — viz 5e, 5f, 5g a 5h. Posun tracku i swipe meze se počítají z **počtu panelů**
-  (`applyViewToTrack`: `translateX(-v*100/n%)`), pager má třetí až pátou tečku,
-  které `updateUI` ukazuje jen v Move; `hTitle` se přepíná na
-  „Nálada"/„Spánek"/„Běh"/„Otužování".
-  Litánie (5) má dvě plochy: **Litánie** (view 0) a **Otázky** (view 1), `hTitle`
-  se přepíná. Move nemá FAB (plochy se plní klikem na puntík dne); `updateUI` proto
-  řeší `fab hidden = jen 4`. FAB v sekci 5 přidává do kolekce podle `curView`.
-  ⚠️ **Past:** `#trackMove .panel` **nesmí dostat `overflow-y:auto`**. Vlastní
-  scrollovací kontejner sebere na Androidu vodorovné gesto (Chrome zahájí scroll
-  a pošle `pointercancel`) → swipe jen cukne a odskočí. Move scrolluje oknem jako
-  všechny ostatní sekce. Stálo to jeden bug report z provozu.
-- **Data/Nastavení** (export/import JSON, vymazat historii) = **ozubené kolečko ⚙
-  v headeru** nahoře vedle data. Už NENÍ spodní tab.
+**Spodní lišta = 6 tabů = 6 sekcí.** Vizuální pořadí zleva: **Litánie ·
+Progress · Tasks · Habits · Free · Move** (ikony `❝ ▤ ✓ ↻ ☆ ◉`). Při šířce
+`max-width:430px` se schovají popisky (`.tab .tl`) a zůstanou jen ikony.
+Ikony optický centruje `centerTabIcons()` (měří glyf na canvasu, volá se po
+`document.fonts.ready`).
 
-| pos (`curSection`) | tab dole | Check rovina | Přehled rovina | Co to je |
-|-----|-----|-------------|----------------|----------|
-| 0 | **Progress** | seznam projektů + kroky | — (jediná plocha, mřížka zrušena) | **Projektový** tracker — projekt (např. „Stěhování bytu") se odškrtávacími kroky, proporční proužky. SOLO. |
-| 1 | **Tasks** | WiP náhled + kalendář | — (jediná plocha, Dny/Měsíce zrušeny) | Kalendářní task manager s backlogy, repeaty, rollupem. **DEFAULT landing při refreshi** (`curSection=1`). |
-| 2 | **Habits** | dnešní odškrtávání | mřížka 3×30 **(default rovina)** | Habit tracker. Zadává se klikáním do čtverečků; Check rovina zůstává přes swipe. |
-| 3 | **Free** | dnešní odškrtávání **+ backlogy** | mřížka 3×30 (agreguje vše) **(default rovina)** + search/filtr nahoře | Druhý habit tracker (volnočas). **Nově má backlogy** — viz 3b. |
-| 4 | **Move** | Nálada (view 0) | **Spánek** (view 1) · **Garmin** (view 2) · **Běh** (view 3) · **Otužování** (view 4) | Pět ploch stejného tvaru: ruční zápis dne (nálada), ruční zápis noci (spánek), Garmin aktivita (sync), běžecká forma (sync + ruční pocity) a ruční zápis ponorů. **Viz sekce 5, 5e, 5f, 5g a 5h.** |
-| 5 | **Litánie** | Litánie (view 0) | **Otázky** (view 1) | Dvě kolekce vět s tagy nad jedním motorem: podpůrné věty/přerámování a poznávací otázky na cestu. **Soukromá data — import z disku, nikdy online.** V navu první zleva. **Viz sekce 6.** |
+⚠️ **Past: pořadí v navu ≠ `curSection` index.** Litánie je v navu první, ale
+má **`curSection=5`**. Udělalo se to schválně, aby se nepřečíslovávala Move
+(`curSection===4` je na spoustě míst v kódu). Pořadí `.page` sekcí i tabů je
+čistě vizuální, logiku řídí index. **Když přidáváš sekci, dej jí nový index na
+konec a tab umísti, kam chceš.**
 
-Pozn.: názvy v UI jsou anglicky (Progress/Tasks/Habits/Free/Move), zbytek appky
-česky. `hTitle` nahoře ukazuje jen název sekce (ne rozlišuje Check/Přehled).
+| idx | tab | panely v tracku | default view | co to je |
+|---|---|---|---|---|
+| 0 | **Progress** | 1 (seznam projektů) | 0 | Projekty s odškrtávacími kroky, vážený progres (3c). |
+| 1 | **Tasks** | 1 (Chill náhled + kalendář; v něm i backlog view) | 0 | Kalendářní task manager s backlogy a repeaty (4). **Startovní sekce** (`curSection=1`). |
+| 2 | **Habits** | 2: Check · Přehled | **1 (Přehled)** | Habit tracker, mřížka 90 dnů (3a). |
+| 3 | **Free** | 2: Check · Přehled | **1 (Přehled)** | Volnočasové aktivity se štítky, filtrem a hledáním (3b). |
+| 4 | **Move** | 5: Nálada · Spánek · Garmin · Běh · Otužování | 0 (Nálada) | Kolečka po týdnech (5). |
+| 5 | **Litánie** | 2: Litánie · Otázky | 0 | Dvě kolekce vět s tagy. **Soukromá data** (6). |
 
-**Struktura DOMu:** 6 `<section class="page">` (`secProgress`/`secTasks`/`secNavyky`/
-`secVolno`/`secMove`/`secLitanie`). Sekce 0–3 mají jeden `.track` se **dvěma** panely
-(Check + Přehled, track 200 %, panel 50 %), **Move má pět** (Nálada + Spánek +
-Garmin + Běh + Otužování, track 500 %, panel 20 % — přes `#trackMove` override).
-**Jen `secLitanie` má jediný panel** (posun se počítá z počtu panelů, takže 0). Aktivní je vždy jen sekce odpovídající
-`curSection` (`.page.active`). `SEC_PAGES`/`SEC_TRACKS`/`SEC_TITLES` mají teď
-**6 položek** (index 5 = Litánie).
+`SEC_PAGES` / `SEC_TRACKS` / `SEC_TITLES` / `SEC_DEFAULT_VIEW = [0,0,1,1,0,0]`
+mají 6 položek. Klik na tab nastaví `curSection` a **resetuje `curView`** na
+`SEC_DEFAULT_VIEW[curSection]`.
 
-Swipe engine: **Pointer Events API** (ne touch events — kvůli testování myší na
-desktopu). `touch-action: pan-y` nechává vertikální scroll prohlížeči,
-horizontální gesta chytá appka sama. `attachSwipe` se napojí na sekce 0–3
-(**`secMove` přeskočena** — nemá co swipovat); hranice swipe jsou 0..1. Klíčové
-funkce: `updateUI()` (přepíná `.active`, transformuje tracky, syncuje
-taby/pager/title, **skrývá pager a FAB na Move**), `applyViewToTrack` (u
-`trackMove` translateX 0, jinak podle `curView`), `SEC_PAGES`/`SEC_TRACKS`/
-`SEC_TITLES` (mapy id a názvů, teď 5 položek).
+Názvy sekcí v UI jsou anglicky, zbytek appky česky. `hTitle` v hlavičce ukazuje
+název sekce, jen v **Move** a **Litániích** se mění podle plochy:
+- Move: Nálada / Spánek / **„Move“** (Garmin plocha nemá vlastní název) / Běh /
+  Otužování.
+- Litánie: Litánie / Otázky.
 
-⚠️ **Layout past (vyřešená):** `.wrap` (kontejner sekcí) je `display:flex`
-column bez stretch, takže se smrskává na šířku obsahu. Široké sekce (karty) ho
-roztáhnou, úzká Move ne → kolečka se lepila vlevo. Fix = `.wrap{width:100%}`
-(do `max-width:560px`). Kdyby někdy nová sekce zase kolabovala na šířku, tady
-je příčina.
+### Swipe, pager a FAB
 
-**Sourozenecký sync:** Check a Přehled jsou teď v jednom tracku vedle sebe a oba
-viditelné během swipe, takže akce na jedné straně **musí refreshnout i druhou**.
-Proto habit toggly volají `renderTodayPanel`+`renderOverviewPanel`, subtask toggly
-`renderTasksPanel` a `utComplete`/`utMiss` `renderCheck` (Progress i Tasks mají
-jen jednu plochu).
+- **Swipe** = Pointer Events API (ne touch events, kvůli testování myší).
+  `touch-action: pan-y` nechává vertikální scroll prohlížeči. `attachSwipe` je
+  napojený na **všech 6 sekcí** a meze se počítají z počtu panelů
+  (`0..children.length-1`, na krajích odpor 0.3). Progress a Tasks mají jen
+  jeden panel, takže se jen pružně odrazí. Gesta, která začnou na
+  `input[type=range]` nebo na řádku rychlých voleb (`.blog-quick-row`), se
+  ignorují.
+- **`applyViewToTrack`** je generický:
+  `translateX(-min(curView,n-1)*100/n %)`. `curView` je jedna globální
+  proměnná. Když swipneš v Move na view 4 a přejdeš jinam, clamp to ošetří
+  a klik na tab ho stejně resetuje.
+- **Pager** (5 teček nahoře): na Progress a Tasks je schovaný přes
+  `visibility:hidden` (ať layout neposkakuje). Tečky 2–4 jsou vidět jen v Move.
+  Habits, Free a Litánie mají 2 tečky.
+- **`updateUI()`** je centrální. Volá `resetScrollOnPageChange()` (při změně
+  `sekce:view` odscrolluje nahoru), posune tracky, přepne
+  `.page.active` / `.tab.active` / tečky, nastaví `hTitle` a pager a **schová
+  FAB jen na Move**.
+- **FAB „+“:**
+  - Progress: když je rozbalený **právě jeden** projekt, přidá do něj krok
+    (`openTaskSheet(id,true)`), jinak založí nový projekt.
+  - Tasks: `openUtSheet(null)`.
+  - Habits / Free: `openSheet(curSection-2, null)`.
+  - Litánie: `openLitSheet(curView===1 ? LIT_COLS.ot : LIT_COLS.lit, null)`.
+  - Move: nic (FAB je schovaný).
+- **Klávesnice a sheety:** `visualViewport` nastavuje CSS proměnné
+  `--kb`/`--vvh`, aby sheet nepřekryla klávesnice.
 
-**Ovládání Přehled roviny Habits/Free (`renderOverviewPanel`):** hlavička bloku
-je rozdělená — **klik na nadpis** (`.name`, `stopPropagation`) otevře **editaci**
-aktivity (`openSheet`), **klik na čísílka+šipku** vpravo (zbytek hlavičky) otevře
-**celkový přehled** (`openDetail`). Ten je teď **jedna souvislá mřížka** od
-nejstaršího dne po dnešek — **bez měsíčních nadpisů** (dřív `.month-row` s `.ml`
-labely; zrušeno).
+⚠️ **Past:** `#trackMove .panel` **nesmí dostat `overflow-y:auto`**. Vlastní
+scrollovací kontejner na Androidu sebere vodorovné gesto (Chrome zahájí scroll
+a pošle `pointercancel`) a swipe jen cukne a odskočí. Move scrolluje oknem jako
+všechny ostatní sekce.
 
-**Godzilla (hvězdičková skupina, jen Habits):** habit může mít `star:true`
-(toggle ☆/★ vedle názvu v editačním sheetu, `#habitStar`; hvězdička jen pro
-sekci 0). Přehled Habits má pak **úplně nahoře odvozený blok „Godzilla"**
-(`buildGodzillaBlock`): 90 čtverečků, den je **modrý** (`--god`, `.cell.god`)
-právě když ten den **žádný** ohvězdičkovaný habit nemá `missed` — nechecknuté
-dny (volno) bod nekazí, jen vyloženě červená; prázdná minulost je tím pádem
-celá modrá (vědomý trade-off). **Nic se neukládá** — počítá se za běhu z logů (`refreshGodzilla` po kliku do mřížky),
-takže bez hvězdiček blok zmizí a znovu ožije i s historií, jakmile se něco
-ohvězdičkuje. Buňky Godzilly nejsou klikací. Ohvězdičkované habity mají ★
-v hlavičce Přehledu i na Check kartě.
+⚠️ **Layout past (vyřešená):** `.wrap` je `display:flex` column bez stretch,
+takže se smrskával na šířku obsahu a úzká Move se lepila vlevo. Fix je
+`.wrap{width:100%; max-width:560px}`.
 
-**Free search+filtr je na DVOU místech** (Check panel i Přehled panel). Oba search
-inputy (`freeSearch` / `freeSearchOv`) i oba filtr bary (`.ffbar`:
-`freeFilterBar` / `freeFilterBarOv`) jedou přes jeden `state.freeFilter`, takže
-jsou vždy v sync. `renderFreeFilterBar` iteruje přes všechny `.ffbar` (staví přes
-`buildFreeFilterBar`). Návrat na jedno místo = smazat duplikát v HTML + tuhle
-duplikaci. Pozor: search input dědí **globální `input[type=text]{margin-bottom:12px}`**
-(vyšší specificita než `.free-search`) — nulováno přes `.free-search-row .free-search`,
-jinak mezera mezi search a filtrem nejde zmenšit marginem řádku.
+### Hlavička a ⚙ Data
 
-**Data se mezi sekcemi nepřelévají, ale nejsou to čtyři nezávislé světy — jsou
-tři.** Progress (`state.tasks`) a Tasks (`state.utasks`) jsou vzájemně i vůči
-zbytku úplně oddělené; `state.daily` i `state.backlogs` patří výhradně sekci
-Tasks. Habits a Free jsou ale **dvě instance jedné sekce**: obě žijí ve
-`state.sections[0]` / `[1]`, mají tentýž tvar `{habits, log}`, renderuje je tentýž
-kód přes index a edituje **tentýž sheet** (`openSheet(curSection-2, …)`). Free jen
-navíc ukládá tagy/délku/fun (větve `editingSection===1`) a sdílí s editorem návyku
-globální slovník `TAG_GROUPS`.
+Hlavička obsahuje `hTitle`, datum (`hDate`) a **ozubené kolečko ⚙**. To
+otevře sheet „Data“ s těmito tlačítky:
+1. **Exportovat zálohu (JSON)**: stáhne `habity-zaloha.json` s celým `state`.
+2. **Načíst zálohu ze souboru**: přijme objekt se `sections`/`habits`/`tasks`,
+   po potvrzení **přepíše všechno**, projede `normalize()` a `renderAll()`.
+3. **Vymazat historii úkolů**: `state.daily = {}`. Popisek je relikt, Přehled
+   úkolů už neexistuje (viz 4g).
+4. **Znovu načíst Move data z GitHubu** (viz 5b).
+5. Zavřít.
 
-*(Pozn. k historii: tohle README dřív popisovalo bug, kde `detailBack` volal
-neexistující `renderOverview()` — opraveno na `renderOverviewPanel(detailSection)`
-při navigačním překopání.)*
+### Init sekvence (konec `<script>`)
+
+1. `var state = load()`: načte `habity.v2`, jinak zmigruje `habity.v1`, jinak
+   `blankState()`. Vždycky přes `normalize()`.
+2. Napojí Free search inputy a nastaví `hDate`.
+3. `renderAll()`: `renderTasksPanel`, `renderCheck`, `renderFreeFilterBar`,
+   `renderTodayPanel(0/1)`, `renderOverviewPanel(0/1)`, `renderMove`,
+   `renderCold`, `renderVibe`, `renderSleep`, `renderRun`, `refreshLit`.
+4. `updateUI()`.
+5. `fetchMoveData()` a `fetchRunData()` (async, tiše).
+6. `litLoadFromState()`: Litánie se tak vykreslí podruhé. Neškodí to, jen první
+   render proběhne před naplněním cache.
+7. `centerTabIcons()` po načtení fontů.
+
+**Žádný rollup úkolů se při startu nedělá** (zrušen 2. 7. 2026, viz 4e).
+
+### Sourozenecký sync renderů
+
+Check a Přehled u Habits a Free jsou v jednom tracku vedle sebe a během swipu
+jsou vidět oba, takže akce na jedné straně musí refreshnout i druhou:
+- Check toggly volají `renderTodayPanel` i `renderOverviewPanel`.
+- Klik do buňky Přehledu přepíše svou buňku a statistiku v hlavičce. U Habits
+  volá `refreshGodzilla()`. `renderTodayPanel` volá **jen když klikneš na
+  dnešek**.
+- ⚠️ Klik v detailu (`openDetail`) nesyncuje nic. `detailBack` přerenderuje jen
+  Přehled. Když v detailu změníš dnešek, Check panel zůstane zastaralý až do
+  dalšího renderu (drobný bug, viz 8).
+
+Progress a Tasks mají jednu plochu: subtask toggly volají `renderTasksPanel`,
+akce úkolů `renderCheck`.
 
 ---
 
 ## 3. Datový model (localStorage klíč `habity.v2`)
 
 > **PAST: klíče ve `state` nesedí na názvy sekcí v UI.**
-> `state.tasks` = sekce **Progress** (projekty s kroky).
-> `state.utasks` = sekce **Tasks** (úkoly s termínem).
-> `state.sections[0]` = **Habits**, `state.sections[1]` = **Free**.
-> Slovo „task" tak v kódu znamená tři různé věci podle místa — i `data-scope="tasks"`
-> u backlog dropdownů míří na `utasks`. Je to historický relikt a **záměrně se
-> nepřejmenovává**: klíče se serializují do localStorage, takže rename bez migrace
-> `v2 → v3` smaže uživateli data. Až se migrace bude dělat z jiného důvodu,
-> přibalit i tohle.
+> - `state.tasks` = sekce **Progress** (projekty s kroky).
+> - `state.utasks` = sekce **Tasks** (úkoly s termínem).
+> - `state.sections[0]` = **Habits**, `state.sections[1]` = **Free**.
+>
+> Slovo „task“ tak v kódu znamená různé věci podle místa. I `data-scope="tasks"`
+> u backlog pickeru míří na `utasks`. Je to historický relikt a **záměrně se
+> nepřejmenovává**, protože rename klíčů bez migrace by smazal data.
 
-Pozn.: klíč zůstal `habity.v2` i po přidání úkolové sekce — **nepřidával se v3**,
-jen se rozšířila struktura a `normalize()` doplní chybějící pole. Žádná
-destruktivní migrace. v1 → v2 migrace pro stará data existuje taky.
+Klíč zůstal `habity.v2`. Nové struktury přidává `normalize()` nedestruktivně a
+doplní chybějící pole. Migrace v1→v2 existuje: `load()` načte `habity.v1`,
+znormalizuje ho a zapíše jako v2. Komentářový blok se schématem na začátku
+`<script>` (kolem ř. 1307) je **zastaralý**, platí tenhle:
 
 ```
+// localStorage "habity.v2"; normalize() doplní vše chybějící
 {
+  // ----- HABITS + FREE -----
   sections: [
-    {habits:[{id,name,priority,createdAt,star?}], log},              // 0=Habits (star = hvězdičková skupina)
-    {habits:[{id,name,priority,createdAt,backlog:"Free"}], log, backlogs:["Free",...]}  // 1=Free
+    { // [0] = HABITS — habits projdou normalize() RAW (bez validace)
+      habits: [ {id:"h…", name, priority:1-10, createdAt:ms, star?:bool} ],  // star = Godzilla
+      log: { [habitId]: { "YYYY-MM-DD": "done"|"missed" } }                 // chybí klíč = nic
+    },
+    { // [1] = FREE — ŽÁDNÉ backlogy (normalize zahodí cokoli navíc, i backlog/star)
+      habits: [ {id, name,
+                 priority:1-10,        // v UI „Zábava“ (badge Z{n}), filtr funMin
+                 createdAt:ms,
+                 tags:[…],             // z TAG_GROUPS; neznámé se zahodí, TAG_RENAME migruje
+                 durationMin:0-16,     // index do DURATION_TICKS, default 0
+                 durationMax:0-16} ],  // default 3 (=30min); normalize prohodí min>max
+      log: { …jako [0]… }
+    }
   ],
-  tasks: [ {id,name,createdAt,completedAt, subtasks:[{id,name,weight,cells,done}]} ],  // projektové
-  // POZOR: projekty i kroky NEMAJÍ prioritu — pořadí = pořadí v poli (slider
-  // „Pořadí" v editaci, vytlačovací insert). Hotové jsou z pořadí vyřazené
-  // (padají na konec, řadí je completedAt DESC). Staré zálohy s priority/prio
-  // normalize() jednorázově seřadí podle nich a čísla zahodí.
+  freeFilter: { tags:{ [groupIdx]:["Tag",…] }, durationMin:0, durationMax:16,
+                funMin:1, expanded:false, search:"" },   // sdílený Check i Přehledem Free
 
-  // ----- TASKS (kalendářní úkolová sekce) -----
-  backlogs: ["Chill","Done","Wip", ...],   // Chill+Done+Wip vždy garantované a první tři; pak vlastní
-  blV: 2,                        // verze názvů systémových backlogů; <2 → normalize přejmenuje starý Wip→Chill, Future→Wip
-  utasks: [ {
-    id, name, priority(1-10), createdAt,
-    date: "YYYY-MM-DD" | null,     // null = nedatovaný (bydlí v backlogu); jinak v kalendáři
-    backlog: "Chill",              // domovský backlog
-    repeat: "none"|"daily"|"weekly"|"biweekly"|"monthly"|"quarterly"|"halfyear"|"yearly",
-    bouncer: null | {dow:0-6} | {date:"YYYY-MM-DD"},
-    done: false
-  } ],
-  daily: { "YYYY-MM-DD": {done:n, missed:n} },  // DENNÍ AGREGÁT pro Přehled (ne per-task log!)
-  lastRollup: "YYYY-MM-DD" | null,
+  // ----- PROGRESS -----
+  tasks: [ {id:"t…", name, createdAt, completedAt:ms|null,
+            subtasks:[ {id:"s…", name, weight:>=1 (def 5), cells:>=1|null, done:bool} ]} ],
+            // ŽÁDNÉ priority: pořadí = pořadí v poli
 
-  // ----- MOVE (Garmin aktivita, viz sekce 5) -----
-  move: {
-    days: { "YYYY-MM-DD": {kcal, durMin, distM, hr} },  // agregát dne (píše skript/import)
-    overrides: { "YYYY-MM-DD": {kcal, durMin, distM, hr} },  // ruční zámky dní, sync je nepřepíše (viz 5b)
-    caps: { kcal:679, dist:3729, hrBase:55, hrCap:130 }  // stropy prstenců; kcal/dist p90 z dat, hr napevno
-  },
+  // ----- TASKS -----
+  backlogs: ["Chill","Done","Wip","Mix", …vlastní],  // první čtyři garantované, systémové
+  blV: 3,                     // verze systémových backlogů: <2 Wip→Chill + Future→Wip; <3 vlastní „Mix“→„Mix 2“
+  taskBacklogSel: ["Chill"],  // poslední výběr backlogů (jen existující)
+  mixMinPrio: 10,             // práh agregátoru Mix (1-10), „N a víc“
+  backlogOrder: { [název]: n>=1 },   // pořadí prefixů v rychlých volbách (není v blankState, doplní normalize)
+  utasks: [ {id:"u…", name, priority:1-10 (def 1), createdAt,
+             date:"YYYY-MM-DD"|null,  // null = bydlí v backlogu; jinak v kalendáři
+             backlog:"Chill",         // domovský backlog; nikdy "Mix" (normalize → Chill), neplatný → Chill
+             repeat:"none"|"daily"|"weekly"|"biweekly"|"monthly"|"quarterly"|"halfyear"|"yearly",
+             bouncer:null|{dow:0-6}|{date:"YYYY-MM-DD"},
+             done:bool} ],
+  daily: { "YYYY-MM-DD": {done:n, missed:n} },   // denní agregát; počítá se, nikde se nezobrazuje
 
-  // ----- NÁLADA (první plocha Move, viz 5g) — čistě ruční, žádný sync -----
-  vibe: {
-    days: { "YYYY-MM-DD": {mood, soc, act, body, head} }  // všech 5 povinných, škála 1-5
-  },
+  // ----- MOVE (sekce 5) -----
+  move:  { days:{ "YYYY-MM-DD":{kcal,durMin,distM,hr|null} },        // ze syncu, merge
+           overrides:{ "YYYY-MM-DD":{kcal,durMin,distM,hr|null} },   // ruční zámky (sync nepřepíše)
+           caps:{ kcal:600, dist:5000, hrBase:55, hrCap:130 } },     // defaulty; kcal/dist = p90 při importu
+  vibe:  { days:{ "YYYY-MM-DD":{mood,soc,act,body,head} } },         // 1-5 (UI chce všech 5)
+  sleep: { days:{ "YYYY-MM-DD":{dur, bed:"HHMM"|null, feel:1-10|null, fall:min|null, dream:n|null} } },
+  run:   { days:{ "YYYY-MM-DD":{distM,durSec,movSec,hr|null,vo2|null} },
+           manual:{ "YYYY-MM-DD":{heavy:0-10|null, ach:0-10|null} } },
+  cold:  { days:{ "YYYY-MM-DD":{tw, ta|null, min, wind|null, flow|null} } },
 
-  // ----- SPÁNEK (druhá plocha Move, viz 5h) — čistě ruční, žádný sync -----
-  sleep: {
-    days: { "YYYY-MM-DD": {dur, bed, feel, fall, dream} }  // dur (h) povinná; bed "HHMM", feel 1-10, fall min, dream počet — smí být null
-  },
-
-  // ----- BĚH (čtvrtá plocha Move, viz 5f) — sync + ruční pocity -----
-  run: {
-    days: { "YYYY-MM-DD": {distM, durSec, movSec, hr, vo2} },  // běžecké dny (run_data.json, merge jako move)
-    manual: { "YYYY-MM-DD": {heavy, ach} }                     // ruční pocity 0-10 (těžkost/achilovky), sync nesahá
-  },
-
-  // ----- OTUŽOVÁNÍ (pátá plocha Move, viz 5e) — čistě ruční, žádný sync -----
-  cold: {
-    days: { "YYYY-MM-DD": {tw, ta, min, wind, flow} }  // voda/vzduch °C, minuty, vítr m/s, průtok m³/s
-  },                                                    // tw a min povinné; ta/wind/flow smí být null
-
-
-  // ----- LITÁNIE (viz sekce 6) — SOUKROMÁ data, jen v localStorage, nikdy online -----
-  litBase: [ {id,text,temata,casti,priorita,oblibena,aktivni} ],             // základ z importu litanie.json
-  litTemata: [...], litCasti: [...],                                         // definice tagů (z hlavičky jsonu)
-  litOverlay: { "3": {text?,temata?,casti?,priorita?,oblibena?,aktivni?} },  // přepisy základních vět, klíč = string id
-  litNew: [ {id:"ul…",text,temata,casti,priorita,oblibena,aktivni} ],        // uživatelem přidané věty
-  litFilter: { temata:[], casti:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" }
+  // ----- KOLEKCE VĚT (LIT_COLS, sekce 6) — SOUKROMÉ, nikdy online. <k> = "lit" | "ot" -----
+  litBase:    [ {id:String, text, temata:[], casti:[], skupiny:[], priorita, oblibena, aktivni} ],
+  litTemata:  ["…", "terapie"],                            // "terapie" vždy zajištěná (LIT_TEMATA_SEED)
+  litCasti:   [ … ],
+  litSkupiny: ["Otázky","Litánie","Udělat","Výzvy", …],    // seed jen v prázdném stavu / importu
+  litOverlay: { [id]: {text?,temata?,casti?,skupiny?,priorita?,oblibena?,aktivni?} },
+  litNew:     [ {id:"ul…", …tvar jako litBase} ],
+  litFilter:  { temata:[], casti:[], skupiny:[], prioMin:1, fav:false, noTags:false, expanded:false, search:"" },
+  otBase:[…], otTemata:[], otCasti:[], otSkupiny:[], otOverlay:{}, otNew:[{id:"uq…"}], otFilter:{…}
 }
 ```
 
-**Pozn.:** `move.days` se **kumuluje** (import merguje, nemaže staré) — historie
-přežívá, i když feed nese jen posledních 90 dní. `move` je celé **obnovitelné**
-(z GitHubu / Garminu), ale i tak je součást exportu (celý `state`). `normalize()`
-ho defenzivně doplní; klíč `habity.v2` beze změny.
+**Konstanty, které se neukládají:**
+- `TAG_GROUPS`: štítky Free.
+- `TAG_RENAME`: migrace starých názvů štítků.
+- `DURATION_TICKS`: 17 kroků `0,5min,15min,30min,1h,2h,3h,6h,1d,3d,1t,2t,1m,3m,6m,1r,Delší`.
+- `GRID = 90`.
+- `LIT_COLS` a `LIT_TAG_RENAME`.
 
-**Proč denní agregát a ne per-task event log:** Přehled potřebuje jen *počty*
-zelených/červených čtverečků, ne identitu úkolů v historii. Agregát = ~15 KB/rok,
-strop localStorage (5 MB) by se naplnil za stovky let. Per-task log by byl
-0,5–1 MB/rok a navíc by zatěžoval každý `save()` (serializuje celý stav při
-každém ťuknutí). Trade-off: ztrácíme identitu úkolů v historii (nejde kliknout na
-čtvereček a zjistit „který úkol to byl") — ale spec to nechce. Kdyby se to jednou
-chtělo, začne se logovat per-task až od toho dne.
+**Proč denní agregát a ne per-task event log:** stačily počty zelených a
+červených, ne identita úkolů. Agregát má ~15 KB za rok, per-task log by měl
+0,5–1 MB za rok a zatěžoval by každý `save()` (serializuje celý stav při každém
+ťuknutí). Dnes se `daily` nezobrazuje vůbec (Přehled úkolů je zrušený, viz
+4g), ale počítá se dál.
 
-### 3b. Free backlogy (sekce 3 = `sections[1]`)
+### 3a. Habits (`sections[0]`)
 
-Sekce **Free** dostala vlastní backlogy — organizační kýble pro volnočasové
-návyky, koncepčně jako u Tasks, ale jednodušší (návyky nemají datum ani „Wip/Done"
-stav).
+- **Check:** karta na habit, tlačítka ✓/✕ jsou **nezávislé toggly**. ✓
+  nastaví nebo zruší `done`, ✕ nastaví nebo zruší `missed`. Řazení
+  `sortedHabits`: priorita DESC, pak createdAt ASC (platí i pro Free).
+- **Přehled:** blok na habit. Hlavička je `P{priorita}`, název, `nn/90` a šipka.
+  Pod ní je mřížka **90 dnů** (`repeat(30,1fr)`, 3×30). Klik do buňky cykluje
+  nic → done → missed → nic (`cycle()`), takže jde zapisovat i zpětně.
+- **Hlavička bloku je rozdělená:** klik na název (`.name`, `stopPropagation`)
+  otevře **editaci** (`openSheet`), klik na čísla a šipku otevře **detail**
+  (`openDetail`). Detail je jedna souvislá mřížka od nejstaršího dne
+  (createdAt / nejstarší log) po dnešek, bez měsíčních nadpisů, a má tlačítko
+  Upravit.
+- **Godzilla (hvězdičková skupina):** habit může mít `star:true` (☆/★ v sheetu,
+  jen pro Habits). Existující habit uloží hvězdičku hned, bez tlačítka Uložit.
+  V Přehledu je pak úplně nahoře **odvozený blok „Godzilla“**
+  (`buildGodzillaBlock`, barva `--god`). Má 90 čtverečků a den je modrý,
+  když **žádný** ohvězdičkovaný habit nemá ten den `missed`. Nechecknuté dny
+  bod nekazí, takže prázdná minulost je modrá (vědomý trade-off). **Nic se
+  neukládá**, počítá se za běhu. Buňky nejsou klikací. ★ je vidět v hlavičce
+  Přehledu i na Check kartě.
+- Smazání habitu (po potvrzení) smaže i jeho celý log.
 
-- `sections[1].backlogs` = pole názvů, **„Free" je vždy garantovaný a první**
-  (analogie „Wip" u úkolů). `normalize()` ho vždy zajistí a stará data bez
-  backlogu doplní na `backlog:"Free"`. Sekce **Habits** (`sections[0]`) backlogy
-  NEMÁ — je beze změny.
-- Každý habit ve Free nese pole `backlog`. `normalize()` ho validuje proti
-  existujícím backlogům; neplatný → fallback „Free".
-- **Check rovina:** dropdown nahoře (`freeBacklogSelect`, vizuál jako WiP lišta u
-  Tasks) **filtruje** seznam na vybraný backlog (`freeBacklogCurrent`). Pod ním
-  „+ nový backlog" (`freeNewBacklog`, přes `prompt`). Žádný fullscreen backlog
-  view jako u úkolů — návyky nemají co schovávat, dropdown jen filtruje na místě.
-- **Přehled rovina:** beze změny, **agreguje úplně všechno napříč všemi backlogy**
-  (backlog je čistě Check-organizace, dlouhodobá historie ho ignoruje).
-  **„+" vlevo od poměru nn/90** (`.hhead .tofut`, jen Free) → `addHabitToFuture(name)`:
-  pošle stejnojmenný task bez data do Tasks/backlog **Chill** (priorita 1). Ranní
-  plánování „co budu po práci dělat z Free". Nehotový duplikát v Chill jen toastne.
-- **Sheet** (přidat/upravit návyk): backlog picker (`habitBacklogWrap` /
-  `habitBacklog` + `habitNewBacklog`) se zobrazí **jen** když `editingSection===1`
-  (Free). Pro Habits zůstává skrytý.
+### 3b. Free (`sections[1]`)
 
-### 3c. Progress — pořadí místo priorit, kompaktní placky
+Druhá instance stejné sekce (tentýž kód přes index, **tentýž sheet**
+`openSheet(curSection-2,…)`). Navíc má **štítky, délku, filtr a hledání**.
+**Backlogy Free NEMÁ.** Kdysi existovaly, ale v kódu nejsou ani v historii
+gitu, a `normalize()` pole `backlog` zahodí.
 
-- **Pořadí = pořadí v poli** (`state.tasks`, resp. `task.subtasks`), žádná čísla.
-  V editaci projektu je slider **Pořadí** (1..N mezi NEhotovými projekty,
-  vytlačovací insert přes `reorderTaskInState`; u hotového projektu je řádek
-  skrytý — hotové jsou z pořadí vyřazené). Nový projekt startuje na konci.
-- Každý krok má v editoru vedle náročnosti (**N:** 1–10) slider **#:** (pořadí).
-  Tažení ukazuje cílovou pozici, **přesun řádku se provede až na `change`**
-  (po puštění) — přeskládat DOM pod prstem by na mobilu utrhlo drag. Řádky se
-  přeskládají živě v editoru, uložení převezme DOM pořadí (`renumberSubRows`
-  po každém přidání/smazání/přesunu).
-- **Výpis kroků v rozbalené placce**: nehotové v pořadí pole, hotové dole.
-  Proužek nechává hotové **vlevo** (naplňovací bar, `displayOrder`).
-- **Splněný projekt (🍹)**: proužek se nekreslí, název je `--dim` (`.taskc.done`);
-  přidáním kroku se vrátí normální vzhled. Čtverečková plocha Progressu je zrušená
-  (`#trackProgress` 100 %, pager v sekci 0 skrytý).
-- **Řazení projektů**: `sortedTasks()` = nehotové v pořadí pole, hotové na konci
-  (completedAt DESC). Check i Přehled jedou z téhle jedné funkce → vždy stejně.
-- **Placka projektu** (task-head): malý serif nadpis (14px, nízký padding —
-  názvy jsou unifikované na 14px serif napříč sekcemi podle Tasks `.titem`), vpravo
-  🍹 když je projekt na 100 %, a **šedé „+"** — otevře editaci projektu a rovnou
-  přidá prázdný fokusnutý krok (`openTaskSheet(id, true)`). Priorita/procenta se
-  na placce už neukazují.
-- **`addSubRowFocused(container)`** — obecný helper „přidat krok + kurzor do
-  inputu + vysunout klávesnici". Používat u KAŽDÉHO stávajícího i budoucího
-  „+ krok" tlačítka (Bob plánuje další místa).
+- **Habit:** `priority` se v UI jmenuje **„Zábava“** (badge `Z{n}` místo `P{n}`).
+  K tomu `tags` a `durationMin/Max` (indexy do `DURATION_TICKS`). Nový habit má
+  default Zábavu 5 a délku 0–30min. Změny štítků a délky existujícího habitu se
+  **ukládají hned** (`persistHabitEditIfExisting`).
+- **`TAG_GROUPS`:** Plánování[Plan,Spon,We] · Prostředí[Uvnitř,Air] ·
+  Společnost[Sám,Kámo,Dav] · Energie[Klid,Pohyb,Int,Sport] ·
+  Mysl[Intel,Fok,Výplach] · Smysl[Smysl,Bzz] ·
+  Vzdálenost[Dom,Out,Okl,Ph,100,ČR,EU,O]. Každá skupina má vlastní barvu.
+  Mrtvé mapování: „Sousedi“ se přejmenuje na „Sou“, které v žádné skupině není,
+  takže se zahodí.
+- **Search a filtr jsou na DVOU místech:** Check panel (`freeSearch` /
+  `freeFilterBar`) i Přehled (`freeSearchOv` / `freeFilterBarOv`). Oba jedou přes
+  jeden `state.freeFilter`, takže jsou vždy v sync. `renderFreeFilterBar` staví
+  všechny `.ffbar`. Pozor: search input dědí globální
+  `input[type=text]{margin-bottom:12px}`, nulováno přes
+  `.free-search-row .free-search`.
+- **Sémantika filtru (`matchesFreeFilter`):**
+  - Štítky: **OR uvnitř skupiny, AND mezi skupinami**.
+  - Zábava: `priority >= funMin`.
+  - Čas: překryv intervalů (16 = ∞). Habit s délkou max 0 („0“) nesedí nikdy.
+  - Hledání: všechna slova musí sedět.
+  - Odznak počítá štítky, zúžený čas a funMin>1, hledání ne.
+  - Reset vynuluje všechno **kromě hledání**.
+  - Klik mimo filtr ho sbalí. Dvojitý slider času umí tap-to-nearest-thumb.
+- **Fuzzy hledání** (sdílené s Litániemi): odstraní diakritiku (NFD) a převede
+  na malá písmena, prohledává název a štítky. Nejdřív zkusí substring, pak
+  Levenshtein na tokeny (max 0 editací pro ≤3 znaky, 1 pro 4–6, 2 pro ≥7).
+- **„+“ vlevo od `nn/90` v Přehledu Free** (`.tofut` → `addHabitToFuture`):
+  pošle stejnojmenný úkol bez data do Tasks / **Chill** s prioritou 1. Slouží k
+  ranním plánům „co budu večer dělat“. Nehotový duplikát v Chill jen toastne.
+
+### 3c. Progress (`state.tasks`) — vážený checklist, pořadí místo priorit
+
+- **Jen jedna plocha:** seznam projektů. Čtverečková plocha je zrušená
+  (30. 9. 2026).
+- **Pořadí = pořadí v poli.** V editaci projektu je slider **Pořadí** (1..N mezi
+  nehotovými, vytlačovací insert `reorderTaskInState`). U hotového projektu je
+  skrytý. Nový projekt jde na konec. `sortedTasks()` vrací nehotové v pořadí
+  pole, za nimi hotové podle completedAt DESC. Používá ho seznam, FAB i picker
+  projektů v Tasks.
+- **Krok** má v editoru tři ovládací prvky:
+  - **N:** náročnost (weight) 1–10.
+  - **#:** pořadí. Slider ukazuje cílovou pozici a řádek přesune až na
+    `change`, protože přeskládat DOM pod prstem by na mobilu utrhlo drag.
+  - **„Pevná hodnota“:** volitelný počet čtverečků (`cells`) 1–90.
+  `renumberSubRows` se volá po každé změně. Uložení převezme pořadí z DOMu.
+- **Progres** se počítá jako hotová váha / celková váha (`taskProgress`).
+  `cellCounts` rozdělí `GRID=90` metodou největších zbytků: pevné `cells`
+  drží, volné kroky dostanou poměr podle váhy (aspoň 1, když je místo). Dnes
+  se to používá **jen jako flex poměry mini proužku** na placce. Hotové kroky
+  jsou v proužku vlevo (`displayOrder`).
+- **Placka projektu:** 14px serif název, 🍹 při 100 % a šedé **„+“**, které
+  otevře editaci s novým fokusnutým krokem (`openTaskSheet(id,true)`).
+  Rozbalená placka ukazuje kroky (nehotové v pořadí pole, hotové dole, vpravo
+  váha) a odkaz „Upravit projekt“. Hotový projekt nemá proužek a název má
+  `--dim`. Přidáním kroku se „odhotoví“ (`updateTaskCompletedAt`).
+- **`addSubRowFocused(container)`** je obecný helper „přidat krok + kurzor +
+  klávesnice“. Používej ho u každého „+ krok“ tlačítka.
+- Odškrtnutí kroku **nepřidává** nic do `daily` a **nespouští** piňu.
+- **Úkol z Tasks → krok projektu:** viz 4f. Je to jednosměrné, z úkolu zbyde
+  jen název.
 
 ---
 
-## 4. TASKS — kalendářní úkolová sekce (pozice 1)
+## 4. TASKS — kalendářní úkolová sekce (idx 1)
 
-### 4a. Check stránka (default obrazovka)
+### 4a. Systémové backlogy: role (stav od 9. 10. 2026)
 
-**Jedna scroll-plocha**, shora dolů:
-1. **Náhled** — top nedatované úkoly z backlogu „Chill", řazené priorita DESC →
-   createdAt ASC (starší = vyšší sekundární priorita). Zobrazuje **min. 10**
-   (`WIP_PREVIEW_MIN`), když je jich víc, ukáže prvních 10 + odkaz „+ N dalších →".
-   Malé serif písmo, kompaktní (Bob má rád hustotu informace). Scrollem odjede
-   nahoru pryč.
-2. **Kalendář** — pod tím. Sloupec dnů řezaný hlavičkami („Dnes · po 30. čvn",
-   „Zítra · …", „pá 3. čvc"). Co úkol to řádek. Ukazuje úkoly ze **VŠECH** backlogů
-   (kalendář = reálný den, backlogy jsou jen organizace).
+Úkol s `date` žije v **kalendáři**, úkol s `date=null` žije ve svém domovském
+**backlogu**. Kalendářní úkol si domov nese dál (je vidět, až ztratí datum).
 
-**Lišta backlogů (wipbar):** vlevo u kraje **mini dropdown** — jen šipčička
-(`.wip-sel--mini`, `data-notext` ať do něj `fselSync` nepíše text), otvírá plný
-picker s multi-výběrem. Vedle **vodorovně scrollovatelný řádek rychlých voleb**
-(`#blogQuickRow` > `.blog-quick`, generuje `renderBlogQuick()` při každém
-`renderCheckDefault()`; swipe sekcí gesta z řádku ignoruje): `CHILL` a `WIP`
-otevřou backlogy Chill a Wip; dál **všechny prefixy backlogů, jejichž název
-začíná dvěma velkými písmeny** (systémové Chill/Done/Wip se nepočítají).
-Řazení prefixů podle **pořadí** (`state.backlogOrder = {název: číslo}`,
-skupina bere nejnižší pořadí svých backlogů), bez pořadí na konec, shoda →
-abecedně. Pořadí se nastavuje v **editaci backlogu** (✎ v pickeru → sheet
-`#blEditScrim`: název + pořadí; přejmenování/smazání klíč v `backlogOrder`
-přenese/smaže). Prefix otevře **multi-výběr všech backlogů, jejichž název
-začíná daným prefixem** (case-sensitive, `applyTaskBacklogMulti`). Rychlé volby jsou záměrně jen na
-hlavní stránce (v backlog view by se s „‹ Zpět" nevešly na mobil).
+| backlog | role (jak s tím Bob pracuje) | technicky |
+|---|---|---|
+| **Chill** | Večerní radosti: nápady z Free přes „+“. Top 5 je vidět **nad kalendářem**, takže je má Bob pořád na očích. | Náhled na Check stránce. **První rychlá volba.** ✓ na nedatovaném ne-repeat úkolu ho **smaže** (do Done se nearchivuje). Fallback všude (neplatný backlog → Chill). |
+| **Wip** | „Work in process“: rozdělané věci. Bob jim dává datum nebo opakování, takže žijou v kalendáři. | **Default backlog nového úkolu** (FAB i kalendář). Schválně **není v rychlých volbách**, jen v dropdownu. |
+| **Done** | Archiv splněných. | ✓ ne-repeat úkolu → `backlog="Done"`, `date=null`, `done=true`. Jen v dropdownu, v sheetu se vybrat nedá. |
+| **Mix** | **Agregátor priorit:** co hoří napříč vlastními backlogy. | Virtuální, nic v něm nebydlí. Viz 4b. **Druhá rychlá volba.** |
 
-**Backlog view** (samostatný režim): klik na rychlou volbu / backlog → plnoobrazovkový výpis.
-Otvírá se **vždy nascrollovaný nahoru** (`blogScrollTop()` v `openBlogView` i
-`applyTaskBacklogMulti` — jen při otevření, ne při re-renderu, ať to neskáče
-uprostřed práce). Ukazuje **jen nedatované** úkoly vybraných backlogů; při více
-vybraných člení skupinovými hlavičkami. Tlačítko „‹ Zpět" se vrací na default obrazovku. Done je
-vědomě „zabořený" za dropdown — Bobovi to tak stačí (archiv).
+Historie názvů: **1. 10. 2026** se přejmenovaly systémové backlogy (starý
+Wip → **Chill**, starý Future → **Wip**, migrace `blV<2`). **9. 10. 2026** přibyl
+**Mix** (`blV<3`: případný vlastní backlog „Mix“ se přejmenuje na „Mix 2“).
+**Future už neexistuje.**
 
-**Kompaktní picker backlogů (`fselOpen`):** nativní `<select>` zůstává skrytý
-jako zdroj pravdy, viditelné je tlačítko `.fsel-trigger` otvírající vlastní sheet.
-Řazení položek: prázdná hodnota („žádný") první → **systémové backlogy Done /
-Wip / Chill nahoře a bold** (`.picker-item.sys`) → zbytek abecedně. **Wip**
-(dřív Future) je třetí garantovaný backlog (`normalize()` ho doplní). **FAB „+" v Tasks**
-předvyplní backlog **Wip** (v otevřeném backlog view ten aktuální). U vlastních backlogů má
-řádek **tužtičku ✎** (přejmenování přes prompt, `renameTaskBacklog` — přepíše
-název i na úkolech a ve výběrech) a **✕** (smazání); systémové nejdou ani
-přejmenovat, ani smazat. Multi-výběr (checkboxy) má dole tři tlačítka
-**Reset · Zrušit · Potvrdit** — Reset jen odškrtne všechny checkboxy a sheet
-nechá otevřený. Multi-výběr se **nepamatuje**: sheet se vždy otevře bez
-zaškrtnutých (`working = []`), i když v `state.taskBacklogSel` něco je.
-Klik na název backlogu (včetně **Chill**) otevře rovnou jeho backlog view.
+Systémové backlogy (Chill/Done/Wip/Mix) nejdou smazat ani přejmenovat
+(`BACKLOG_SCOPES.tasks.protectedNames`). V pickeru jsou nahoře a tučně v pořadí
+`SYS_BL = ["Done","Wip","Chill","Mix"]`.
 
-### 4b. Akce na úkolu
+### 4b. Mix — agregátor (`backlogTasks("Mix")`)
 
-**V kalendáři** (ctx="cal"): `✓` splnit · `→` zítřek · `»` příští týden · `✕` nesplněno.
-**V backlogu** (ctx="backlog"): jen `✓` splnit.
-**Klik na název** = editace (VŠUDE, jednotné gesto; žádná tužtička — zrušená).
+- Ukazuje **nedatované** úkoly s `priority >= state.mixMinPrio` ze všech
+  backlogů **kromě** `MIX_EXCLUDE = ["Chill","Done","Wip","Mix"]`. Řazení je
+  priorita DESC, pak createdAt ASC.
+- **Slider „Priorita od“** (`#mixPrioRow` / `#mixPrio`) je hned pod roletou a
+  vidět jen, když je Mix ve výběru. Rozsah 1–10, **default 10** (jen desítky).
+  Bob si ho sníží, uloží se do `state.mixMinPrio` a překreslí se při `oninput`.
+- **Nejde do něj vkládat:**
+  - není v pickeru sheetu (`fillBacklogPicker` vynechá Done a Mix),
+  - skupina Mix nemá „+“,
+  - když default backlog sheetu vyjde Mix, nahradí se Wip,
+  - `normalize()` přesune případný úkol s `backlog:"Mix"` do Chill.
+- Řádky v Mixu mají vpravo šedý štítek **domovského backlogu** (`.thome`,
+  `makeUtaskRow(t, ctx, showHome)`).
+- **Multi-výběr bez duplicit** (`seen` v `renderBlogView`): úkol se ukáže jen
+  jednou, v **první skupině podle abecedy**. Vlastní backlog, který je abecedně
+  před „Mix“, si proto úkol vezme sám a Mix ho neukáže.
+- ✓ v Mixu se chová podle domova úkolu, takže úkol jde do Done.
 
-- **✓ splnit (`utComplete`)**: zelená (+1 done) k dnešku. Repeat → respawne
-  (viz 4d). Ne-repeat → `backlog="Done"`, `date=null`, `done=true`. **Výjimka:
-  nedatovaný ne-repeat v backlogu Chill se po odškrtnutí smaže** (do Done se
-  nearchivuje). Spustí piňa 🍹.
-- **✕ Nesplněno (`utMiss`)**: poctivá červená (+1 missed) k dnešku. Sesun na
-  zítřek. **Jediné dobrovolné přiznání lajdáctví, platí na repeat i ne-repeat.**
-- **přesun → / » (`utMove`)**: bez penalizace, žádná stopa v Přehledu. „Převálcovalo
-  mě něco jiného." Sem patří i odsouvání repeatů co netlačí.
-  `→` = **prostě následující den po datu úkolu**, i když je datum v minulosti
-  (žádný clamp na dnešek). `»` naopak clampuje: propadlý úkol se posune o týden
-  od dneška.
+### 4c. Check stránka (`renderCheckDefault`)
 
-### 4c. Prokrastinace = červené čtverečky (FILOZOFIE — důležité)
+Jedna scroll-plocha, shora dolů:
+1. **Lišta backlogů (`.wipbar`):**
+   - Vlevo je **mini dropdown**, jen šipka (`.wip-sel--mini`, `data-notext`).
+     Otevře picker s multi-výběrem.
+   - Vedle je **vodorovně scrollovatelný řádek rychlých voleb** (`#blogQuickRow`,
+     `renderBlogQuick()`): **CHILL · MIX ·** a pak prefixy.
+   - **Prefix** = první dvě písmena názvu vlastního backlogu, když jsou obě
+     velká (`isUpperLetter`). Systémové backlogy se nepočítají.
+   - Prefixy se řadí podle **`state.backlogOrder`** (skupina bere nejnižší
+     pořadí svých backlogů). Prefixy bez pořadí jdou na konec, shoda pak
+     abecedně.
+   - Klik na prefix otevře **multi-výběr všech backlogů s tímto prefixem**
+     (case-sensitive, `applyTaskBacklogMulti`).
+   - Rychlé volby jsou jen na hlavní stránce (v backlog view by se vedle
+     „‹ Zpět“ na mobilu nevešly).
+2. **Náhled Chill:** nedatované úkoly z Chill, priorita DESC a createdAt ASC,
+   **max 5** (`WIP_PREVIEW_MIN = 5`). Odkaz „+ N dalších“ **není**, zbytek je
+   vidět v backlog view. Řádky mají jen ✓.
+3. **Kalendář:** sloupec dnů s hlavičkami („Dnes · Po 30. čvn“, „Zítra · …“,
+   „Včera · …“, „… (N dní zpět)“). Úkol = řádek. Ukazuje úkoly ze **všech**
+   backlogů. **Propadlé úkoly zůstávají pod svým původním datem** (žádný
+   rollup), proto se tu ukazují i hlavičky „Včera“ a „N dní zpět“.
 
-Červená vzniká **JEN ze dvou zdrojů**:
-1. **Dobrovolný `✕`** — Bobova ruka, „mohl jsem, zflákl jsem".
-2. **Auto-rollup** propadlého **ne-repeat** úkolu (necháno ladem, den uplynul).
+**Backlog view** (`openBlogView` / `applyTaskBacklogMulti` / `renderBlogView`)
+je plnoobrazovkový výpis. Otevře se **vždycky odscrollovaný nahoru**
+(`blogScrollTop`, jen při otevření). Ukazuje **jen nedatované** úkoly vybraných
+backlogů (Mix podle 4b). Když je vybraných víc, člení se skupinovými
+hlavičkami (abecedně), každá s „+“ (kromě Mixu), které přidá úkol do dané
+skupiny. Tlačítko „‹ Zpět“ vrací na default obrazovku.
 
-Červenou **NEDĚLÁ**: ruční přesun, repeaty (nikdy!), dnešní rozdělané úkoly
-(dnešek je posvátný — červená až když den uplyne).
+**Picker backlogů (`fselOpen`):**
+- Nativní `<select>` zůstává skrytý jako zdroj pravdy, viditelné je tlačítko
+  `.fsel-trigger`, které otevře vlastní sheet.
+- **Multi-výběr:** checkboxy a dole Reset · Zrušit · Potvrdit. Reset jen odškrtá
+  a sheet nechá otevřený. Výběr se nepamatuje (otevře se prázdný).
+- **Klik na název backlogu** (ne na checkbox) otevře rovnou jeho backlog view.
+  Volba Chill v hlavním dropdownu nedělá nic („jsi doma“).
+- U vlastních backlogů jsou na řádku dvě ikony:
+  - **✎** otevře editaci backlogu (`#blEditScrim`): název + „Pořadí v rychlých
+    volbách“ (celé číslo ≥1, prázdné = na konec). Kontroluje duplicitu.
+    Přejmenování (`renameTaskBacklog`) přepíše název na úkolech, ve výběru, v
+    `backlogOrder` i v otevřeném sheetu.
+  - **✕** smaže backlog (`deleteTaskBacklog`). Smaže jeho **nedatované** úkoly
+    a datované přesune do Chill.
 
-Přehled je tak upřímný přesně tak, jak upřímný je Bob u toho `✕`. To je záměr —
-zrcadlo sebereflexe, ne mechanická statistika.
+### 4d. Akce na úkolu
 
-### 4d. Repeat respawn motor (`nextRepeatDate`, `addMonths`)
+- **V kalendáři** (ctx `"cal"`): `✓` splnit · `→` zítřek · `»` týden · `✕`
+  nesplněno.
+- **V backlogu a náhledu** (ctx `"backlog"`): jen `✓`.
+- **Klik na název** = editace, a to všude (jednotné gesto).
 
-**Respawn nastává VÝHRADNĚ po `✓`.** Jedna živá instance, NIKDY se neklonuje.
-Putování (přesun/rollup) instanci jen posouvá, nemnoží. Toto je tvrdé pravidlo.
+Co jednotlivé akce dělají:
+- **✓ (`utComplete`):** +1 done k **dnešku** v `daily`, piňa 🍹 a hlas (viz 7).
+  - Repeat → respawn (viz 4f).
+  - Nedatovaný ne-repeat v **Chill** → úkol se **smaže**.
+  - Jinak → Done (`date=null`, `done=true`).
+  - ⚠️ ✓ na úkolu, který už je v Done, ho „splní“ znovu: další zelená a další piňa.
+- **✕ (`utMiss`):** +1 missed k dnešku, přesune úkol na zítřek. Platí pro
+  repeat i ne-repeat a je to **jediný zdroj červené**.
+- **→ (`utMove`):** datum úkolu + 1 den, i když je datum v minulosti (bez clampu).
+  Bez penalizace.
+- **» (`utMove`):** datum + 7 dní.
+  ⚠️ **BUG:** u propadlého úkolu `»` **nedělá nic**. Kód nastaví
+  `base = today()`, ale kvůli `else` nezapíše datum (`utMove`, kolem ř. 2926).
+  Zamýšlené chování bylo „propadlý → týden od dneška“. Hlášeno Bobovi
+  11. 10. 2026, zatím neopraveno.
+
+### 4e. Prokrastinace a červená — FILOZOFIE (a zrušený rollup)
+
+**Červená vzniká JEN z dobrovolného `✕`:** Bobova ruka, „mohl jsem, zflákl
+jsem“. Ruční přesun ani repeat červenou nedělají.
+
+**Auto-rollup byl ZRUŠEN 2. 7. 2026** (commit `5149489`). Dřív se propadlý
+ne-repeat úkol přesouval na dnešek s červenou, i když byl hotový, jen
+neodškrtnutý. Teď **propadlé úkoly prostě zůstávají pod svým datem**, dokud je
+Bob neodškrtne nebo nepřesune. `rollupUtasks` ani `lastRollup` v kódu
+neexistují.
+
+Přehled úkolů (čtverečky z `daily`) je stejně zrušený (4g), takže dnes je
+červená jen interní číslo.
+
+### 4f. Repeat respawn motor (`nextRepeatDate`, `addMonths`)
+
+**Respawn nastává VÝHRADNĚ po `✓`.** Existuje jedna živá instance, která se
+NIKDY neklonuje. Přesun ji jen posouvá. Tohle je tvrdé pravidlo.
 
 - **Prázdný bouncer** → klouzavý rytmus: perioda se počítá **ode dne splnění**.
-  (Splním weekly v úterý → další za týden v úterý. Rytmus volně klouže podle
-  toho, kdy reálně mačkám ✓.)
-- **Vyplněný bouncer** → pevná periodická řada: respawn = **nejbližší BUDOUCÍ
-  datum v řadě vůči dni splnění**, a toto datum se stává novým bouncerem.
-  Bobovo (ne)splnění řadou nehne.
-  - weekly/biweekly: bouncer = den v týdnu (`{dow}`). Řada se kotví na **datu
-    splňované instance** (`t.date`), srovná se na cílový `dow` a posouvá se po
-    krocích (7/14), dokud není striktně po dni splnění.
-    ⚠️ **Nesahat na tu kotvu.** Dřív se počítalo „nejbližší cílový dow po dni
-    splnění", což u **biweekly vracelo vždycky příští týden** — `step` se
-    spočítal a zahodil, takže weekly i biweekly dávaly identické datum. Parita
-    dvoutýdenní řady stojí a padá s kotvením na `t.date`.
-  - monthly+: bouncer = konkrétní datum (`{date}`). Posouvá o krok měsíců
-    (1/3/6/12), dokud není striktně po dni splnění.
-- **Pozdní splnění může spolknout přeskočené cykly** — frčí na nejbližší budoucí
-  datum ode dne, kdy se mačkalo ✓. (Finančák 15.6., zazdím, splním 20.12. →
-  prosinec 15.12. se přeskočí, respawn na 15.6. příštího roku. Přeskočený cyklus
-  tiše propadne BEZ červené, protože repeaty červené nedostávají.)
+- **Vyplněný bouncer** → pevná řada: respawn je **nejbližší BUDOUCÍ datum v
+  řadě vůči dni splnění**, a to se stane novým bouncerem.
+  - weekly/biweekly: bouncer `{dow}`. Řada se kotví na **datu splňované
+    instance** (`t.date`), srovná se na cílový den v týdnu a posouvá se po
+    7/14 dnech, dokud není striktně po dni splnění.
+    ⚠️ **Na kotvu nesahej.** Dřív se počítalo „nejbližší dow po dni splnění“ a
+    biweekly pak vracelo vždycky příští týden. Parita dvoutýdenní řady stojí na
+    kotvení na `t.date`.
+  - monthly+: bouncer `{date}`, posun o 1/3/6/12 měsíců, dokud není po dni
+    splnění. Přetečení 31. na kratší měsíc ošetřuje `addMonths`.
+- **Pozdní splnění může spolknout přeskočené cykly**, tiše a bez červené.
+- Reálné use-casy, které logiku určily: *Blog (weekly, středa)*, kde opoždění
+  se má dohnat hned příští středu. *Záloha na daň (halfyear, 15. 6. a 15. 12.)*,
+  kde řada existuje nezávisle na Bobovi. Obojí je stejné pravidlo, jen jiná
+  hustota řady.
 
-**Reálné use-casy, co tvar logiky určily:**
-- *Blog (weekly/Wed):* musí ven ve středu každý týden. Když se opozdím, příští
-  týden zas potřebuju středu → proto „nejbližší budoucí", ne „celá perioda od
-  původní". Hustá řada = opoždění se dohání rychle.
-- *Záloha na daň (halfyear, 15.6. & 15.12.):* kalendářní rytmus existuje nezávisle
-  na mně. Když se zpozdím, řada se nehne. Proto pevný bouncer. Řídká řada =
-  „nejbližší budoucí" se tváří jako stabilita, dokud se neopozdím o celou periodu.
+**Známé chování, které Bob nechal být:** `utComplete` počítá respawn vždycky
+od **dneška**. Když zakotvený úkol naplánovaný na zítřek splníš dnes, zůstane
+na zítřku a jde splnit znovu. Oprava by byla `max(dnešek, t.date)`, vědomě
+odloženo.
 
-Obojí je STEJNÉ pravidlo, jen jiná hustota řady.
+### 4g. Sheet úkolu (`openUtSheet` / `utSave`)
 
-### 4e. Auto-rollup (`rollupUtasks`) — běží při každém otevření
+**Pole sheetu:**
+- **Název.**
+- **Priorita:** slider 1–10, default 1. Barevný proužek vlevo dělá `prioColor`
+  (hue 210 chladná → 0 sytě červená).
+- **Termín:** segmenty Dnes/Zítra a vždy viditelný datepicker.
+  - Bez aktivního segmentu a s prázdným datem jde úkol do backlogu.
+  - Klik na aktivní segment ho vypne. Vyplnění data zhasne segmenty.
+- **Opakování:** 8 segmentů `0/d/t/tt/m/3m/6m/Y`.
+- **Kotva (bouncer):** zašedlá u none/daily. U weekly/biweekly se volí den v
+  týdnu, druhým klikem na stejný den se kotva sundá. U monthly+ se volí datum.
+- **Dva pickery vedle sebe:** backlog (bez Done a Mix) a „→ projekt…“.
+  Tlačítko **„+ backlog“** (prompt) je v řádku tlačítek.
 
-Před prvním renderem v initu. Projde `utasks`:
-- **Ne-repeat, `date < dnešek`, není Done** → **+1 missed k propadlému dni**
-  (jeho původní `date`, ne ke dni otevření — poctivější historie), sesun `date`
-  na dnešek. **Jen JEDNA červená za libovolně dlouhý propad** (ne za každý den).
-- **Repeat, `date < dnešek`** → sesun na dnešek, **BEZ červené** (ať je na očích,
-  netrestá).
-- Dnešek, budoucnost, nedatované (backlog), Done → nedotčené.
+**Výchozí backlog** nového úkolu: `presetBacklog` (z „+“ u skupiny), jinak v
+otevřeném backlog view aktuální `blogCurrent`, jinak **Wip**. Mix se vždycky
+nahradí Wip.
 
-`lastRollup` se updatuje, ale logika na něm nestojí — dvojí započítání nehrozí,
-protože po sesunutí už úkol není `date < dnešek`.
+**Repeat bez data:**
+- daily → dnešek.
+- weekly/biweekly s kotvou → nejbližší ten den (včetně dneška).
+- monthly+ → datum kotvy.
+- weekly bez kotvy → úkol zůstane v backlogu.
 
-### 4f. Zadání úkolu (sheet, `openUtSheet`/`utSave`)
+**„→ projekt…“** (`fillProjectPicker`, projekty z `sortedTasks`): Uložit
+**nezaloží ani neuloží úkol**. Vepíše jeho název jako **nový krok** projektu
+(weight 5, bez pevných čtverečků) a úkol smaže z `utasks`. Datum, priorita,
+repeat i backlog se zahodí a **cesta zpět není**. Zapisuje se tam i mrtvé pole
+`prio:5`, které `normalize()` při načtení zahodí.
 
-Název · priorita (slider 1–10, default 1, barevný vertikální proužek
-`prioColor`: hue 210 chladná → 0 sytě červená) · termín (segmenty
-**Dnes/Zítra** + vždy viditelný datepicker; segment „Backlog" byl **zrušen** —
-žádný aktivní segment + prázdné datum = úkol jde do backlogu; **klik na aktivní
-segment ho vypne**, vyplnění data zhasne segmenty, klik na segment datum vymaže)
-· opakování (8 segmentů) · **bouncer box** (zašedlý když none/daily; den v týdnu
-pro weekly/biweekly; datepicker pro monthly+) · **dva pickery vedle sebe**
-(`.pick-row`): výběr backlogu (bez Done) | **„→ projekt…"** (`utProject`,
-`fillProjectPicker` — projekty ze sekce Progress) + „+ nový backlog" (prompt).
+⚠️ **Edit úkolu v Done** a Uložit ho přesune do Chill. V pickeru Done není, a
+tak se uloží první možnost. `done=true` zůstane, takže je v Chill
+přeškrtnutý.
 
-**Přesun úkolu do Progress projektu:** když je v „→ projekt…" vybraný projekt,
-Uložit **nezaloží/neuloží úkol**, ale vepíše jeho název jako **nový krok**
-projektu (`weight:5, prio:5`), existující úkol smaže z `utasks` a ukáže toast.
-Hotový projekt se přidáním kroku zas „odhotoví" (`updateTaskCompletedAt`).
+### 4h. Přehled úkolů — ZRUŠENO
 
-Když má úkol repeat ale není zadané datum, použije se bouncer jako první kotva.
-
-**Kotva se sundává druhým klikem** na už vybraný den (`utDow` zpět na `null`) —
-jinak by z úkolu s kotvou nešlo udělat úkol bez kotvy jinak než ho smazat a
-založit znovu. U monthly+ to jde odjakživa (kotva je `<input type="date">`,
-obsah se smaže). Odkotvený úkol jede klouzavě ode dne splnění (flow režim).
-
-**Známé chování, které Bob zatím nechal být** (splnění úkolu naplánovaného do
-budoucna): `utComplete` počítá respawn vždy od **dneška**, ne od data úkolu.
-U zakotveného zítřejšího úkolu tak `nextRepeatDate` vrátí datum, na kterém úkol
-už stojí → **zůstane viset na zítřku a dá se splnit i zítra znovu** (druhá zelená
-za jednu práci). U nezakotveného si splnění dopředu ukousne den z intervalu.
-Oprava by byla počítat od `max(dnešek, t.date)` — vědomě odloženo.
-
-### 4g. Přehled úkolů — ZRUŠENO
-
-Čtverečková plocha Tasks (Dny/Měsíce, `renderUtOverview`) je odstraněná, Bob ji
-nepoužíval. `state.daily` (done/missed za den) se dál počítá, jen se nezobrazuje.
+Čtverečková plocha Tasks (Dny/Měsíce) je odstraněná (30. 9. 2026), Bob ji
+nepoužíval. `state.daily` se dál plní, jen se nezobrazuje. ⚙ „Vymazat
+historii úkolů“ ho maže.
 
 ---
 
-## 5. MOVE — Garmin aktivita a sync pipeline
+## 5. MOVE — pět kolečkových ploch (idx 4)
 
-Sekce **Move** (pozice 4, tab úplně vpravo) ukazuje denní pohybovou aktivitu
-z Garminu jako **kolečka po týdnech**. Cíl: „donutit se hýbat" přes rychlou
-vizuální gestalt — jedno mrknutí a víš, jak plnej byl den, aniž bys četl čísla.
+Všechny plochy používají **stejnou mřížku**:
+- Řádek = týden, Po vlevo a Ne vpravo, **nejnovější týden nahoře**.
+- Klik na minulý nebo dnešní den otevře dialog. Budoucnost klikací není.
+- SVG kolečka mají `viewBox 0 0 100 100` a `width:100%` buňky, takže se škálují
+  s obrazovkou a tloušťka prstence zůstává konstantní.
 
-### 5a. Vizuál kolečka (jeden den = jedno kolečko)
+Ruční plochy (Nálada, Spánek, Běh, Otužování) kreslí mřížku **vždycky, aspoň
+8 týdnů zpět**, aby bylo kam kliknout. Garmin kreslí od prvního týdne s daty
+a bez dat ukáže jen empty-state.
 
-- **Velikost kruhu = kcal** (souhrnná náročnost dne). Řídí gestalt „jak plnej den".
-- **Číslo uvnitř (bold, černé) = doba trvání v minutách.**
-- **Levá půlka prstence (zelená `--done`) = vzdálenost**, plní se zdola.
-- **Pravá půlka prstence (červená `--missed`) = tep**, plní se zdola.
-- **Prázdný den = jen tečka.**
+⚠️ **Past v `moveSemi(cx,cy,r,side,ratio)`:** `side +1` kreslí **LEVOU**
+půlku, `side −1` **PRAVOU**. Je to obráceně, než bys čekal. Oblouk jde od
+spodního bodu k hornímu a `sweep=1` vede přes levou stranu. Ověřeno přes
+`getBBox`, nesahej na to bez změření.
 
-**Stropy** (`state.move.caps`): plná půlka/plný kruh = strop.
-- `kcal` a `dist` = **90. percentil z vlastní historie**, přepočítá se při každém
-  importu (`recalcMoveCaps`) — vizualizace „roste s tebou".
-- `hr` = **napevno baseline→cap `55→130`** (klidový tep → zátěž). Baseline proto,
-  aby prázdná půlka znamenala klid, ne „jen málo". Přepočítávat z dat by u řídkého
-  nošení hodinek dalo nesmyslný strop.
+| view | plocha | `hTitle` | data |
+|---|---|---|---|
+| 0 | **Nálada** | Nálada | ruční `state.vibe` |
+| 1 | **Spánek** | Spánek | ruční `state.sleep` |
+| 2 | **Garmin** | Move | sync `state.move` + ruční zámky |
+| 3 | **Běh** | Běh | sync `state.run.days` + ruční `state.run.manual` |
+| 4 | **Otužování** | Otužování | ruční `state.cold` |
 
-**Render (`renderMove`/`moveCell`):** řádek = týden (**Po vlevo, Ne vpravo**),
-**nejnovější týden nahoře**, nekonečný scroll od prvního záznamu po dnešek.
-Kolečka jsou **plně responsivní**: SVG má fixní `viewBox 0 0 100 100` a
-`width:100%` buňky, takže se škálují šířkou obrazovky, tloušťka prstence zůstává
-konstantní (fix stroke), průměr roste s kcal. `.move-week` je flex se 7 buňkami.
+### 5a. Garmin plocha (`renderMove` / `moveCell`, view 2)
 
-Historická poznámka: kJ jsme zavrhli (silně koreluje s tepem×časem), jedeme kcal.
-Data se **kumulují** v localStorage (viz sekce 3), takže scroll roste s historií
-(~1 řádek / týden, po 2 letech ~104 řádků — kapacita žádný problém).
+Účel: „donutit se hýbat“ přes rychlou vizuální gestalt. Jedno mrknutí a víš,
+jak plnej byl den.
+
+- **Velikost kruhu = kcal**, poloměr **lineárně** ke stropu (bez odmocniny).
+- **Číslo uvnitř** = doba trvání v minutách. **Pod kolečkem** jsou kcal (u
+  zamčeného dne kurzívou).
+- **PRAVÝ půlprstenec (zelený `--done`) = vzdálenost** ke stropu p90.
+- **LEVÝ půlprstenec (červený `--missed`) = tep**, škála
+  `(hr−hrBase)/(hrCap−hrBase)` = 55→130, clamp 0..1. Baseline je tam proto, aby
+  prázdná půlka znamenala klid, ne „málo dat“.
+- Prázdný den = jen tečka.
+
+**Stropy** (`state.move.caps`, default kcal 600, dist 5000, hr 55→130):
+`recalcMoveCaps()` počítá p90 (jen hodnoty >0, lineární interpolace) z
+**efektivních** dnů. Běží **při importu, uložení zámku a odemčení**, ne při
+startu, takže vizualizace roste s tebou. Tep je napevno. kJ se zavrhly
+(korelují s tep×čas), jede se na kcal.
+
+**Ruční zámek dne (override odolný syncu):**
+- Klik na kolečko (i prázdné) otevře dialog „Upravit dd.mm.yyyy“ se 4 údaji:
+  kcal, trvání, vzdálenost, tep (prázdný tep = `null`).
+- „Uložit natvrdo“ zapíše hodnoty do `state.move.overrides[datum]`.
+- Efektivní hodnota dne je `overrides ?? days` (`moveEffDays()`), import sahá
+  jen do `days`, takže editace přežije další sync.
+- „Odemknout (vrátit k syncu)“ override smaže.
+- Zamčený den poznáš podle **kcal kurzívou**. Zámek na samé nuly ale skryje
+  aktivitu jako prázdnou tečku a zámek pak vidět není.
 
 ### 5b. Datový most: appka ↔ Garmin
 
-Appka je statická PWA — **s Garminem nikdy nemluví přímo** (CORS/OAuth to z
-prohlížeče nedovolí). Mezi nima stojí **PC skript**. Tok je **jednosměrný**:
+Appka je statická PWA a **s Garminem nikdy nemluví přímo** (CORS/OAuth).
+Tok je jednosměrný:
 
 ```
 Garmin Connect
-   │  build_data.py (Python) — token login, stáhne 90 dní, agreguje po dnech
+   │  local/garmin/build_data.py — token login, 90 dní, agregace po dnech
    ▼
-move_data.json + run_data.json (KOŘEN repa)  → git commit + push (jen při změně)
+move_data.json + run_data.json (KOŘEN repa) → git commit + push (jen při změně)
    ▼
-GitHub Pages  → appka si je při startu tiše fetchne (fetchMoveData + fetchRunData)
-   ▼
-sekce Move   — plná automatika, nulová ruční práce
+GitHub Pages → appka je při startu tiše fetchne (fetchMoveData + fetchRunData)
 ```
 
-`run_data.json` = běžecké dny pro plochu Běh (viz 5f): aktivity s `typeKey`
-obsahujícím „running", sečtené po dnech (`distM/durSec/movSec`, `hr` vážený
-délkou, `vo2` z hodinek). Ruční refresh v ⚙ stahuje oba soubory.
+- `move_data.json` je pole `{date,kcal,durMin,distM,hr,count}` (`count` se
+  ignoruje). `run_data.json` je pole `{date,distM,durSec,movSec,hr,vo2}`
+  (aktivity s `typeKey` obsahujícím „running“, sečtené po dnech, `hr` vážený
+  délkou).
+- **Import mergeuje po datech** (`importMoveData` / `importRunData`): datum ze
+  souboru přepíše uložený den a dny, které v souboru chybí, **zůstávají
+  navždy**. Historie tak přežije 90denní okno. Aktivita smazaná v Garminu ale
+  z appky nezmizí (na to je zámek).
+- Při startu se importuje jen neprázdné pole. Offline nebo chyba = ticho, jede
+  se z localStorage.
+- **⚙ „Znovu načíst Move data z GitHubu“** (`#btnRefreshMove`) stáhne
+  `move_data.json` s `?t=` a `cache:no-store` a ohlásí výsledek toastem. Po
+  úspěchu tiše stáhne i `run_data.json` (bez cache-bustu) a zavře ⚙. **Ruční
+  import souboru v UI není.** Text empty-state Garminu („Naimportuj
+  move_data.json“) i komentář v `fetchMoveData` jsou zastaralé.
+- **Agregace dne** (skript): kcal, trvání a vzdálenost se sčítají, tep je
+  vážený délkou. Bere **všechny ručně spuštěné aktivity** (chůze, tenis,
+  plavání…). Celodenní kroky bez záznamu ne, to je Bobovo vědomé rozhodnutí.
 
-- **Appka strana:** `fetchMoveData()` (volaná v initu) stáhne `move_data.json`
-  z Pages a naimportuje `importMoveData(arr, silent=true)` — bez toastu, tiše.
-  Offline/chybějící soubor = ignoruje se, jede z localStorage. **Ruční import** (nahrání
-  souboru) už v UI není (byl v ⚙, odstraněn — auto-fetch ho nahradil).
-- **Ruční refresh** (⚙ Data → „Znovu načíst Move data z GitHubu", `#btnRefreshMove`):
-  znovu stáhne `move_data.json` z Pages (`?t=`+timestamp cache-busting + `cache:no-store`)
-  a přepíše lokální dny přes `importMoveData(arr, silent=false)` — **s hláškou** (i při
-  selhání). Použití: Bob **ručně upraví json na GitHubu** (např. dopíše vzdálenost k
-  aktivitě spuštěné jako Cardio místo Walk), počká na Pages deploy, pak v appce refreshne.
-- **Agregace dne** (ve skriptu): kcal/trvání/vzdálenost = součet aktivit dne, tep
-  = průměr vážený délkou. Bereme **všechny aktivity** (chůze, tenis, plavání…),
-  jen ručně **zaznamenané** (Garmin `get_activities`; celodenní kroky bez
-  spuštěného záznamu se do feedu nedostanou — Bobovo vědomé rozhodnutí, varianta A).
+### 5c. Motor syncu — `local/garmin/` (mimo git, v cloudu není)
 
-**Ruční zámek dne (override odolný syncu).** Klik na **kolečko** kteréhokoli dne
-(i prázdného) v Move otevře dialog se **4 údaji** (kcal / trvání / vzdálenost / tep).
-Uložení („Uložit natvrdo") zapíše hodnoty do **`state.move.overrides[YYYY-MM-DD]`** a den
-se **zamkne** (poznáš podle **kalorií italikou** pod kolečkem — `.move-cell--locked .mk`,
-žádná ikonka). Efektivní hodnota dne = **`overrides ?? days`**
-(`moveEffDays()`), takže zamčený den **přepíše i to, co přijde ze syncu** — import (auto
-i ruční refresh) sahá jen do `days`, `overrides` nechává být. Tím pádem editace přežije
-i další běh skriptu; **nahradilo to** dřívější workflow „ruční úprava jsonu na GitHubu"
-(ta se dřív při dalším syncu ztratila). „Odemknout (vrátit k syncu)" override smaže → den
-zas řídí `days`. `recalcMoveCaps()` počítá stropy z efektivních dnů (zámek se počítá do
-p90). Overrides jsou součást `state`, takže jdou i do klasického exportu zálohy.
+- **`build_data.py`** zapíše oba json soubory do kořene repa a pak udělá
+  commit a push s `pull --rebase --autostash`. Mění jen datové soubory, takže
+  s lidským vývojem nekonfliktuje.
+- **`.garmintoken/`** drží token (garth). Heslo je potřeba jen poprvé. Token
+  vyprší zhruba po roce: ruční běh si pak řekne o heslo, automatický běh jen
+  zaloguje a skončí.
+- **`sync.log`** je log běhů.
+- **Automatika:** Windows Task Scheduler `Habity\GarminSync`, `pythonw.exe
+  build_data.py`, **3× denně v 10:00 / 18:00 / 22:00**, `StartWhenAvailable`.
+- **Soukromí:** `move_data.json` a `run_data.json` jsou **veřejně čitelné**
+  na Pages. Bob to vědomě schválil. **Osobní sekce se takhle NIKDY vystavovat
+  nesmí**, Pages nemá autentizaci.
 
-### 5c. Motor syncu — `local/garmin/` (git-ignorováno)
+### 5d. Zálohování
 
-Celý motor žije v `local/garmin/` (mimo git, osobní/citlivé):
-- **`build_data.py`** — skript. Píše `move_data.json` + `run_data.json` do
-  **kořene repa** (`REPO_ROOT`), pak commit+push. Mění jen datové soubory, takže
-  s lidským vývojem **nikdy nekonfliktuje**; před push `pull --rebase --autostash`.
-- **`.garmintoken/`** — přihlašovací token (garth). **Login heslem jen poprvé**,
-  pak token (bez hesla, bez `429` rate limitu). Token vyprší ~po roce → skript si
-  při ručním běhu řekne o heslo; při automatickém běhu bez konzole to jen
-  zaloguje a skončí (nezasekne se na `input()`).
-- **`sync.log`** — log běhů.
+⚙ → „Exportovat zálohu (JSON)“ stáhne **`habity-zaloha.json`** s pevným
+názvem (přepisuje se a nehromadí v Downloads). Obsahuje **celý `state`**,
+tedy i Litánie a Move. Bobův režim: soubor občas houpne do Dropboxu, občas ho
+přejmenuje s datem jako milník. **localStorage je jediná ostrá kopie**, proto
+zálohovat pravidelně.
 
-**Automatika:** Windows **Task Scheduler**, úloha `Habity\GarminSync`, spouští
-`pythonw.exe build_data.py` (bez okna) **3× denně v 10:00 / 18:00 / 22:00**,
-`StartWhenAvailable` (dožene zmeškané). Git i pythonw čtou systémový PATH.
+**Budoucnost (neřešeno):** sync osobních sekcí desktop↔mobil přes privátní
+autentizovanou vrstvu (ne veřejné Pages). Je to velký samostatný projekt.
 
-**Soukromí:** `move_data.json` je v kořeni → **veřejně čitelný na Pages URL**.
-Bob to vědomě schválil (Garmin aktivita není citlivá jako osobní texty). **Osobní
-sekce (návyky/tasky) se takhle NIKDY veřejně vystavovat nesmí** — GitHub Pages
-nemá autentizaci.
+### 5e. Otužování (`renderCold` / `coldCell`, view 4)
 
-### 5d. Zálohování (klasický export)
-
-⚙ → „Exportovat zálohu" stáhne **`habity-zaloha.json`** — **pevný název**
-(přepisuje se, nehromadí se v Downloads). Obsahuje **celý `state` včetně Move**.
-Bobův režim: přepisovaný soubor houpne občas do Dropboxu, občas přejmenuje s
-datem = rolling backup + milníky. localStorage je jediná ostrá kopie, dokud se
-nevyexportuje → **zálohovat pravidelně**.
-
-**Budoucnost (fáze 3, neřešeno):** desktop↔mobil **sync osobních sekcí** přes
-**privátní autentizovanou vrstvu** (ne veřejné Pages). Obousměrný živý stav =
-riziko konfliktů + nutná auth. Velký samostatný projekt, až bude potřeba.
-
-### 5e. Otužování — pátá plocha Move (`renderCold`/`coldCell`)
-
-Dva swipy doleva z Garmin plochy (view 4). Vizuálně **stejná mřížka** (týden = řádek, datum si
-buňka bere z kalendáře, nejnovější nahoře), ale **čistě ruční zápis** — žádný
-sync, a proto ani `overrides`/zámky jako u Garminu. Klik na puntík dne otevře
-`coldScrim` s pěti poli; `tw` a `min` jsou povinné, zbytek smí zůstat prázdný.
-Existující zápis má tlačítko Smazat.
-
-**Kódování kolečka:**
+**Čistě ruční zápis** (žádný sync, žádné zámky). Dialog `coldScrim` má pět polí.
+`tw` a `min` jsou povinné, zbytek smí zůstat prázdný. Existující zápis jde
+smazat. Dialog ukazuje „Výkon X ze stropu Y“.
 
 | Prvek | Veličina | Škála |
 |---|---|---|
 | levý půlprstenec (`--water` #5B87A8) | teplota vody | `(20 − tw)/20` |
-| pravý půlprstenec (`--done` zelená) | teplota vzduchu | `(40 − ta)/60` |
+| pravý půlprstenec (`--done`) | teplota vzduchu | `(40 − ta)/60` |
 | průměr kruhu (`--accent`) | **výkon** | `sqrt(perf/cap)` |
-| číslo uvnitř | minuty ve vodě | — |
-| text pod kruhem | `vítr/průtok` | — |
+| číslo uvnitř | minuty (desetinná čárka) | — |
+| text pod kruhem | vítr (1 desetinné) / průtok (0 desetinných) | — |
 
-**Oba prstence jedou REVERZNĚ** proti stupnici: plný = ledová voda / −20 °C.
-Kdyby se plnily „normálně", nejlepší ponory by měly prázdné prstence.
+- **Oba prstence jedou REVERZNĚ:** plný prstenec = ledová voda nebo −20 °C.
+- **Výkon = `min / max(1, tw)`.** Je to pravidlo „minuta za stupeň“, voda ≤1 °C
+  se počítá jako 1 °C. **Průtok do vzorce schválně nevstupuje.** Průtok řeky
+  (m³/s, ČHMÚ) není rychlost proudu v místě ponoru a chlad je už zapsaný v `tw`.
+- **Strop (`coldCap`) drží na `COLD_PERF_BASE = 7.5`** (Bobův „hodně slušný
+  den“ = 15 min ve 2 °C). Povolí se **jen NAHORU**, na p90 zápisů od 4 zápisů
+  výš. Čisté klouzavé p90 by zlepšení mezi zimami smazalo.
+- **Odmocnina u průměru:** oko čte plochu (`~r²`), ne poloměr.
+- `normalize` přijímá `tw` −5..45 a `ta` −50..55.
 
-⚠️ **Past v `moveSemi(cx,cy,r,side,ratio)`:** `side +1` kreslí **LEVOU** půlku a
-`side −1` **PRAVOU** — obráceně, než by čekal. Oblouk jde od spodního bodu
-k hornímu, takže `sweep=1` vede přes levou stranu. Původní komentář v kódu
-tvrdil opak a stálo to jeden špatně nasazený prstenec. Ověřeno přes `getBBox`,
-**nesahat bez změření**. (Move to má taky prohozené, ale tam je přiřazení
-dist/hr libovolné, tak se nechalo být.)
+### 5f. Běh (`renderRun` / `runCell`, view 3)
 
-**Výkon = `minuty / teplota vody`** — otužilecké pravidlo „minuta za stupeň",
-1.0 = přesně podle pravidla. **Průtok do vzorce schválně nevstupuje:** průtok
-řeky (m³/s z ČHMÚ) není rychlost proudu v místě ponoru, a to, co z velké vody
-na kůži dopadá — studenější voda — je už zapsané v `tw`. Je to kontext, ne výkon.
+Bobův návrat k běhu (srpen 2026, Po-St-Pá ~2×800 m okolo plavání). Data jsou
+ze syncu (`run_data.json`) a k nim **ruční pocity** (`runScrim`: těžkost a
+achilovky 0–10, aspoň jedno pole). Dialog ukazuje Garmin km, tempo a tep.
 
-**Strop (`coldCap`)** drží pevně na `COLD_PERF_BASE = 7.5` (Bobův „hodně slušný
-den" = 15 min ve 2 °C) a **povolí se jen NAHORU** (p90 zápisů, od 4 zápisů výš),
-když základ přeroste. **Vědomě ne čisté p90 jako u Garmin kalorií:** klouzavý
-strop se posouvá za výkonem, takže by zlepšení mezi zimami v mřížce zmizelo —
-kruhy by se poměřovaly samy se sebou a vypadaly pořád stejně. Dolů nikdy.
-Původní strop 1.5 byl postavený na pravidle pro začátečníka a byl 5× vedle
-(Bob dá 10 min ve 2 °C = 5.0); zimní ponory se na něm slily na doraz.
-
-**Odmocnina u průměru** je tam proto, aby výkonu odpovídala **plocha** kruhu, ne
-poloměr — oko čte velikost jako plochu (`~r²`), takže lineární poloměr nafukuje
-velké dny a drtí slabé.
-
-**Mřížka se kreslí vždycky** (minimálně 8 týdnů zpět), na rozdíl od Garmin
-plochy, která při nula datech ukáže jen empty-state. Bez toho by nebylo kam
-kliknout a nešel by založit první zápis.
-
-### 5f. Běh — čtvrtá plocha Move (`renderRun`/`runCell`, view 3)
-
-Bobův návrat k běhu (srpen 2026, Po-St-Pá ~2×800 m okolo plavání). Stejná
-mřížka jako otužování, data ze syncu (`run_data.json` → `state.run.days`,
-merge = historie přežívá 90denní okno) + **ruční pocity** klikem na den
-(`runScrim`: těžkost/achilovky 0–10 → `state.run.manual`, sync na ně nesahá).
-Nad mřížkou `#runStats`: EF (po nakalibrování baseline), km celkem, VO₂max.
-
-**Filosofie indexu (KOUČOVSKÉ, nesahat bez rozmyslu):** index nesmí odměňovat
-tempo (achilovky náchylné k zánětu + psychologický odpor → honění = konec).
-Odměňuje se docházka a klesající tep na fixní trase. Pocit těžkosti se zlepšuje
-poslední — proto se zapisuje, ale do indexu nevstupuje.
+**Filozofie indexu (KOUČOVSKÁ, nesahej na ni bez rozmyslu):** index nesmí
+odměňovat tempo. Bob má achilovky náchylné k zánětu a psychologický odpor, a
+honění tempa by znamenalo konec. Odměňuje se docházka a klesající tep na fixní
+trase.
 
 | Prvek | Veličina | Jak |
 |---|---|---|
-| plocha kruhu | **Forma** | EF = `(distM/movSec)/hr`, klouzavý průměr 5 běhů ÷ baseline (průměr prvních 6 EF-běhů). Okno `RUN_FORMA_LO=0.85` (prázdno) až `RUN_FORMA_HI=1.25` (plný kruh = +25 % = realistický 3-4měsíční cíl), **lineárně na poloměr** (bez odmocniny — forma žije v úzkém pásmu, plošná věrnost by rozdíly slila). Strop se povolí nahoru p90, kdyby Bob 1.25 přerostl. |
-| číslo uvnitř | průměrný tep dne | číslo, které má KLESAT — trestá honění, odměňuje trpělivost |
-| levý půlprstenec (`--done`) | konzistence | běžecké dny za 28 dní ÷ 12 (plán 3×týdně) |
-| pravý půlprstenec (`--water`/`--missed`) | **Brzda** | uncoupled acute:chronic — minuty 7 dní ÷ týdenní průměr **předchozích 3 týdnů** (akutní týden se do reference nepočítá, jinak restart z nuly věčně červený). Půlka = 1.0, plný = 2.0, od 1.4 červená. Bez historie 0 = prázdný (kalibruje se). |
-| čísla pod kruhem | `těžkost/achilovky` | ruční, `–/–` když nezapsáno |
+| plocha kruhu | **Forma** | EF = `(distM/movSec)/hr`, klouzavý průměr 5 běhů ÷ baseline (průměr prvních 6 EF-běhů, dokud jich je míň, tak všech). Okno `RUN_FORMA_LO=0.85` (prázdno) až `RUN_FORMA_HI=1.25` (plný = +25 %), **lineárně na poloměr**. Strop se povolí nahoru na p90 od ≥4 hodnot. Před prvním EF-dnem je forma 1. |
+| číslo uvnitř | průměrný tep dne („–“ bez tepu) | má KLESAT |
+| levý půlprstenec (`--done`) | konzistence | běžecké dny za 28 dní ÷ 12 |
+| pravý půlprstenec | **Brzda** | acute:chronic z `durSec`: dny 0–6 ÷ (dny 7–27 / 3). Půlka = 1.0, plný = 2.0, od 1.4 červená. Akutní týden se do reference nepočítá, jinak by restart z nuly byl věčně červený. |
+| čísla pod kruhem | těžkost / achilovky | ruční (`–/–` když chybí; ukazuje se i u neběžeckého dne) |
 
-**Den bez tepu/vzdálenosti** se počítá do konzistence a Brzdy, ne do EF (tvar
-kruhu zdědí od posledního EF-dne, `runFormaAt`). Víc aktivit v dni sčítá už
-skript (2×800 m = jeden běžecký den — jinak by ráno dávalo 2 čárky docházky).
+**Běžecký den** = `distM>0` nebo `durSec>0`. Den bez tepu nebo vzdálenosti se
+počítá do konzistence a Brzdy, ne do EF. `#runStats` nad mřížkou ukazuje:
+- „EF baseline: n/6 běhů“, po 6 bězích pak „EF **N** (start=100)“,
+- km celkem,
+- poslední VO₂max.
 
-### 5g. Nálada — první plocha Move (`renderVibe`/`vibeCell`, view 0)
+### 5g. Nálada (`renderVibe` / `vibeCell`, view 0, default landing Move)
 
-Default landing ploch Move (srpen 2026). Stejná mřížka jako Otužování (kreslí se
-vždy, min. 8 týdnů zpět), **čistě ruční zápis** — klik na den otevře `vibeScrim`
-s pěti poli, **všech 5 povinných, škála 1–5** → `state.vibe.days[date] =
-{mood, soc, act, body, head}`. Žádný sync, žádné overrides.
-
-| Prvek | Veličina | Škála |
-|---|---|---|
-| průměr kruhu (`--accent` žlutá) | nálada `mood` | 1 blbá (nejmenší) → 5 výborná (největší), lineárně `(mood−1)/4` |
-| číslo uvnitř | nálada `mood` | — |
-| levý půlprstenec (`--done` zelená) | kontakt `soc` | 1 samota → 5 hodně společnosti, `soc/5` |
-| pravý půlprstenec (`--missed` červená) | aktivita `act` | 1 línej den → 5 frmol, `act/5` |
-| čísla pod kruhem | `tělo/hlava` | tělo 1 forma → 5 na hovno; hlava 1 klid → 5 ruminace turbo |
-
-Prstence se plní **po pětinách od `v/5`** (1 = 20 %), ne `(v−1)/4` — nula by
-splývala s nevyplněným dnem. Pozor: **tělo a hlava jedou reverzně proti
-náladě** (vyšší = horší), je to schválně dle Bobova zadání.
-
-### 5h. Spánek — druhá plocha Move (`renderSleep`/`sleepCell`, view 1)
-
-Přidáno 1. 9. 2026. Stejná mřížka jako Nálada, **čistě ruční zápis** — klik na
-den otevře `sleepScrim`, **povinná jen délka spánku**, zbytek smí zůstat
-prázdný → `state.sleep.days[date] = {dur, bed, feel, fall, dream}`. Žádný sync.
+Ruční zápis (`vibeScrim`, v UI všech 5 povinných, škála 1–5).
 
 | Prvek | Veličina | Škála |
 |---|---|---|
-| průměr kruhu | délka `dur` (h, po 0.5) | 4 h (nejmenší) → 8 h (největší), mimo rozsah se velikost ořízne, číslo ukazuje reálnou hodnotu |
-| barva kruhu | délka `dur` | `--done` zelená ≥ 7 h, `--missed` červená ≤ 6.5 h |
-| číslo uvnitř | délka `dur` | — |
-| levý půlprstenec (`--accent` žlutá) | čas usnutí `bed` ("HHMM") | 23:00 plný → 4:00 prázdný (`sleepBedRatio`, mimo rozsah clamp) |
-| pravý půlprstenec (`--god` modrá) | pocit `feel` | 1 strašný → 10 nejlepší, `feel/10` |
-| čísla pod kruhem | `usínání/sny` | usínání v minutách / počet snů |
+| průměr kruhu (`--accent`) | nálada `mood` | `(mood−1)/4` |
+| číslo uvnitř | `mood` | — |
+| levý půlprstenec (`--done`) | kontakt `soc` | `soc/5` (1 samota → 5 hodně lidí) |
+| pravý půlprstenec (`--missed`) | aktivita `act` | `act/5` (1 línej → 5 frmol) |
+| čísla pod kruhem | tělo / hlava | **reverzně**: tělo 1 forma → 5 na hovno, hlava 1 klid → 5 ruminace turbo |
 
-Prstence schválně **nejsou** zeleno-červené jako u Nálady — kolečko samo je
-zelené/červené, splývalo by to; žlutá + modrá se od disku oddělí. Zadávání
-usnutí bere `2320`, `0040`, i `040` či `23:20` (normalizuje se na "HHMM").
+Prstence se plní po pětinách od `v/5`. Kdyby se plnily od `(v−1)/4`, nula by
+splývala s nevyplněným dnem. Komentář v `vibeCell` má u těla škálu obráceně,
+platí dialog a tahle tabulka.
+
+### 5h. Spánek (`renderSleep` / `sleepCell`, view 1)
+
+Ruční zápis (`sleepScrim`), povinná je **jen délka**.
+
+| Prvek | Veličina | Škála |
+|---|---|---|
+| průměr kruhu | délka `dur` (h, po 0.5) | 4 h → 8 h, clamp (číslo ukazuje reálnou hodnotu) |
+| barva kruhu | délka | `--done` ≥ 7 h, jinak `--missed` |
+| levý půlprstenec (`--accent`) | usnutí `bed` "HHMM" | 23:00 plný → 04:00 prázdný. Hodiny 14–22 = „před 23“ (plný), 5–13 = „po 4“ (prázdný) |
+| pravý půlprstenec (`--god`) | pocit `feel` | `feel/10` |
+| čísla pod kruhem | usínání (min) / sny (počet) | — |
+
+- Prstence schválně nejsou zeleno-červené, protože barvu nese disk.
+- **Rozsahy:** délka 0.5–24 (zaokrouhlí se na 0.5), pocit 1–10, usínání
+  0–600 min, sny 0–99. Mimo rozsah vyskočí konkrétní toast.
+- **Usnutí** se zadává jako `2320`, `0040` nebo `040` (normalizuje se na
+  "HHMM").
+  ⚠️ `23:20` **nefunguje**, protože input má `maxlength=4`, takže z toho
+  vznikne „23:2“ → „0232“.
 
 ---
 
-## 6. LITÁNIE — podpůrné věty s tagy (pozice 5)
+## 6. LITÁNIE — kolekce vět s tagy (idx 5, v navu první)
 
-Sekce **Litánie** (v navu první zleva, `curSection=5`) je knihovna
-podpůrných vět / přerámování / manter / vděčností, vytažená z Bobova Evernotu
-(10 let, deduplikace + AI tagging). **1254 vět**, tagované tématy (22) a částmi
-(13, IFS-style figury). Účel dvojí: **čistit** (Bob prochází a vyhazuje balast)
-a **tvořit** (přidávat nové). UI je klon sekce Free — chip filtry, fulltext,
-slider priority.
+Knihovna podpůrných vět, přerámování, manter a vděčností. Vznikla z Bobova
+Evernotu (10 let poznámek, deduplikace a AI tagging, ~1250 vět). Druhá plocha
+jsou **Otázky**, poznávací otázky na cestu pro dva (980 z xlsx). Účel je dvojí:
+**čistit** (vyhazovat balast) a **tvořit** (přidávat nové).
 
-### 6a. Datová architektura — SOUKROMÁ data, nikdy ne online (DŮLEŽITÉ)
+### 6a. Data — SOUKROMÁ, nikdy online (DŮLEŽITÉ)
 
-> ⚠️ **Litánie jsou hodně osobní a NESMÍ jít na veřejný GitHub/Pages.** `litanie.json`
-> se **nikdy necommituje** — bydlí v `local/` (globálně git-ignorováno). Na rozdíl
-> od Move (Garmin data = veřejně OK) se litánie do repa nedostanou. Pozor při
-> jakémkoli commitu, ať to tam omylem neproklouzne.
+> ⚠️ **Litánie a otázky jsou hodně osobní a NESMÍ jít na veřejný GitHub/Pages.**
+> Zdrojové soubory (`local/litanie.json`, `local/otazky/…`) se **nikdy
+> necommitujou**. Data žijí jen v localStorage a v JSON exportu.
+>
+> Proč ne Pages fetch: Pages je veřejné bez autentizace. Strategie „pushnout,
+> jednou stáhnout a smazat“ je iluze bezpečí (zůstane historie gitu, forky,
+> cache, archivy).
 
-**Kolekce (`LIT_COLS`, 9/2026):** motor je parametrizovaný — každá kolekce je
-objekt `{key, base, overlay, nw, filter, temata, casti, skupiny, prioMax, prioDef,
-idPrefix, dom:{…}, lab:{…}}` říkající, pod jakými klíči ve `state` žije, jaké má DOM
-idčka (search/favQuick/filterBar/count/list/empty) a jaký rozsah priority. Všechny
-funkce motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
-`openLitSheet(c,id)`, `litToggleFav(c,id)`…); `refreshLit()` / `litLoadFromState()`
-bez argumentu = všechny kolekce. Sheet `#litSheet` je **sdílený** — `litEditCol`
-drží, komu patří; placeholder, text delete tlačítka a `max` slideru se nastaví při
-otevření. Prázdné sady tagů se ve filtru i sheetu schovávají.
+**Kolekce (`LIT_COLS`):** jeden motor a dvě kolekce. Každá je objekt
+`{key, base, overlay, nw, filter, temata, casti, skupiny, seedSkupiny,
+seedTemata?, prioMax, prioDef, idPrefix, dom:{…}, lab:{…}}`. Všechny funkce
+motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
+`openLitSheet(c,id)`, `litToggleFav(c,id)`, `litSetAktivni(c,id,on)`…).
+`refreshLit()` / `litLoadFromState()` bez argumentu zpracují všechny kolekce.
 
-| klíč | kolekce | state prefix | priorita | id nových | tagy |
-|---|---|---|---|---|---|
-| `lit` | **Litánie** (view 0) | `lit*` | 1–5, default 2 | `ul…` | temata (22) · casti (13) · skupiny (seed Otázky/Litánie/Udělat/Výzvy) |
-| `ot` | **Otázky** (view 1) | `ot*` | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx · casti/skupiny zatím prázdné (doplní se) |
+| klíč | plocha | priorita | id nových | tagy |
+|---|---|---|---|---|
+| `lit` | **Litánie** (view 0) | 1–5, default 2 | `ul…` | temata (modré, vždy včetně **„terapie“**) · casti (červené, IFS figury) · skupiny (zelené, seed Otázky/Litánie/Udělat/Výzvy) |
+| `ot` | **Otázky** (view 1) | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx · casti/skupiny prázdné · bez seedů |
 
-Zdroj se **jednorázově importuje z disku** do localStorage. Odtud data žijí jen
-v localStorage a v JSON exportu — **jako zbytek appky** (návyky/tasky). Per kolekci
-pět kusů ve `state` (`litColBlank(c)` / `litColNormalize(o,s,c)`):
-- `<k>Base[]` — základní věty (z importu). `<k>Temata[]` / `<k>Casti[]` / `<k>Skupiny[]`
-  = definice tagů z hlavičky jsonu. **Jen v localStorage, git to nekryje → zálohovat
-  exportem.**
-- `<k>Overlay[id]` — částečné přepisy základních vět (text/temata/casti/skupiny/
-  priorita/oblibena/aktivni). Klíč = **string** id. Ukládá se jen změněné pole.
-- `<k>New[]` — uživatelem přidané věty (id `c.idPrefix+timestamp`).
-- `<k>Filter` — persistovaný stav filtru.
+**Klíče ve `state` na kolekci** (`litColBlank` / `litColNormalize`):
+- `<k>Base`: základ z importu.
+- `<k>Temata/Casti/Skupiny`: definice tagů.
+- `<k>Overlay[id]`: přepisy základních vět. Klíč je **string** id. Uložení
+  editace zapíše všechna pole sheetu, toggle ★ a smazání jen jedno pole.
+- `<k>New`: vlastní věty.
+- `<k>Filter`: persistovaný filtr včetně textu hledání (max 100 znaků).
 
-**Runtime cache:** `c.BASE`/`c.TEMATA`/`c.CASTI`/`c.SKUPINY`/`c.LOADED` na objektu
-kolekce, naplní `litLoadFromState(c)` při startu / po importu.
+`normalize` ořízne text overlay a new na 4000 znaků. Runtime cache (`c.BASE`,
+`c.TEMATA`, `c.CASTI`, `c.SKUPINY`, `c.LOADED`) plní `litLoadFromState(c)`.
 
-**Import (`litImport(c, d)`):** formát `{ polozky:[…], temata:[], casti:[], skupiny:[] }`
-(`litanie.json` má klíč `litanie` místo `polozky` — bere se obojí). Naplní `state[c.base]`
-+ definice tagů, `save()`, `litLoadFromState(c)`; reimport drží overlay/new přes stabilní
-id. Obě kolekce **už jsou nasáté** (litánie dávno, otázky 14. 9. 2026), import tlačítka
-odstraněná — `litImport` je bez UI volajícího, při potřebě reimportu dočasně zavěsit. Zdroj `local/otazky/Otazky.xlsx` (Otázka | Skóre | Kategorie, 980 řádků) →
-`local/otazky/xlsx2json.py` → `local/otazky/otazky.json` (id `q0001…` = pořadí řádků).
+**Migrace a seedy tagů:**
+- **`LIT_TAG_RENAME`** je jednorázové idempotentní přejmenování přes
+  `litRenArr` (např. Postoje → Litánie, Don-Omnipotent → Don).
+- **`LIT_SKUPINY_SEED`** se aplikuje jen v prázdném stavu nebo při importu bez
+  `skupiny`.
+- **`LIT_TEMATA_SEED = ["terapie"]`** + `litEnsureTags` (9. 10. 2026):
+  „terapie“ se **doplní na konec modrých témat Litánií**, kdykoli chybí (porovnává
+  bez ohledu na velikost písmen). Běží v `litColBlank`, každém
+  `litColNormalize` i v `litImport`. Otázky ho nemají.
 
-**Slití (`litEffective(c)`):** vezme `c.BASE`, na každou větu napasuje
-`state[c.overlay][id]` (přebije základ), přidá `state[c.nw]`. Vrací sjednocený seznam
-s flagem `_new`.
+**Import (`litImport(c,d)`):** formát
+`{polozky|litanie:[…], temata:[], casti:[], skupiny:[]}`. Naplní base a
+definice tagů. Overlay a new drží přes stabilní id. **Nemá UI volajícího**:
+obě kolekce jsou nasáté (Litánie dávno, Otázky 14. 9. 2026) a tlačítka jsou
+odstraněná. Při potřebě reimportu ho dočasně zavěs. Komentáře v kódu, které
+mluví o importu přes ⚙, jsou zastaralé. Jediná cesta dat dovnitř je dnes
+**import celé zálohy v ⚙**. Zdroj Otázek: `local/otazky/Otazky.xlsx` →
+`xlsx2json.py` → `otazky.json` (id `q0001…`).
 
-**Proč import a ne Pages fetch:** Pages je veřejné bez auth (viz sekce 5d, stejný
-důvod proč se osobní sekce nesmí vystavovat). „Push na jedno stažení a pak smazat"
-= iluze bezpečí (git historie, forky, cache, archivy). Proto data nikdy neopustí
-disk/localStorage. Viz Bobova paměť „litánie jsou soukromé".
+**Slití (`litEffective(c)`):** základ + overlay (přebije) + new (flag `_new`).
 
 ### 6b. UI a interakce
 
-- **Seznam:** karty `P{priorita} · text · hvězdička` (priorita vlevo, hvězda u pravého
-  kraje). Klik na text = editace (`openLitSheet`), klik na hvězdičku = toggle oblíbené
-  (`litToggleFav`). Delegace: **jeden** click handler na `#litList` (ne 1254× per karta).
-- **Strop vykreslení 5000 karet** (`CAP` v `renderLitList`) — jen pojistka proti
-  extrému (desetitisíce karet by při re-renderu na každý stisk v searchi sekaly).
-  Běžná DB (~1250) se zobrazí celá. Přes strop se ukáže poznámka „…a dalších N".
-  Řazení: oblíbené nahoře → priorita DESC → id ASC.
-- **Filtr** (`renderLitFilterBar`, klon Free): dvě chip skupiny (Témata modré,
-  Části červené), slider priorita-min (1–5), mini-toggle „Bez tagů", Reset, sbalení.
-  **Rychlá hvězdička** (jen oblíbené, `#litFavQuick`) sedí **vedle keyword searche**
-  (ne ve filter baru), aby měl filtr plnou šířku. Fulltext (`litSearch`) sdílí fuzzy
-  engine s Free (`normSearchText`/`fuzzyWordMatch`).
-- **Editace/přidání** (`litSheet`): `<textarea>` (věty jsou i dlouhé odstavce, max
-  1570 znaků — auto-grow do 40vh), slider priority 1–5, toggle **oblíbená** (☆/★),
-  chipy témat a částí. Přidání přes FAB (`openLitSheet(null)`).
-  Ukládání: nová → `litNew.push`, úprava základní → zápis do `litOverlay[id]`, úprava
-  `_new` → mutace objektu.
-- **Mazání = `aktivni:false`** (`litSetAktivni`), ne fyzické smazání — Bob může
-  vzít zpět a za půl roku uvidí, co vyházel. Po smazání **undo lišta** (`#undoBar`,
-  6 s, tlačítko „Vrátit" → `litSetAktivni(id,true)`, přičemž pokud overlay držel
-  jen `aktivni`, celý se smaže, ať nezůstává balast).
-- **Počítadlo** (`#litCount`): „`<zobrazeno>` z `<aktivních>` · `<N>` vyházeno".
+Každá plocha má vlastní search, ☆ rychlý filtr, filtr bar, počítadlo a
+seznam (dom id v `LIT_COLS[k].dom`). Sheet `#litSheet` je sdílený: při otevření
+nastaví placeholder, text tlačítka pro smazání a max slideru podle kolekce.
 
-### 6c. Rotace „piňa dne" — VĚDOMĚ NEUDĚLÁNO
+- **Seznam:** karta `P{priorita} · text · ☆/★`. Klik na text = editace, klik na
+  hvězdu = oblíbená. Na seznam je **jeden** delegovaný click handler.
+  - Řazení: oblíbené → priorita DESC → id ASC.
+  - Strop 5000 karet (`CAP`), nad ním poznámka „…a dalších N“.
+  - Počítadlo: „zobrazeno z aktivních · N vyházeno“.
+- **Filtr (`renderLitFilterBar`):** **tři skupiny chipů bez popisků**:
+  témata **modré** (`#6E8FAE`), části **červené** (`#BC5B43`), skupiny
+  **zelené** (`#74955E`). Prázdná skupina se schová. Dál slider priorita-min
+  (1..prioMax), toggle „Bez tagů“, Reset a sbalení (i klikem mimo).
+  - **Sémantika: OR uvnitř skupiny, AND mezi skupinami**, plus ★, bez tagů,
+    priorita a fuzzy hledání.
+  - **Use-case:** v Litániích „terapie“ (modrá) + „Otázky“ (zelená) =
+    terapeutické otázky. Pozor, tohle „Otázky“ je zelený tag uvnitř Litánií,
+    ne plocha Otázky.
+  - Odznak počítá tagy, prioMin>1, ★ a bez tagů, hledání ne. Reset hledání
+    nemaže.
+- **Rychlá ☆** (`#litFavQuick`) sedí vedle searche, ne ve filtr baru, aby měl
+  filtr plnou šířku.
+- **Sheet:** auto-grow `<textarea>` (bez `maxlength`, výška do 40vh), slider
+  priority 1..prioMax, toggle ★ a tři řádky chipů (prázdné se skryjí). Prázdný
+  text nejde uložit. Nová věta jde do `state[c.nw]`, úprava základní do
+  `state[c.overlay][id]`, úprava `_new` zmutuje objekt.
+- **Mazání = `aktivni:false`** (`litSetAktivni`), ne fyzické smazání. Po
+  smazání vyskočí **undo lišta** (`#undoBar`) na 6 s s tlačítkem „Vrátit“.
+  Když overlay držel jen `aktivni`, smaže se celý. Undo slot je **jeden
+  společný**, takže druhé smazání do 6 s přepíše první. **Koš ani obnova není**:
+  vyházené jdou vrátit jen ručně v JSONu.
+- Flag `videno` (👁 a filtr „Neviděné“) sloužil k jednorázovému pročištění.
+  Je **odstraněný** (9/2026).
 
-Alterego navrhovalo denní váženou rotaci (servírovat větu dne dle priority+oblíbené).
-Bob to pro první verzi **odmítl** — „na špinavý databázi to stejně servíruje blbosti".
-Až bude databáze pročištěná, je to kandidát na druhé kolo. Priorita a `oblibena` v
-datech na to už jsou připravené.
+### 6c. Rotace „piňa dne“ — VĚDOMĚ NEUDĚLÁNO
 
----
-
-## 7. Vizuál / styl
-
-Tmavé „kokosové" téma. CSS proměnné v `:root`:
-`--bg:#15120E --surface:#201B15 --surface2:#2A241C --border:#3A332A
---text:#EDE6D8 --dim:#9A9081 --empty:#34302A --done:#74955E --missed:#BC5B43
---accent:#D9A441 --water:#5B87A8`. Poslední (tlumená modrá) je jediná studená
-barva v jinak zemité paletě a používá se **výhradně** pro prstenec teploty vody
-v Otužování. Fonty: serif (Georgia) pro názvy, sans (system) pro UI, mono
-pro metadata/čísla. Bob má rád hustotu (malé paddingy, malé písmo).
-
-**🍹 Piňa colada odměna** (`pina()`): po `✓` splnění vyskočí velké emoji 🍹
-uprostřed obrazovky, zhoupne se a zmizí (`@keyframes pinapop`, ~0.9s). Restart
-ošetřen pro rychlé klikání. Jen na ✓ (ne ✕ ani přesun). Dopaminová odměna.
+Denní vážená rotace (věta dne podle priority a ★) byla pro první verzi
+odmítnutá: „na špinavý databázi to stejně servíruje blbosti“. Až bude databáze
+pročištěná, je to kandidát na druhé kolo. Data (`priorita`, `oblibena`) jsou
+připravená.
 
 ---
 
-## 8. Co je hotové a co Boba čeká
+## 7. Vizuál, styl a odměna
 
-**HOTOVÉ a matematicky otestované** (přes Node simulace): repeat respawn (7
-scénářů včetně blogu/finančáku/přetečení 31.→28.), rollup (mix repeat/ne-repeat/
-budoucí/backlog), denní agregát, cap logika Přehledu, v2 migrace, Free backlog
-migrace (stará data → „Free", validace neplatných backlogů → fallback).
+Tmavé „kokosové“ téma. CSS proměnné v `:root`:
 
-**Navigace překopaná naruby** (taby=sekce, swipe=Check/Přehled, ⚙ v headeru) —
-viz sekce 2. Sourozenecký sync renderů ověřen ručně.
+| proměnná | hodnota | použití |
+|---|---|---|
+| `--bg` | `#15120E` | |
+| `--surface` | `#201B15` | |
+| `--surface2` | `#2A241C` | |
+| `--border` | `#3A332A` | |
+| `--text` | `#EDE6D8` | |
+| `--dim` | `#9A9081` | |
+| `--empty` | `#34302A` | |
+| `--empty2` | `#46403A` | alternace proužků |
+| `--done` | `#74955E` | |
+| `--done2` | `#8FB179` | alternace proužků |
+| `--missed` | `#BC5B43` | |
+| `--accent` | `#D9A441` | |
+| `--god` | `#5C8DC9` | Godzilla, pocit spánku |
+| `--water` | `#5B87A8` | voda v Otužování |
 
-**Move + Garmin pipeline HOTOVÁ a ověřená v provozu** (viz sekce 5): token
-cache, automatika 3× denně (Task Scheduler), auto-push `move_data.json` do repa,
-auto-fetch v appce, responsivní kolečka. Ověřeno reálnými daty z Bobova Garminu.
-Zbývá jen doladit vizuál Move „na závěr všeho" (velikosti/mezery detaily) a
-případně „ukázat posledních X týdnů" místo nekonečného scrollu.
+Fonty: `--serif` (Georgia…) na názvy, `--sans` (system) na UI, `--mono` na
+metadata a čísla. Modré jsou jen `--god`, `--water` a modré tagy Litánií.
+Jinak je paleta zemitá. Bob má rád hustotu (malé paddingy, malé písmo, názvy
+14px serif).
 
-**Otužování HOTOVÉ, kalibrace ověřená na Bobových reálných číslech** (viz 5e):
-swipe/pager na Move, zápis + editace + mazání dne, perzistence přes `normalize()`
-round-trip, obě prstencové škály, strop 7.5 s povolením nahoru (otestováno i
-přerůstání na 11.3). **Čeká na běh času:** zatím nula ostrých zápisů — jestli
-strop sedí, se ukáže až po pár týdnech zimní sezóny. Pokud se kruhy budou trvale
-lepit na maximum, zvednout `COLD_PERF_BASE`.
+**🍹 Piňa odměna** (`pina()`): po ✓ **úkolu v Tasks** vyskočí velké 🍹
+uprostřed (`@keyframes pinapop`, **1.9 s**). Restart animace je ošetřený pro
+rychlé klikání. Habits ✓ ani kroky Progressu piňu nespouští.
 
-**Opraveno z provozu:** biweekly s kotvou se překlápělo o týden místo o dva
-(viz 4d); swipe na Move nefungoval na Androidu kvůli `overflow-y` na panelu
-(viz sekce 2); kotva opakování nešla sundat (viz 4f).
+**🗣️ Hlasová odměna** (`speakPina`) jde s každou piňou. Systémový TTS řekne
+jednu z `PINA_LINES` („Dej si piňu!“, „Šikovnej osel!“, „Král prdele!“,
+„Hustý, vole!“, „To je na piňu!“, „Híhá!“). Hlášky se **střídají v rotaci**.
+Hlas je cs-CZ, když je k dispozici, rychlost 1.05, a předchozí hláška se před
+novou zruší (`cancel()`).
 
-**Reálně neověřené (čeká na běh času):** rollup se na ostro projeví až den po
-naplánování úkolu (musí propadnout přes půlnoc). Logika je testovaná na
-simulovaných datech, ale reálný průchod časem Bob uvidí až s reálným časem.
-U Move: **reálný auto-commit+push** se spustí až přijdou nová data (zatím
-ověřeno jen „beze změny nic k pushnuti"); dlouhý výpadek syncu >90 dní udělá
-nedoplnitelnou díru (skript se tak hluboko nedívá) — dá se zvednout okno `DAYS`.
+---
 
-**Litánie HOTOVÉ a ověřené** (viz sekce 6): lokální import + overlay architektura
-otestovaná end-to-end přes DOM/localStorage (import 1254 vět → localStorage,
-fav→overlay, delete+undo, edit→overlay, nová věta→litNew, reload bez fetche →
-data z localStorage, celý state v exportu), fuzzy search, chip filtry, strop 5000,
-undo lišta. Ověřeno, že appka na startu `litanie.json` **nikde nestahuje**
-(žádný síťový request). Screenshot nástroj v prostředí timeoutoval, ale reflow
-6 ms + 0 chyb → appka svižná. Import **už proběhl** (data v localStorage/exportu),
-import tlačítko odstraněno. Dočasný flag `videno` (👁 v editaci + filtr „Neviděné")
-sloužil k jednorázovému pročištění databáze — hotovo 9/2026, odstraněno (Viktor Čistič).
-Rotace „piňa dne" odložená (6c).
+## 8. Co je hotové, známé bugy a co Boba čeká
 
-**Filozofie dalšího vývoje:** Bob řekl „základ máme, bude to o dolaďování během
-úkolování". Čekej drobné UX úpravy z reálného provozu, ne velké přestavby.
-Nepřeengineeruj dopředu. Když Bob přijde s úpravou, zeptej se postupně po jedné
-otázce na nejasné hrany, pak to postav a otestuj.
+**HOTOVÉ a otestované:**
+- Repeat respawn (Node simulace 7 scénářů).
+- Migrace v2, `blV` 2 i 3.
+- Celá navigace.
+- Move a Garmin pipeline (v provozu, 3× denně).
+- Otužování (kalibrace na Bobových číslech; zimní sezóna ukáže, jestli strop
+  7.5 sedí).
+- Běh, Nálada, Spánek.
+- Litánie a Otázky.
+- Mix agregátor a slider (headless testy, 9. 10. 2026).
+- Seed „terapie“.
+
+**Známé bugy a drobnosti (zjištěné auditem 11. 10. 2026, neopravené):**
+1. **`»` u propadlého úkolu nedělá nic** (4d). Je to nejvýznamnější bug, protože
+   propadlé úkoly se kvůli zrušenému rollupu hromadí.
+2. Edit úkolu v Done + Uložit ho přesune do Chill a zůstane přeškrtnutý (4g).
+3. ✓ na úkolu v Done ho splní znovu (zelená a piňa navíc).
+4. Klik v detailu habitu nesyncuje Check panel (2).
+5. Spánek: `23:20` se kvůli `maxlength=4` uloží jako 02:32 (5h).
+6. Garmin: zámek dne na samé nuly není vidět (5a). Empty-state text a
+   komentář o ručním importu jsou zastaralé (5b).
+7. Litánie: Reset filtru nepřekreslí rychlou ☆ (může svítit ★, i když fav už
+   neplatí).
+8. Litánie: když je `<k>Base` prázdný, `LOADED=false` a vlastní nové věty
+   (`<k>New`) se nezobrazí (ukazuje se „Načítám…“). V praxi to Boba nepálí,
+   base má.
+9. Detail habitu ve Free píše „priorita N“ místo „Zábava N“.
+10. Zastaralé komentáře v kódu: schéma kolem ř. 1307, `GRID` „3 řádky × 30“,
+    `WIP_PREVIEW_MIN` „minimálně 10“, navigace „0..3“ / „Tasks / 01 / 02“,
+    `vibeCell` tělo. Opravuj je průběžně, když jsi poblíž.
+
+**Reálně neověřené:** dlouhý výpadek syncu nad 90 dní udělá nedoplnitelnou
+díru (dá se zvednout okno `DAYS` ve skriptu). Token Garminu vyprší zhruba po
+roce.
+
+**Filozofie dalšího vývoje:** „Základ máme, bude to o dolaďování během
+úkolování.“ Čekej drobné UX úpravy z reálného provozu, ne velké přestavby.
+Nepřeengineeruj dopředu. Bob slíbil, že po dovolené (10/2026) se backlogy
+v Tasks spolu „pročistí“.
 
 ---
 
 ## 9. Tipy pro zásahy do kódu
 
-- Soubor je strukturovaný: `<style>` → HTML (header s ⚙, pager se 2 tečkami,
-  **6 `<section>` pages** — 0–4 s `track`/dvěma `panel`, `secLitanie` s jedním —
-  sheety, modaly) → `<script>` (state/normalize/load/save → date helpers →
-  NÁVYKY → projektové ÚKOLY → TASKS úkolová sekce → Přehled úkolů →
-  confirm/toast/piňa → settings → **MOVE (renderMove/moveCell/importMoveData/
-  fetchMoveData/recalcMoveCaps)** → **OTUŽOVÁNÍ (coldPerf/coldCap/coldCell/
-  renderCold/openColdEdit)** → **LITÁNIE (litLoadFromState/importLitanie/
-  litEffective/matchesLitFilter/renderLitList/renderLitFilterBar/openLitSheet/
-  litDelete+undo)** → navigace (swipe/taby/pager) → FAB → init).
-- **Navigace:** `updateUI()` je centrální — transformuje tracky podle `curView`
-  (Litánie track vždy 0), přepíná `.page.active` podle `curSection`, syncuje
-  taby/pager/title (u Move přepisuje title na „Nálada"/„Spánek"/„Běh"/„Otužování"), skrývá pager
-  na Litániích a FAB na Move. Taby nastavují `curSection`, swipe a pager tečky
-  nastavují `curView`.
-- `renderCheck()` = router pro úkolovou (Tasks) Check stranu (default + backlog
-  view).
-- `renderAll()` volá všechny rendery najednou (Check i Přehled všech sekcí jsou
-  v DOMu pořád, jen schované), **včetně `renderMove()` a `renderCold()`**. Sourozenecký sync (viz
-  sekce 2) je proto nutný. Auto-fetch Move (`fetchMoveData()`) se volá zvlášť na
-  konci initu (async).
-- **Move/Garmin:** vizuál a datový model v `index.html` (sekce 5), ale sync motor
-  je v `local/garmin/` (mimo git). Když měníš tvar `move_data.json`, musí sedět
-  `build_data.py` (výstup) ↔ `importMoveData` (vstup) ↔ `moveCell` (render).
-- Po každé změně: `node -e` syntax check (`new Function`), kontrola párování
-  `<div>`, ověření že volaná `getElementById` ID existují v HTML.
-- Datové helpery navíc pro úkoly: `parseKey`, `fmtCalLabel`, `addMonths`,
-  `bumpDaily`, `utaskById`, `sortUtasks`, `backlogTasks`, `calendarGroups`,
-  `prioColor`, `repeatShort`.
-- Free backlogy: `renderFreeBacklogBar`, `fillHabitBacklogPicker`,
-  `freeBacklogCurrent` (viz sekce 3b).
+**Mapa souboru** (orientačně, hledej `grep -n`):
+1. `<style>` (`:root` kolem ř. 15).
+2. HTML: header s ⚙, pager s 5 tečkami, 6× `<section class="page">` (Progress 1
+   panel, Tasks 1, Habits 2, Free 2, Move 5, Litánie 2), nav (~916), sheety a
+   modaly.
+3. `<script>`:
+   1. Konstanty (`TAG_GROUPS`, `LIT_COLS`…), `blankState`, `normalize`,
+      `load`/`save` (~1300–1850).
+   2. Habits/Free (render, filtr, fuzzy, Godzilla, sheet).
+   3. Progress (`sortedTasks`, `cellCounts`, `renderTasksPanel`,
+      `openTaskSheet`).
+   4. Tasks (`backlogTasks`, `calendarGroups`, `nextRepeatDate`, `utComplete`,
+      `makeUtaskRow`, `renderCheckDefault`, `renderBlogView`, `openUtSheet`,
+      backlogy, `fselOpen`, `renderBlogQuick`).
+   5. Toast, piňa, hlas, ⚙ export/import.
+   6. Navigace (`SEC_*`, `applyViewToTrack`, `updateUI`, `attachSwipe`, FAB,
+      taby, klávesnice).
+   7. Move (`moveSemi`, `moveCell`, `renderMove`, caps, import/fetch, zámky).
+   8. Otužování, Nálada, Spánek, Běh.
+   9. Litánie (`litLoadFromState`, `litImport`, `litEffective`, filtr,
+      `renderLitList`, sheet, undo).
+   10. `renderAll` a init.
+
+**Rady pro zásahy:**
+- `renderCheck()` je router Tasks (default obrazovka nebo backlog view).
+  `renderAll()` volá všechny rendery najednou (všechny plochy jsou pořád
+  v DOMu, jen schované).
+- **Datové helpery Tasks:** `parseKey`, `key`, `today`, `addDays`, `addMonths`,
+  `fmtCalLabel`, `bumpDaily`, `utaskById`, `sortUtasks`, `backlogTasks`,
+  `calendarGroups`, `prioColor`, `repeatShort`.
+- **Když měníš tvar `move_data.json`,** musí sedět `build_data.py` (výstup),
+  `importMoveData` (vstup) a `moveCell` (render).
+- **Po každé změně** udělej syntax check přes Node, zkontroluj, že ID
+  z `getElementById` existují v HTML, a v cloudu pusť headless test
+  (viz 1, Workflow).
+- **Nový systémový backlog nebo jeho rename** potřebuje zvednout `blV`, přidat
+  migraci v `normalize` a upravit seznamy na těchto místech: `blankState`,
+  `normalize` (`bl`), `deleteTaskBacklog`, `BACKLOG_SCOPES.protectedNames`,
+  `SYS_BL` v `fselOpen` a `renderBlogQuick`, `MIX_EXCLUDE`, `fillBacklogPicker`.
