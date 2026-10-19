@@ -70,6 +70,9 @@
   .page.active{display:flex;flex-direction:column;flex:1;}
   .track{display:flex;width:200%;flex:1;transition:transform .25s ease;will-change:transform;}
   .panel{width:50%;flex:0 0 50%;}
+  /* Neaktivní plochy složené na nulu: jinak má track výšku nejdelší plochy
+     sekce a krátká plocha scrolluje do prázdna. Při swipu se .off sundá. */
+  .panel.off{height:0;overflow:hidden;}
 
   /* ---- Move: plochy sekce ----
      Panel schválně NEMÁ overflow-y:auto. Vlastní scrollovací kontejner na
@@ -3732,6 +3735,19 @@ function applyViewToTrack(trackEl, animate){
   var n = trackEl.children.length || 1;
   var v = Math.min(curView, n-1);
   trackEl.style.transform = "translateX(-"+(v*100/n)+"%)";
+  // Výška tracku = jen aktuální plocha (viz .panel.off). Ostatní složit až
+  // po dojetí animace, ať při posunu neprobliknou prázdné.
+  var kids = trackEl.children;
+  clearTimeout(trackEl._offT);
+  if(kids[v]) kids[v].classList.remove("off");
+  var hide = function(){
+    for(var i=0;i<kids.length;i++) kids[i].classList.toggle("off", i!==v);
+  };
+  if(animate) trackEl._offT = setTimeout(hide, 260); else hide();
+}
+function unfoldPanels(trackEl){
+  clearTimeout(trackEl._offT);
+  for(var i=0;i<trackEl.children.length;i++) trackEl.children[i].classList.remove("off");
 }
 // Po přepnutí stránky (swipe / tečka / tab) ukázat obsah od shora — jinak
 // nová plocha zdědí scroll té předchozí.
@@ -3793,7 +3809,7 @@ function attachSwipe(pageEl, trackEl){
     dx=e.clientX-x0; dy=e.clientY-y0;
     if(!decided && (Math.abs(dx)>8 || Math.abs(dy)>8)){
       decided=true; horizontal=Math.abs(dx)>Math.abs(dy);
-      if(horizontal){ try{ pageEl.setPointerCapture(pid); }catch(_){} }
+      if(horizontal){ try{ pageEl.setPointerCapture(pid); }catch(_){} unfoldPanels(trackEl); }
     }
     if(decided && horizontal){
       if(e.cancelable) e.preventDefault();

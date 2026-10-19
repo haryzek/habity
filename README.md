@@ -141,6 +141,10 @@ název sekce, jen v **Move** a **Litániích** se mění podle plochy:
   `translateX(-min(curView,n-1)*100/n %)`. `curView` je jedna globální
   proměnná. Když swipneš v Move na view 4 a přejdeš jinam, clamp to ošetří
   a klik na tab ho stejně resetuje.
+  Neaktivní plochy dostanou `.panel.off` (`height:0`), jinak by track měl
+  výšku nejdelší plochy sekce a krátká plocha by scrollovala do prázdna.
+  Skládá se až po dojetí animace (260 ms); swipe je přes `unfoldPanels`
+  rozloží hned, jak se gesto rozhodne pro vodorovný směr.
 - **Pager** (5 teček nahoře): na Progress a Tasks je schovaný přes
   `visibility:hidden` (ať layout neposkakuje). Tečky 2–4 jsou vidět jen v Move.
   Habits, Free a Litánie mají 2 tečky.
