@@ -1211,11 +1211,24 @@
   </div>
 </div>
 
-<!-- BĚH: ruční zápis pocitů (2 údaje, zbytek dne teče z Garmin syncu) -->
+<!-- BĚH: ruční zápis — běh (km/čas/tep, zámek natvrdo proti syncu) + pocity -->
 <div class="scrim" id="runScrim">
   <div class="sheet" id="runSheet">
     <h2 id="runEditTitle">Zapsat pocity</h2>
     <div class="move-edit-grid">
+      <div class="move-edit-f">
+        <label>Vzdálenost (km)</label>
+        <input type="number" id="runKm" min="0" step="0.01" inputmode="decimal" placeholder="—">
+      </div>
+      <div class="move-edit-f">
+        <label>Čas (min)</label>
+        <input type="number" id="runMin" min="0" step="0.1" inputmode="decimal" placeholder="—">
+      </div>
+      <div class="move-edit-f">
+        <label>Tep (průměr)</label>
+        <input type="number" id="runHr" min="0" step="1" inputmode="numeric" placeholder="—">
+      </div>
+      <div class="move-edit-f"></div>
       <div class="move-edit-f">
         <label>Těžkost (0–10)</label>
         <input type="number" id="runHeavy" min="0" max="10" step="1" inputmode="numeric">
@@ -1460,7 +1473,9 @@ function blankState(){
     // Běh: days = běžecké dny ze syncu (run_data.json, merge — historie v
     // localStorage přežívá 90denní okno syncu, baseline EF se z ní počítá);
     // manual[date] = ruční pocity {heavy, ach} 0–10, sync na ně nesahá.
-    run:{ days:{}, manual:{} },
+    // overrides[date] = ruční běh (zámek natvrdo jako u Move) — když sync
+    // selže nebo běh nebyl s hodinkami. Efektivní den = overrides ?? days.
+    run:{ days:{}, manual:{}, overrides:{} },
     // Litánie (a další kolekce z LIT_COLS): SOUKROMÁ data, nikdy ne online. Zdroj se
     // JEDNORÁZOVĚ naimportuje z disku (⚙ Data) do localStorage — odtud je kryje jen JSON export.
     //  <k>Base = základní věty (import), <k>Temata/Casti/Skupiny = definice tagů
@@ -1810,6 +1825,21 @@ function normalize(o){
         }
         var heavy = score(d.heavy), ach = score(d.ach);
         if(heavy!=null || ach!=null) s.run.manual[k] = { heavy:heavy, ach:ach };
+      });
+    }
+    if(o.run.overrides && typeof o.run.overrides==="object"){
+      Object.keys(o.run.overrides).forEach(function(k){
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
+        var d = o.run.overrides[k];
+        if(!d || typeof d!=="object") return;
+        var rec = {
+          distM:  Math.max(0, Math.round(+d.distM  || 0)),
+          durSec: Math.max(0, Math.round(+d.durSec || 0)),
+          movSec: Math.max(0, Math.round(+d.movSec || 0)),
+          hr:     (typeof d.hr==="number"  && d.hr>0)  ? Math.round(d.hr) : null,
+          vo2:    (typeof d.vo2==="number" && d.vo2>0) ? d.vo2 : null
+        };
+        if(rec.distM>0 || rec.durSec>0) s.run.overrides[k] = rec;
       });
     }
   }
@@ -4563,7 +4593,8 @@ document.getElementById("sleepScrim").onclick = function(e){ if(e.target===this)
 
 /* ================= BĚH (čtvrtá plocha sekce Move) =================
    Data ze syncu (run_data.json, merge do state.run.days — localStorage drží
-   i historii starší než 90denní okno syncu) + ruční pocity (state.run.manual).
+   i historii starší než 90denní okno syncu) + ruční pocity (state.run.manual)
+   + ruční běh (state.run.overrides, zámek natvrdo — sync selhal / bez hodinek).
    Kolečko dne:
      plocha kruhu      = Forma: EF (rychlost/tep) klouzavý průměr posledních
                          5 běhů vůči baseline (průměr prvních 6 běhů = 1.0).
@@ -4592,8 +4623,16 @@ function runEF(rec){
 
 // Předpočet všeho, co mřížka i statistiky potřebují. EF dny = dny s tepem
 // i vzdáleností (den bez pásu/tepu se počítá do konzistence a Brzdy, ne do EF).
+// sloučení jako u Move: den ze syncu překrytý ručním zámkem (overrides ?? days)
+function runEffDays(){
+  var base = state.run.days||{}, ov = state.run.overrides||{}, out = {};
+  Object.keys(base).forEach(function(k){ out[k] = base[k]; });
+  Object.keys(ov).forEach(function(k){ out[k] = ov[k]; });
+  return out;
+}
+
 function runCtx(){
-  var days = state.run.days || {};
+  var days = runEffDays();
   var rkeys = Object.keys(days).filter(function(k){
     var d = days[k];
     return d && (d.distM>0 || d.durSec>0);
@@ -4670,7 +4709,8 @@ function runBrake(ctx, dk){
 
 function runCell(rec, man, isFuture, dateKey, ctx){
   var editAttr = isFuture ? '' : ' data-date="'+dateKey+'"';
-  var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit');
+  var locked = !!(state.run.overrides||{})[dateKey];
+  var cls = 'move-cell'+(isFuture ? '' : ' move-cell--edit')+(locked ? ' move-cell--locked' : '');
   var foot = man
     ? (man.heavy==null ? '–' : man.heavy)+'/'+(man.ach==null ? '–' : man.ach)
     : (rec ? '–/–' : '&nbsp;');
@@ -4769,23 +4809,41 @@ function runPaceStr(rec){
   return m+":"+(s<10?"0":"")+s;
 }
 
+// Předvyplněné hodnoty běhu (jak je dialog ukázal) — při uložení se s nimi
+// porovná, jestli Bob běh fakt měnil. Jen pocity = den se nezamyká a sync ho
+// dál řídí; změněný km/čas/tep = zámek natvrdo (overrides), jako u Move.
+var runEditPrefill = null;
+
 function openRunEdit(dk){
   runEditDate = dk;
   var man = (state.run.manual || {})[dk] || null;
-  var rec = (state.run.days || {})[dk] || null;
+  var ov  = (state.run.overrides || {})[dk] || null;
+  var syn = (state.run.days || {})[dk] || null;
+  var rec = ov || syn;
+  runEditPrefill = {
+    km:  (rec && rec.distM)  ? String(Math.round(rec.distM/10)/100) : "",
+    min: (rec && rec.durSec) ? String(Math.round(rec.durSec/6)/10)  : "",
+    hr:  (rec && rec.hr)     ? String(rec.hr) : ""
+  };
+  document.getElementById("runKm").value  = runEditPrefill.km;
+  document.getElementById("runMin").value = runEditPrefill.min;
+  document.getElementById("runHr").value  = runEditPrefill.hr;
   document.getElementById("runHeavy").value = (man && man.heavy!=null) ? man.heavy : "";
   document.getElementById("runAch").value   = (man && man.ach!=null)   ? man.ach   : "";
-  document.getElementById("runEditTitle").textContent = (man ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
-  var note = "Těžkost a achilovky 0–10. Zbytek dne teče z Garminu.";
-  if(rec){
-    var bits = [coldNum(rec.distM/1000,1)+" km"];
-    var pace = runPaceStr(rec);
+  document.getElementById("runEditTitle").textContent = ((man || ov) ? "Upravit " : "Zapsat ") + moveFmtDate(dk);
+  var note;
+  if(ov){
+    note = "Běh je zamčený — sync ho nepřepíše. Smazáním zápisu se den vrátí k syncu.";
+  }else if(syn){
+    var bits = [];
+    var pace = runPaceStr(syn);
     if(pace) bits.push(pace+" min/km");
-    if(rec.hr) bits.push("tep "+rec.hr);
-    note = "Garmin: "+bits.join(" · ")+".";
+    note = "Z Garminu"+(bits.length ? " ("+bits.join(" · ")+")" : "")+". Změna km/času/tepu den zamkne proti syncu.";
+  }else{
+    note = "Bez hodinek? Zapiš km a čas ručně, den se zamkne proti syncu. Těžkost a achilovky 0–10.";
   }
   document.getElementById("runEditNote").textContent = note;
-  document.getElementById("runDelete").style.display = man ? "" : "none";
+  document.getElementById("runDelete").style.display = (man || ov) ? "" : "none";
   document.getElementById("runScrim").classList.add("open");
 }
 function closeRunEdit(){
@@ -4808,19 +4866,48 @@ document.getElementById("runSave").onclick = function(){
     var n = Math.round(+raw);
     return (isFinite(n) && n>=0 && n<=10) ? n : null;
   }
+  function raw(id){ return String(document.getElementById(id).value).trim(); }
+  function pos(id){ var n = +raw(id); return (raw(id)!=="" && isFinite(n) && n>0) ? n : 0; }
   var heavy = score("runHeavy"), ach = score("runAch");
-  if(heavy==null && ach==null){ toast("Zadej aspoň jedno číslo 0–10."); return; }
+  var p = runEditPrefill || {km:"",min:"",hr:""};
+  var kmCh = raw("runKm")!==p.km, minCh = raw("runMin")!==p.min, hrCh = raw("runHr")!==p.hr;
+  var runChanged = kmCh || minCh || hrCh;
+  var ov  = (state.run.overrides || {})[runEditDate] || null;
+  var syn = (state.run.days || {})[runEditDate] || null;
+  var base = ov || syn;
+  var lockRec = null;
+  if(runChanged || ov){
+    // nezměněné pole drží přesnou hodnotu z podkladu (ne zaokrouhlenou z dialogu);
+    // ručně změněný čas = movSec pryč (EF pak jede z celkového času)
+    lockRec = {
+      distM:  (!kmCh && base) ? base.distM : Math.round(pos("runKm")*1000),
+      durSec: (!minCh && base) ? base.durSec : Math.round(pos("runMin")*60),
+      movSec: (!minCh && base) ? base.movSec : 0,
+      hr:     (!hrCh && base) ? base.hr : (pos("runHr") ? Math.round(pos("runHr")) : null),
+      vo2:    base ? base.vo2 : null
+    };
+    if(!(lockRec.distM>0 || lockRec.durSec>0)){
+      if(syn || !runChanged){ toast("Běh potřebuje km nebo čas."); return; }
+      lockRec = null;   // nový den bez běhu: vymazané km i čas = jen pocity
+    }
+  }
+  if(!lockRec && heavy==null && ach==null){ toast("Zadej km a čas, nebo aspoň těžkost / achilovky."); return; }
   if(!state.run.manual) state.run.manual = {};
-  state.run.manual[runEditDate] = { heavy:heavy, ach:ach };
+  if(heavy!=null || ach!=null) state.run.manual[runEditDate] = { heavy:heavy, ach:ach };
+  else delete state.run.manual[runEditDate];
+  if(!state.run.overrides) state.run.overrides = {};
+  if(lockRec) state.run.overrides[runEditDate] = lockRec;
+  else delete state.run.overrides[runEditDate];
   save();
   renderRun();
-  toast("Pocity zapsány. 🏃");
+  toast(lockRec ? "Běh zapsán natvrdo. 🔒🏃" : "Pocity zapsány. 🏃");
   closeRunEdit();
 };
 
 document.getElementById("runDelete").onclick = function(){
   if(!runEditDate) return;
   if(state.run.manual) delete state.run.manual[runEditDate];
+  if(state.run.overrides) delete state.run.overrides[runEditDate];
   save();
   renderRun();
   toast("Zápis smazán.");

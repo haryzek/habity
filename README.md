@@ -616,7 +616,7 @@ spodního bodu k hornímu a `sweep=1` vede přes levou stranu. Ověřeno přes
 | 0 | **Nálada** | Nálada | ruční `state.vibe` |
 | 1 | **Spánek** | Spánek | ruční `state.sleep` |
 | 2 | **Garmin** | Move | sync `state.move` + ruční zámky |
-| 3 | **Běh** | Běh | sync `state.run.days` + ruční `state.run.manual` |
+| 3 | **Běh** | Běh | sync `state.run.days` + ruční `state.run.manual` a `state.run.overrides` |
 | 4 | **Otužování** | Otužování | ruční `state.cold` |
 
 ### 5a. Garmin plocha (`renderMove` / `moveCell`, view 2)
@@ -735,7 +735,16 @@ smazat. Dialog ukazuje „Výkon X ze stropu Y“.
 
 Bobův návrat k běhu (srpen 2026, Po-St-Pá ~2×800 m okolo plavání). Data jsou
 ze syncu (`run_data.json`) a k nim **ruční pocity** (`runScrim`: těžkost a
-achilovky 0–10, aspoň jedno pole). Dialog ukazuje Garmin km, tempo a tep.
+achilovky 0–10, `state.run.manual`).
+
+**Ruční běh** (od 27. 10. 2026, když sync selže nebo Bob běžel bez hodinek):
+stejný dialog má i km, čas (min) a průměrný tep, předvyplněné ze syncu. Změna
+kteréhokoli z nich zapíše `state.run.overrides[date]` = **zámek natvrdo jako
+u Move** (`runEffDays()` = overrides ?? days, import ho nepřepíše, buňka má
+`move-cell--locked` → čísla kurzívou). Jen pocity den nezamykají. Nezměněná
+pole drží přesnou hodnotu syncu (ne zaokrouhlenou z dialogu); ručně změněný
+čas nastaví `movSec=0`, EF pak jede z `durSec`. „Smazat zápis“ maže pocity
+i zámek, den zas řídí sync.
 
 **Filozofie indexu (KOUČOVSKÁ, nesahej na ni bez rozmyslu):** index nesmí
 odměňovat tempo. Bob má achilovky náchylné k zánětu a psychologický odpor, a

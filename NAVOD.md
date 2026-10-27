@@ -111,7 +111,8 @@ Do minulých dnů zapisuješ klikem na kolečko.
   den se tím zamkne (kalorie kurzívou) a automatika ho už nepřepíše.
 - **Běh:** velikost = forma (tep vůči rychlosti), číslo = tep (má klesat),
   prstence = pravidelnost a „brzda“ proti přetížení. Pod kolečkem ručně
-  zapsaná těžkost a achilovky.
+  zapsaná těžkost a achilovky. Když hodinky nebyly nebo sync selhal, zapíšeš
+  v tom samým okně i km, čas a tep. Den se tím zamkne (čísla kurzívou).
 - **Otužování:** velikost = výkon (minuty ve vodě vůči teplotě), prstence =
   teplota vody a vzduchu, pod kolečkem vítr a průtok.
 
