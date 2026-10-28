@@ -18,6 +18,10 @@ pracovní pravidla.
 ## Projekt v kostce
 - Jednosouborová PWA `index.html` (~5340 řádků), GitHub Pages
   `haryzek.github.io/habity/`. Bez buildu a bez závislostí.
+- **Netlify (od 2026-10-27, kdy GitHub suspendoval účet):** `https://starlit-empanada-417a72.netlify.app`.
+  Deploy přes Netlify CLI (Bob přihlášený): zkopírovat **jen** `index.html`, `move_data.json`,
+  `run_data.json` do dočasné složky mimo repo (nikdy celé repo, `local/` je soukromé) a
+  `netlify deploy --prod --no-build --dir <složka> --site starlit-empanada-417a72`. Jen s Bobovým gou.
 - Data jsou jen v localStorage `habity.v2` (+ JSON export). Nové pole přidává
   `normalize()` nedestruktivně. Na systémové backlogy Tasks je verze `blV`
   (teď 3).
