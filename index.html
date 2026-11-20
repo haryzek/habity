@@ -83,9 +83,52 @@
   /* Move má pět ploch (Nálada / Spánek / Garmin / Běh / Otužování) — track je širší a
      panely pětinové; posun řeší applyViewToTrack z počtu panelů, ne natvrdo. */
   #trackMove{width:500%;}
-  /* Progress a Tasks mají jen jednu plochu — čtverečkové plochy zrušené */
-  #trackProgress,#trackTasks{width:100%;}
-  #trackProgress .panel,#trackTasks .panel{width:100%;flex:0 0 100%;}
+  /* Tasks má jen jednu plochu; Progress dvě (projekty · Vzdělávání) = default 200 % */
+  #trackTasks{width:100%;}
+  #trackTasks .panel{width:100%;flex:0 0 100%;}
+
+  /* ---- Progress › Vzdělávání (evidence ČAP) ---- */
+  .edu-sum{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:14px 14px 12px;margin:2px 0 14px;
+  }
+  .edu-big{display:flex;align-items:baseline;gap:8px;margin-bottom:6px;}
+  .edu-big b{font-family:var(--serif);font-weight:500;font-size:34px;color:var(--accent);line-height:1;}
+  .edu-big span{font-family:var(--mono);font-size:12px;color:var(--dim);}
+  .edu-bar{height:8px;border-radius:4px;background:var(--empty);overflow:hidden;margin-bottom:10px;}
+  .edu-bar i{display:block;height:100%;background:var(--accent);border-radius:4px;}
+  .edu-bar.ok i{background:var(--done);}
+  .edu-sub{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+    color:var(--dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+  .edu-sub b{color:var(--text);font-weight:600;}
+  .edu-sub-bar{height:5px;margin-bottom:10px;}
+  .edu-break{display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 10px;font-size:12px;color:var(--dim);}
+  .edu-break span{white-space:nowrap;}
+  .edu-break i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:1px;}
+  .edu-break s{text-decoration:line-through;opacity:.6;margin-right:3px;}
+  .edu-period{
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
+    border-top:1px solid var(--border);padding-top:9px;cursor:pointer;
+    font-family:var(--mono);font-size:11px;color:var(--dim);
+  }
+  .edu-period .ed{color:var(--accent);font-size:14px;}
+  .edu-grp{font-family:var(--mono);font-size:10px;color:var(--dim);text-transform:uppercase;
+    letter-spacing:.5px;margin:14px 2px 6px;}
+  .edu-row{
+    display:flex;align-items:center;gap:10px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--tc,var(--border));
+    border-radius:8px;padding:7px 10px;margin-bottom:5px;
+  }
+  .edu-row:active{transform:scale(.99);}
+  .edu-row.old{opacity:.55;}
+  .edu-main{flex:1;min-width:0;}
+  .edu-tt{font-family:var(--serif);font-size:15px;line-height:1.25;overflow-wrap:anywhere;}
+  .edu-meta{font-size:11px;color:var(--dim);margin-top:2px;overflow-wrap:anywhere;}
+  .edu-meta .c{color:var(--tc,var(--dim));}
+  .edu-h{font-family:var(--mono);font-size:15px;color:var(--text);flex-shrink:0;text-align:right;}
+  .edu-h small{display:block;font-size:10px;color:var(--dim);}
+  .edu-f input[type=text]{font-family:var(--mono);margin-bottom:0;}
+  #eduCatChips{margin-bottom:14px;}
   #trackMove .panel{width:20%;flex:0 0 20%;}
   /* Běh: řádek statistik nad mřížkou */
   .run-stats{
@@ -758,6 +801,14 @@
           Zatím žádný projekt.<br>Ťukni na <b style="color:var(--accent)">+</b> a přidej první.
         </div>
       </div>
+      <!-- druhá plocha: Vzdělávání (evidence pro ČAP, data: state.edu) -->
+      <div class="panel">
+        <div id="eduSum"></div>
+        <div id="eduList"></div>
+        <div class="empty-state" id="eduEmpty" style="display:none">
+          Zatím žádné vzdělávání.<br>Ťukni na <b style="color:var(--accent)">+</b> a zapiš první akci.
+        </div>
+      </div>
     </div>
   </section>
 
@@ -983,6 +1034,52 @@
       <button class="btn btn-ghost" id="cancelLit">Zrušit</button>
     </div>
     <button class="btn btn-danger btn-slim" id="deleteLit" style="display:none">Vyhodit litánii</button>
+  </div>
+</div>
+
+<!-- ADD / EDIT VZDĚLÁVÁNÍ SHEET (Progress › Vzdělávání) -->
+<div class="scrim" id="eduScrim">
+  <div class="sheet tall" id="eduSheet">
+    <h2 id="eduSheetTitle">Nové vzdělávání</h2>
+    <input type="text" id="eduTitle" placeholder="Název (např. Control Mastery Therapy)" autocomplete="off">
+    <input type="text" id="eduLector" placeholder="Lektor / pořadatel" autocomplete="off">
+    <div class="tag-chips" id="eduCatChips"></div>
+    <div class="move-edit-grid">
+      <div class="move-edit-f">
+        <label>Datum</label>
+        <input type="date" id="eduDate" class="date-in" style="margin-bottom:0">
+      </div>
+      <div class="move-edit-f edu-f">
+        <label>Hodin</label>
+        <input type="text" id="eduHours" inputmode="decimal" placeholder="např. 3,5" autocomplete="off">
+      </div>
+      <div class="move-edit-f" id="eduPresWrap" style="display:none">
+        <label>Prezentací vlastní práce</label>
+        <input type="number" id="eduPres" min="0" max="99" step="1" inputmode="numeric" placeholder="0">
+      </div>
+    </div>
+    <p class="move-edit-note" id="eduNote"></p>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="eduSave">Uložit</button>
+      <button class="btn btn-ghost" id="eduCancel">Zrušit</button>
+    </div>
+    <button class="btn btn-danger btn-slim" id="eduDelete" style="display:none">Smazat záznam</button>
+  </div>
+</div>
+
+<!-- VZDĚLÁVÁNÍ: tříleté období ČAP + CSV export -->
+<div class="scrim" id="eduSetScrim">
+  <div class="sheet">
+    <h2>Období ČAP</h2>
+    <label>Začátek prvního tříletého období</label>
+    <input type="date" id="eduStartIn" class="date-in">
+    <p class="move-edit-note">Další období se počítají samy po třech letech. Čestné prohlášení ČAP se podává k 31. 3. na výzvu.</p>
+    <div class="set-row">
+      <button class="btn btn-primary" id="eduSetSave">Uložit</button>
+      <button class="btn btn-ghost" id="eduCsvPeriod">Export aktuálního období (CSV)</button>
+      <button class="btn btn-ghost" id="eduCsvAll">Export všeho (CSV)</button>
+      <button class="btn btn-ghost" id="eduSetClose">Zavřít</button>
+    </div>
   </div>
 </div>
 
@@ -1445,6 +1542,31 @@ function litNewId(c){ return c.idPrefix+Date.now()+Math.random().toString(36).sl
 
 var state = load();
 
+/* Vzdělávání: kategorie + pravidla ČAP (řádné členství, za 3 roky).
+   grp = do čeho se hodiny počítají: "direct" = přímé vzdělávání (min. 60 h,
+   bez stropu), jinak strop EDU_CAPS[grp]; "none" = jen evidence, do 150 h nejde.
+   Novou kategorii stačí přidat sem (klíč k se ukládá, nepřejmenovávat). */
+var EDU_CATS = [
+  {k:"prednaska",  lab:"Přednáška",       grp:"direct", col:"#D9A441"},
+  {k:"workshop",   lab:"Workshop",        grp:"direct", col:"#D9A441"},
+  {k:"seminar",    lab:"Seminář",         grp:"direct", col:"#D9A441"},
+  {k:"konference", lab:"Konference",      grp:"direct", col:"#D9A441"},
+  {k:"webinar",    lab:"Webinář",         grp:"direct", col:"#D9A441"},
+  {k:"supind",     lab:"Supervize ind.",  grp:"sup",    col:"#5C8DC9"},
+  {k:"supskup",    lab:"Supervize skup.", grp:"sup",    col:"#5C8DC9"},
+  {k:"psychoter",  lab:"Psychoterapie",   grp:"self",   col:"#A07BB8"},
+  {k:"mentoring",  lab:"Mentoring",       grp:"mentor", col:"#C9845C"},
+  {k:"studium",    lab:"Studium",         grp:"study",  col:"#74955E"},
+  {k:"publikace",  lab:"Publikace",       grp:"publ",   col:"#6EA8A0"},
+  {k:"intervize",  lab:"Intervize",       grp:"none",   col:"#9A9081"},
+  {k:"praxe",      lab:"Praxe",           grp:"none",   col:"#9A9081"}
+];
+var EDU_CAT_BY = {};
+EDU_CATS.forEach(function(c){ EDU_CAT_BY[c.k] = c; });
+var EDU_CAPS = { sup:30, self:30, mentor:60, study:20, publ:30 };
+var EDU_GRP_LAB = { sup:"Supervize", self:"Sebezkušenost", mentor:"Mentoring", study:"Samostudium", publ:"Publikace" };
+var EDU_TOTAL = 150, EDU_DIRECT = 60, EDU_PRES = 15;
+
 function blankState(){
   // Move: výchozí stropy prstenců (kcal/dist se přepočítají z dat při importu;
   // hrBase/hrCap dle Bobova režimu — klidový ~55, zátěž ~130)
@@ -1476,6 +1598,10 @@ function blankState(){
     // overrides[date] = ruční běh (zámek natvrdo jako u Move) — když sync
     // selže nebo běh nebyl s hodinkami. Efektivní den = overrides ?? days.
     run:{ days:{}, manual:{}, overrides:{} },
+    // Vzdělávání (Progress, 2. plocha): evidence pro ČAP. edu = [{id, date "YYYY-MM-DD",
+    // cat (klíč z EDU_CATS), title, lector, hours, pres = počet prezentací na supervizi}],
+    // eduStart = začátek prvního tříletého období (null = nenastaveno).
+    edu:[], eduStart:null,
     // Litánie (a další kolekce z LIT_COLS): SOUKROMÁ data, nikdy ne online. Zdroj se
     // JEDNORÁZOVĚ naimportuje z disku (⚙ Data) do localStorage — odtud je kryje jen JSON export.
     //  <k>Base = základní věty (import), <k>Temata/Casti/Skupiny = definice tagů
@@ -1843,6 +1969,25 @@ function normalize(o){
       });
     }
   }
+
+  // ---- Vzdělávání (ČAP) ----
+  if(Array.isArray(o.edu)){
+    s.edu = o.edu.filter(function(e){
+      return e && typeof e==="object" && typeof e.date==="string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date);
+    }).map(function(e){
+      var h = +e.hours, p = Math.round(+e.pres);
+      return {
+        id: e.id || ("e"+Date.now()+Math.random().toString(36).slice(2,6)),
+        date: e.date,
+        cat: EDU_CAT_BY[e.cat] ? e.cat : "workshop",
+        title: typeof e.title==="string" ? e.title : "",
+        lector: typeof e.lector==="string" ? e.lector : "",
+        hours: (isFinite(h) && h>=0) ? Math.round(h*100)/100 : 0,
+        pres: (isFinite(p) && p>0) ? p : 0
+      };
+    });
+  }
+  if(typeof o.eduStart==="string" && /^\d{4}-\d{2}-\d{2}$/.test(o.eduStart)) s.eduStart = o.eduStart;
 
   // ---- Kolekce vět (Litánie, …): base v localStorage + overlay přepisy + uživatelské věty + filtr ----
   Object.keys(LIT_COLS).forEach(function(k){ litColNormalize(o, s, LIT_COLS[k]); });
@@ -3809,9 +3954,10 @@ function updateUI(){
     (curSection===4 && curView===1) ? "Spánek" :
     (curSection===4 && curView===3) ? "Běh" :
     (curSection===4 && curView===4) ? "Otužování" :
-    (curSection===5 && curView===1) ? "Otázky" : SEC_TITLES[curSection];
-  // Progress a Tasks mají jedinou plochu → tečky nemají smysl (visibility, ať layout neposkočí)
-  document.getElementById("pager").style.visibility = (curSection<=1) ? "hidden" : "";
+    (curSection===5 && curView===1) ? "Otázky" :
+    (curSection===0 && curView===1) ? "Vzdělávání" : SEC_TITLES[curSection];
+  // Tasks má jedinou plochu → tečky nemají smysl (visibility, ať layout neposkočí)
+  document.getElementById("pager").style.visibility = (curSection===1) ? "hidden" : "";
   // třetí až pátá tečka pageru existují jen pro Move
   [2,3,4].forEach(function(v){
     var d = document.querySelector('#pager .dot[data-view="'+v+'"]');
@@ -3873,6 +4019,7 @@ document.querySelectorAll("#pager .dot").forEach(function(d){
 
 /* ---------- FAB (přidá do aktuální sekce) ---------- */
 document.getElementById("fab").onclick = function(){
+  if(curSection===0 && curView===1){ openEduSheet(null); return; } // Vzdělávání
   if(curSection===0){
     // je-li v panelu rolet otevřená právě jedna roleta → FAB přidá krok rovnou do ní
     var op = curView===0 ? sortedTasks().filter(function(t){ return expanded[t.id]; }) : [];
@@ -5374,11 +5521,255 @@ document.getElementById("undoBtn").onclick = function(){
   clearTimeout(undoTimer);
 };
 
+/* ================= VZDĚLÁVÁNÍ (Progress, 2. plocha) =================
+   Evidence pro ČAP: 150 h za 3 roky, z toho min. 60 h přímého vzdělávání,
+   min. 15 prezentací na supervizi, stropy dle EDU_CAPS. Období se kotví na
+   state.eduStart a samo se posouvá po třech letech. */
+function eduParse(s){ var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function eduAddYears(d, n){ return new Date(d.getFullYear()+n, d.getMonth(), d.getDate()); }
+function eduFmtDate(d){ return d.getDate()+". "+(d.getMonth()+1)+". "+d.getFullYear(); }
+function eduFmtH(h){ return (Math.round(h*100)/100).toString().replace(".", ","); }
+// Období, do kterého datum spadá: {k, from, to} (to = první den dalšího období). null bez startu.
+function eduPeriodOf(dateStr){
+  if(!state.eduStart) return null;
+  var st = eduParse(state.eduStart), d = eduParse(dateStr), k = 0;
+  while(d < eduAddYears(st, 3*k)) k--;
+  while(d >= eduAddYears(st, 3*(k+1))) k++;
+  return { k:k, from:eduAddYears(st, 3*k), to:eduAddYears(st, 3*(k+1)) };
+}
+function eduPeriodLabel(p){ return eduFmtDate(p.from)+" – "+eduFmtDate(addDays(p.to, -1)); }
+function eduInPeriod(p){
+  return state.edu.filter(function(e){ return !p || eduPeriodOf(e.date).k===p.k; });
+}
+function eduStats(list){
+  var byCat = {}, byGrp = {}, pres = 0;
+  list.forEach(function(e){
+    var c = EDU_CAT_BY[e.cat];
+    byCat[e.cat] = (byCat[e.cat]||0) + e.hours;
+    byGrp[c.grp] = (byGrp[c.grp]||0) + e.hours;
+    if(c.grp==="sup") pres += e.pres||0;
+  });
+  var direct = byGrp.direct||0, counted = direct;
+  Object.keys(EDU_CAPS).forEach(function(g){ counted += Math.min(byGrp[g]||0, EDU_CAPS[g]); });
+  return { byCat:byCat, byGrp:byGrp, direct:direct, counted:counted, pres:pres };
+}
+function eduSorted(list){
+  return list.slice().sort(function(a,b){ return a.date<b.date ? 1 : (a.date>b.date ? -1 : (a.id<b.id ? 1 : -1)); });
+}
+function eduEl(tag, cls, text){
+  var el = document.createElement(tag);
+  if(cls) el.className = cls;
+  if(text!=null) el.textContent = text;
+  return el;
+}
+function eduBar(val, max, extraCls){
+  var bar = eduEl("div", "edu-bar"+(extraCls?" "+extraCls:"")+(val>=max?" ok":""));
+  var i = eduEl("i"); i.style.width = Math.min(100, max ? val/max*100 : 0)+"%";
+  bar.appendChild(i);
+  return bar;
+}
+
+function renderEdu(){
+  var sum = document.getElementById("eduSum"), listEl = document.getElementById("eduList");
+  if(!sum) return;
+  var cur = eduPeriodOf(key(today()));
+  var st = eduStats(eduInPeriod(cur));
+  sum.innerHTML = "";
+  var box = eduEl("div", "edu-sum");
+  // hlavní číslo: započtené hodiny v aktuálním období
+  var big = eduEl("div", "edu-big");
+  big.appendChild(eduEl("b", null, eduFmtH(st.counted)));
+  big.appendChild(eduEl("span", null, "/ "+EDU_TOTAL+" h započteno"));
+  box.appendChild(big);
+  box.appendChild(eduBar(st.counted, EDU_TOTAL));
+  // přímé vzdělávání + prezentace na supervizi
+  function sub(lab, val, max, unit){
+    var r = eduEl("div", "edu-sub");
+    r.appendChild(eduEl("span", null, lab));
+    var b = eduEl("span"); b.appendChild(eduEl("b", null, eduFmtH(val))); b.appendChild(document.createTextNode(" / "+max+unit));
+    r.appendChild(b);
+    box.appendChild(r);
+    box.appendChild(eduBar(val, max, "edu-sub-bar"));
+  }
+  sub("Přímé vzdělávání", st.direct, EDU_DIRECT, " h");
+  sub("Prezentace na supervizi", st.pres, EDU_PRES, "");
+  // rozpad podle kategorií; skupiny se stropem ukážou, kolik se reálně započte
+  var br = eduEl("div", "edu-break");
+  EDU_CATS.forEach(function(c){
+    var h = st.byCat[c.k]; if(!h) return;
+    var sp = eduEl("span"), dot = eduEl("i"); dot.style.background = c.col;
+    sp.appendChild(dot); sp.appendChild(document.createTextNode(c.lab+" "+eduFmtH(h)+" h"));
+    br.appendChild(sp);
+  });
+  Object.keys(EDU_CAPS).forEach(function(g){
+    var h = st.byGrp[g]||0;
+    if(h > EDU_CAPS[g]){
+      var sp = eduEl("span"); sp.appendChild(eduEl("s", null, eduFmtH(h)+" h"));
+      sp.appendChild(document.createTextNode(EDU_GRP_LAB[g]+" započteno "+EDU_CAPS[g]+" h"));
+      br.appendChild(sp);
+    }
+  });
+  if((st.byGrp.none||0) > 0) br.appendChild(eduEl("span", null, "(intervize a praxe jen v evidenci)"));
+  if(br.children.length) box.appendChild(br);
+  // období (klik = nastavení + export)
+  var per = eduEl("div", "edu-period");
+  if(cur){
+    var left = Math.round((cur.to - today())/86400000);
+    per.appendChild(eduEl("span", null, eduPeriodLabel(cur)+" · zbývá "+left+" dní"));
+  } else {
+    per.appendChild(eduEl("span", null, "Nastav začátek tříletého období"));
+  }
+  per.appendChild(eduEl("span", "ed", "✎"));
+  per.onclick = openEduSet;
+  box.appendChild(per);
+  sum.appendChild(box);
+
+  // seznam: nejnovější nahoře, starší období ztlumená pod vlastním nadpisem
+  listEl.innerHTML = "";
+  var lastK = null;
+  eduSorted(state.edu).forEach(function(e){
+    var p = eduPeriodOf(e.date);
+    if(p && p.k!==lastK){
+      lastK = p.k;
+      listEl.appendChild(eduEl("div", "edu-grp", (cur && p.k===cur.k ? "Aktuální období" : (cur && p.k>cur.k ? "Další období " : "Období "))+(cur && p.k===cur.k ? "" : eduPeriodLabel(p))));
+    }
+    var c = EDU_CAT_BY[e.cat];
+    var row = eduEl("div", "edu-row"+(cur && p && p.k<cur.k ? " old" : ""));
+    row.style.setProperty("--tc", c.col);
+    var main = eduEl("div", "edu-main");
+    main.appendChild(eduEl("div", "edu-tt", e.title || "(bez názvu)"));
+    var meta = eduEl("div", "edu-meta");
+    meta.appendChild(document.createTextNode(eduFmtDate(eduParse(e.date))+" · "));
+    meta.appendChild(eduEl("span", "c", c.lab));
+    if(e.lector) meta.appendChild(document.createTextNode(" · "+e.lector));
+    main.appendChild(meta);
+    row.appendChild(main);
+    var hh = eduEl("div", "edu-h", eduFmtH(e.hours)+" h");
+    if(c.grp==="sup" && e.pres) hh.appendChild(eduEl("small", null, e.pres+" prez."));
+    row.appendChild(hh);
+    row.onclick = function(){ openEduSheet(e.id); };
+    listEl.appendChild(row);
+  });
+  document.getElementById("eduEmpty").style.display = state.edu.length ? "none" : "";
+}
+
+var eduEditId = null, eduEditCat = "workshop";
+function eduRenderCatChips(){
+  var wrap = document.getElementById("eduCatChips");
+  wrap.innerHTML = "";
+  EDU_CATS.forEach(function(c){
+    var chip = eduEl("div", "tag-chip"+(c.k===eduEditCat?" on":""), c.lab);
+    chip.style.setProperty("--tc", c.col);
+    chip.onclick = function(){ eduEditCat = c.k; eduRenderCatChips(); };
+    wrap.appendChild(chip);
+  });
+  var c = EDU_CAT_BY[eduEditCat];
+  document.getElementById("eduPresWrap").style.display = c.grp==="sup" ? "" : "none";
+  document.getElementById("eduNote").textContent =
+    c.grp==="direct" ? "Přímé vzdělávání: počítá se do min. 60 h, bez stropu." :
+    c.grp==="none"   ? "Do 150 h se nepočítá, jen evidence." :
+    "Do 150 h se za období započte max. "+EDU_CAPS[c.grp]+" h ("+EDU_GRP_LAB[c.grp]+")."+
+    (c.grp==="sup" ? " Prezentace: min. 15 za období." : "");
+}
+function openEduSheet(id){
+  var e = id ? state.edu.filter(function(x){ return x.id===id; })[0] : null;
+  if(id && !e) return;
+  eduEditId = e ? e.id : null;
+  document.getElementById("eduSheetTitle").textContent = e ? "Upravit vzdělávání" : "Nové vzdělávání";
+  document.getElementById("eduTitle").value = e ? e.title : "";
+  document.getElementById("eduLector").value = e ? e.lector : "";
+  document.getElementById("eduDate").value = e ? e.date : key(today());
+  document.getElementById("eduHours").value = e ? eduFmtH(e.hours) : "";
+  document.getElementById("eduPres").value = (e && e.pres) ? e.pres : "";
+  if(e) eduEditCat = e.cat;
+  document.getElementById("eduDelete").style.display = e ? "block" : "none";
+  eduRenderCatChips();
+  document.getElementById("eduScrim").classList.add("open");
+}
+function closeEduSheet(){ document.getElementById("eduScrim").classList.remove("open"); }
+document.getElementById("eduCancel").onclick = closeEduSheet;
+document.getElementById("eduScrim").onclick = function(e){ if(e.target===this) closeEduSheet(); };
+document.getElementById("eduSave").onclick = function(){
+  var tEl = document.getElementById("eduTitle"), hEl = document.getElementById("eduHours");
+  var dEl = document.getElementById("eduDate");
+  var title = tEl.value.trim();
+  if(!title){ tEl.focus(); return; }
+  var hours = parseFloat(hEl.value.replace(",", ".").replace(/\s/g, ""));
+  if(!isFinite(hours) || hours<=0){ hEl.focus(); toast("Zadej počet hodin."); return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dEl.value)){ dEl.focus(); return; }
+  var pres = EDU_CAT_BY[eduEditCat].grp==="sup" ? Math.max(0, Math.round(+document.getElementById("eduPres").value || 0)) : 0;
+  var rec = {
+    date: dEl.value, cat: eduEditCat, title: title,
+    lector: document.getElementById("eduLector").value.trim(),
+    hours: Math.round(hours*100)/100, pres: pres
+  };
+  if(eduEditId){
+    var e = state.edu.filter(function(x){ return x.id===eduEditId; })[0];
+    if(e) Object.keys(rec).forEach(function(k){ e[k] = rec[k]; });
+  } else {
+    rec.id = "e"+Date.now()+Math.random().toString(36).slice(2,6);
+    state.edu.push(rec);
+  }
+  save(); closeEduSheet(); renderEdu();
+};
+document.getElementById("eduDelete").onclick = function(){
+  var id = eduEditId; if(!id) return;
+  askConfirm("Smazat tenhle záznam vzdělávání?", "Smazat", function(){
+    state.edu = state.edu.filter(function(x){ return x.id!==id; });
+    save(); closeEduSheet(); renderEdu();
+  });
+};
+
+// nastavení období + CSV export
+function openEduSet(){
+  document.getElementById("eduStartIn").value = state.eduStart || "";
+  document.getElementById("eduSetScrim").classList.add("open");
+}
+function closeEduSet(){ document.getElementById("eduSetScrim").classList.remove("open"); }
+document.getElementById("eduSetClose").onclick = closeEduSet;
+document.getElementById("eduSetScrim").onclick = function(e){ if(e.target===this) closeEduSet(); };
+document.getElementById("eduSetSave").onclick = function(){
+  var v = document.getElementById("eduStartIn").value;
+  state.eduStart = /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+  save(); closeEduSet(); renderEdu();
+};
+function eduCsv(all){
+  var cur = all ? null : eduPeriodOf(key(today()));
+  if(!all && !cur){ toast("Nejdřív nastav začátek období."); return; }
+  var list = eduSorted(eduInPeriod(cur)).reverse();
+  function q(v){ v = String(v==null ? "" : v); return /[";\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+  var rows = [["Datum","Kategorie","Název","Lektor / pořadatel","Hodin","Prezentací","Započítání ČAP"]];
+  list.forEach(function(e){
+    var c = EDU_CAT_BY[e.cat];
+    rows.push([eduFmtDate(eduParse(e.date)), c.lab, e.title, e.lector, eduFmtH(e.hours),
+      c.grp==="sup" ? (e.pres||0) : "",
+      c.grp==="direct" ? "Přímé vzdělávání" : (c.grp==="none" ? "Nezapočítává se" : EDU_GRP_LAB[c.grp]+" (max. "+EDU_CAPS[c.grp]+" h)")]);
+  });
+  if(cur){
+    var st = eduStats(list);
+    rows.push([]);
+    rows.push(["Období", eduPeriodLabel(cur)]);
+    rows.push(["Započteno celkem (h)", eduFmtH(st.counted)+" / "+EDU_TOTAL]);
+    rows.push(["Přímé vzdělávání (h)", eduFmtH(st.direct)+" / "+EDU_DIRECT]);
+    rows.push(["Prezentace na supervizi", st.pres+" / "+EDU_PRES]);
+  }
+  var csv = "﻿"+rows.map(function(r){ return r.map(q).join(";"); }).join("\r\n");
+  var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = cur ? "vzdelavani-CAP-"+key(cur.from)+"_"+key(addDays(cur.to,-1))+".csv" : "vzdelavani-CAP-vse.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+}
+document.getElementById("eduCsvPeriod").onclick = function(){ eduCsv(false); };
+document.getElementById("eduCsvAll").onclick = function(){ eduCsv(true); };
+
 /* ---------- init ---------- */
 function renderAll(){
   renderTasksPanel(); renderCheck(); renderFreeFilterBar(); renderTodayPanel(0); renderTodayPanel(1);
   renderOverviewPanel(0); renderOverviewPanel(1);
-  renderMove(); renderCold(); renderVibe(); renderSleep(); renderRun(); refreshLit();
+  renderMove(); renderCold(); renderVibe(); renderSleep(); renderRun(); refreshLit(); renderEdu();
 }
 // Search je na dvou místech (Check panel i čtverečkový přehled) — drží se v sync přes jeden state.
 var freeSearchEls = [document.getElementById("freeSearch"), document.getElementById("freeSearchOv")];

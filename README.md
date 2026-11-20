@@ -111,7 +111,7 @@ konec a tab umísti, kam chceš.**
 
 | idx | tab | panely v tracku | default view | co to je |
 |---|---|---|---|---|
-| 0 | **Progress** | 1 (seznam projektů) | 0 | Projekty s odškrtávacími kroky, vážený progres (3c). |
+| 0 | **Progress** | 2: Projekty · Vzdělávání | 0 | Projekty s odškrtávacími kroky, vážený progres (3c). Druhá plocha = evidence vzdělávání pro ČAP (3d). |
 | 1 | **Tasks** | 1 (Chill náhled + kalendář; v něm i backlog view) | 0 | Kalendářní task manager s backlogy a repeaty (4). **Startovní sekce** (`curSection=1`). |
 | 2 | **Habits** | 2: Check · Přehled | **1 (Přehled)** | Habit tracker, mřížka 90 dnů (3a). |
 | 3 | **Free** | 2: Check · Přehled | **1 (Přehled)** | Volnočasové aktivity se štítky, filtrem a hledáním (3b). |
@@ -133,7 +133,7 @@ název sekce, jen v **Move** a **Litániích** se mění podle plochy:
 - **Swipe** = Pointer Events API (ne touch events, kvůli testování myší).
   `touch-action: pan-y` nechává vertikální scroll prohlížeči. `attachSwipe` je
   napojený na **všech 6 sekcí** a meze se počítají z počtu panelů
-  (`0..children.length-1`, na krajích odpor 0.3). Progress a Tasks mají jen
+  (`0..children.length-1`, na krajích odpor 0.3). Tasks má jen
   jeden panel, takže se jen pružně odrazí. Gesta, která začnou na
   `input[type=range]` nebo na řádku rychlých voleb (`.blog-quick-row`), se
   ignorují.
@@ -145,16 +145,17 @@ název sekce, jen v **Move** a **Litániích** se mění podle plochy:
   výšku nejdelší plochy sekce a krátká plocha by scrollovala do prázdna.
   Skládá se až po dojetí animace (260 ms); swipe je přes `unfoldPanels`
   rozloží hned, jak se gesto rozhodne pro vodorovný směr.
-- **Pager** (5 teček nahoře): na Progress a Tasks je schovaný přes
+- **Pager** (5 teček nahoře): na Tasks je schovaný přes
   `visibility:hidden` (ať layout neposkakuje). Tečky 2–4 jsou vidět jen v Move.
-  Habits, Free a Litánie mají 2 tečky.
+  Progress, Habits, Free a Litánie mají 2 tečky.
 - **`updateUI()`** je centrální. Volá `resetScrollOnPageChange()` (při změně
   `sekce:view` odscrolluje nahoru), posune tracky, přepne
   `.page.active` / `.tab.active` / tečky, nastaví `hTitle` a pager a **schová
   FAB jen na Move**.
 - **FAB „+“:**
   - Progress: když je rozbalený **právě jeden** projekt, přidá do něj krok
-    (`openTaskSheet(id,true)`), jinak založí nový projekt.
+    (`openTaskSheet(id,true)`), jinak založí nový projekt. Na ploše
+    Vzdělávání (view 1) `openEduSheet(null)`.
   - Tasks: `openUtSheet(null)`.
   - Habits / Free: `openSheet(curSection-2, null)`.
   - Litánie: `openLitSheet(curView===1 ? LIT_COLS.ot : LIT_COLS.lit, null)`.
@@ -211,8 +212,8 @@ jsou vidět oba, takže akce na jedné straně musí refreshnout i druhou:
   Přehled. Když v detailu změníš dnešek, Check panel zůstane zastaralý až do
   dalšího renderu (drobný bug, viz 8).
 
-Progress a Tasks mají jednu plochu: subtask toggly volají `renderTasksPanel`,
-akce úkolů `renderCheck`.
+Progress (projekty) a Tasks: subtask toggly volají `renderTasksPanel`,
+akce úkolů `renderCheck`. Plocha Vzdělávání je nezávislá (`renderEdu`).
 
 ---
 
@@ -371,8 +372,8 @@ gitu, a `normalize()` pole `backlog` zahodí.
 
 ### 3c. Progress (`state.tasks`) — vážený checklist, pořadí místo priorit
 
-- **Jen jedna plocha:** seznam projektů. Čtverečková plocha je zrušená
-  (30. 9. 2026).
+- **Plocha 0:** seznam projektů. Čtverečková plocha je zrušená
+  (30. 9. 2026). Plocha 1 je Vzdělávání (3d).
 - **Pořadí = pořadí v poli.** V editaci projektu je slider **Pořadí** (1..N mezi
   nehotovými, vytlačovací insert `reorderTaskInState`). U hotového projektu je
   skrytý. Nový projekt jde na konec. `sortedTasks()` vrací nehotové v pořadí
@@ -399,6 +400,34 @@ gitu, a `normalize()` pole `backlog` zahodí.
 - Odškrtnutí kroku **nepřidává** nic do `daily` a **nespouští** piňu.
 - **Úkol z Tasks → krok projektu:** viz 4f. Je to jednosměrné, z úkolu zbyde
   jen název.
+
+### 3d. Vzdělávání (`state.edu`, Progress view 1) — evidence pro ČAP
+
+Od 20. 11. 2026. Bob musí ČAP jednou za 3 roky vykázat profesní rozvoj
+(čestné prohlášení k 31. 3. na výzvu).
+- **Záznam:** `{id, date, cat, title, lector, hours, pres}`. `hours` je
+  desetinné (vstup bere čárku i tečku), `pres` = počet prezentací vlastní
+  práce, jen u supervizí.
+- **Kategorie** jsou v konstantě `EDU_CATS` (`k` se ukládá, nepřejmenovávat;
+  nová kategorie = nový řádek). `grp` říká, jak se hodiny počítají:
+  `direct` (Přednáška, Workshop, Seminář, Konference, Webinář) bez stropu,
+  stropy `EDU_CAPS`: supervize 30, sebezkušenost (Psychoterapie) 30,
+  mentoring 60, samostudium (Studium) 20, publikace 30. `none` (Intervize,
+  Praxe) je jen evidence a do 150 h nejde.
+- **Pravidla ČAP** (řádné členství, za období): 150 h započteno
+  (`EDU_TOTAL`), z toho min. 60 h přímého vzdělávání (`EDU_DIRECT`), min. 15
+  prezentací na supervizi (`EDU_PRES`). Zdroj: `local/vzdelavani/CAP.docx`.
+  U kandidátského členství není jisté, jestli platí totéž.
+- **Období:** `state.eduStart` = začátek prvního tříletého období. Další se
+  dopočítají samy (`eduPeriodOf`, krok 3 roky, funguje i dozadu). Bez startu
+  se počítá všechno dohromady.
+- **UI:** karta nahoře ukazuje započtené hodiny / 150 s barem, pod tím bary
+  přímého vzdělávání a prezentací, rozpad podle kategorií (přetečené stropy
+  přeškrtnuté) a období se zbývajícími dny. Klik na období otevře sheet se
+  začátkem období a **CSV exportem** (aktuální období i se souhrnem, nebo
+  vše; `;`, UTF-8 s BOM kvůli Excelu). Seznam je od nejnovějšího, starší
+  období jsou ztlumená pod vlastním nadpisem. Klik na řádek = editace, mazání
+  přes `askConfirm`.
 
 ---
 
