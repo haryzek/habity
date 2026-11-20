@@ -1540,8 +1540,6 @@ function litColNormalize(o, s, c){
 }
 function litNewId(c){ return c.idPrefix+Date.now()+Math.random().toString(36).slice(2,6); }
 
-var state = load();
-
 /* Vzdělávání: kategorie + pravidla ČAP (řádné členství, za 3 roky).
    grp = do čeho se hodiny počítají: "direct" = přímé vzdělávání (min. 60 h,
    bez stropu), jinak strop EDU_CAPS[grp]; "none" = jen evidence, do 150 h nejde.
@@ -1566,6 +1564,11 @@ EDU_CATS.forEach(function(c){ EDU_CAT_BY[c.k] = c; });
 var EDU_CAPS = { sup:30, self:30, mentor:60, study:20, publ:30 };
 var EDU_GRP_LAB = { sup:"Supervize", self:"Sebezkušenost", mentor:"Mentoring", study:"Samostudium", publ:"Publikace" };
 var EDU_TOTAL = 150, EDU_DIRECT = 60, EDU_PRES = 15;
+
+// ⚠️ load() → normalize() potřebuje VŠECHNY konstanty, na které normalize sahá
+// (TAG_GROUPS, LIT_COLS, EDU_CAT_BY…). Funkce se hoistují, hodnoty `var` ne:
+// nová konstanta pro normalize patří NAD tenhle řádek, jinak start spadne.
+var state = load();
 
 function blankState(){
   // Move: výchozí stropy prstenců (kcal/dist se přepočítají z dat při importu;
@@ -1994,11 +1997,24 @@ function normalize(o){
   return s;
 }
 
+// POJISTKA: když uložená data nejdou přečíst (chyba v normalize, rozbitý JSON),
+// appka NESMÍ přes ně uložit prázdný stav. loadFailed zablokuje save(), surová
+// data se odloží do KEY+".broken" a odemkne to až vědomý import zálohy.
+// (Bez inicializátoru schválně: `var x=false` níž by po load() flag vynuloval.)
+var loadFailed;
 function load(){
+  var raw = null;
   try{
-    var raw = localStorage.getItem(KEY);
+    raw = localStorage.getItem(KEY);
     if(raw) return normalize(JSON.parse(raw));
-  }catch(e){}
+  }catch(e){
+    if(raw){
+      loadFailed = true;
+      try{ if(!localStorage.getItem(KEY+".broken")) localStorage.setItem(KEY+".broken", raw); }catch(e3){}
+      try{ console.error("Habity: data nejdou načíst", e); }catch(e4){}
+      return blankState();
+    }
+  }
   try{
     var old = localStorage.getItem(OLDKEY);
     if(old){
@@ -2010,6 +2026,7 @@ function load(){
   return blankState();
 }
 function save(){
+  if(loadFailed){ toast("Data se nenačetla, NEUKLÁDÁM. Nic neměň a ozvi se Claudovi."); return; }
   try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){
     toast("Nepodařilo se uložit. Udělej si radši zálohu přes Data.");
   }
@@ -3880,7 +3897,8 @@ document.getElementById("fileImport").onchange = function(e){
                (Array.isArray(obj.sections) || Array.isArray(obj.habits) || Array.isArray(obj.tasks));
       if(!ok) throw new Error("bad");
       askConfirm("Načíst zálohu? Přepíše to všechna data (úkoly i návyky).", "Načíst", function(){
-        state = normalize(obj); expanded = {}; save(); closeSettings(); renderAll();
+        // vědomý import = Bob chce data přepsat → odemkni pojistku z load()
+        state = normalize(obj); expanded = {}; loadFailed = false; save(); closeSettings(); renderAll();
         toast("Záloha načtena.");
       });
     }catch(err){ toast("Tohle nevypadá jako platná záloha Habitů."); }
@@ -5785,6 +5803,7 @@ freeSearchEls.forEach(function(el){
 document.getElementById("hDate").textContent = fmtLong(today());
 renderAll();
 updateUI();
+if(loadFailed) toast("Data se nenačetla, NEUKLÁDÁM. Nic neměň a ozvi se Claudovi.");
 fetchMoveData();
 fetchRunData();
 litLoadFromState();

@@ -1018,12 +1018,18 @@ v Tasks spolu „pročistí“.
 
 **Mapa souboru** (orientačně, hledej `grep -n`):
 1. `<style>` (`:root` kolem ř. 15).
-2. HTML: header s ⚙, pager s 5 tečkami, 6× `<section class="page">` (Progress 1
-   panel, Tasks 1, Habits 2, Free 2, Move 5, Litánie 2), nav (~916), sheety a
+2. HTML: header s ⚙, pager s 5 tečkami, 6× `<section class="page">` (Progress 2
+   panely, Tasks 1, Habits 2, Free 2, Move 5, Litánie 2), nav (~916), sheety a
    modaly.
 3. `<script>`:
-   1. Konstanty (`TAG_GROUPS`, `LIT_COLS`…), `blankState`, `normalize`,
-      `load`/`save` (~1300–1850).
+   1. Konstanty (`TAG_GROUPS`, `LIT_COLS`, `EDU_CATS`…), `var state = load()`,
+      `blankState`, `normalize`, `load`/`save` (~1300–2030).
+      ⚠️ **PAST (20. 11. 2026 dvakrát smazala Bobova data):** `var state =
+      load()` běží hned při parsování, takže každá konstanta, na kterou sahá
+      `normalize`, musí být definovaná **nad ním** (funkce se hoistují,
+      hodnoty `var` ne). **Pojistka:** když `load()` uložená data nepřečte,
+      nastaví `loadFailed`, surová data odloží do `habity.v2.broken`
+      a `save()` nic nezapíše, dokud Bob vědomě nenačte zálohu.
    2. Habits/Free (render, filtr, fuzzy, Godzilla, sheet).
    3. Progress (`sortedTasks`, `cellCounts`, `renderTasksPanel`,
       `openTaskSheet`).
