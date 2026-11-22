@@ -1424,7 +1424,7 @@ var OLDKEY = "habity.v1";
 var GRID = 90;       // čtverečků na projekt (dnes jen poměry mini proužku v Progressu)
 var curSection = 1;  // 0..5 – aktivní sekce (Progress/Tasks/Habits/Free/Move/Litánie), volí se tabama dole
 var curView = 0;     // index plochy v sekci (Habits/Free: 0=Check 1=Přehled; Move 0–4; Litánie 0–1), GLOBÁLNÍ
-var WIP_PREVIEW_MIN = 5;
+var WIP_PREVIEW_MIN = 7;
 
 var TAG_GROUPS = [
   { name:"Plánování", tags:["Plan","Spon","We"], color:"#8A8A8A" },
@@ -3188,13 +3188,13 @@ function renderCheckDefault(){
     fselSync("wipSelect");
   }
   renderBlogQuick();
-  // náhled – top nedatované z Chill
-  var wip = backlogTasks("Chill");
+  // náhled – top z agregátoru Mix (respektuje práh mixMinPrio ze slideru v pohledu Mix)
+  var wip = backlogTasks("Mix");
   var preview = document.getElementById("wipPreview");
   preview.innerHTML = "";
-  // ukaž max WIP_PREVIEW_MIN (5); zbytek je v backlog view Chill
+  // ukaž max WIP_PREVIEW_MIN (7); zbytek je v backlog view Mix. Řádky se štítkem backlogu jako v Mixu.
   var shown = (wip.length<=WIP_PREVIEW_MIN) ? wip : wip.slice(0, WIP_PREVIEW_MIN);
-  shown.forEach(function(t){ preview.appendChild(makeUtaskRow(t,"backlog")); });
+  shown.forEach(function(t){ preview.appendChild(makeUtaskRow(t,"backlog",true)); });
 
   // kalendář
   var cal = document.getElementById("calList");
@@ -3787,7 +3787,7 @@ document.getElementById("blEditYes").onclick = function(){
   else { save(); renderCheck(); toast("Backlog uložen."); }
 };
 
-/* rychlé volby backlogů vedle mini dropdownu: CHILL/MIX = systémové backlogy napevno
+/* rychlé volby backlogů vedle mini dropdownu: MIX/CHILL = systémové backlogy napevno
    první dva (Wip a Done se sem nedávají, jsou jen v dropdownu),
    dál VŠECHNY prefixy backlogů, jejichž název začíná dvěma velkými písmeny
    (řádek se scrolluje vodorovně). Řazení skupin podle nastaveného pořadí
@@ -3811,7 +3811,7 @@ function renderBlogQuick(){
     if(rank[a]!==rank[b]) return rank[a] < rank[b] ? -1 : 1;
     return a.localeCompare(b,"cs");
   });
-  var defs = [{label:"CHILL", open:"Chill"}, {label:"MIX", open:"Mix"}];
+  var defs = [{label:"MIX", open:"Mix"}, {label:"CHILL", open:"Chill"}];
   prefixes.forEach(function(p){ defs.push({label:p, prefix:p}); });
   defs.forEach(function(d){
     var b = document.createElement("button");

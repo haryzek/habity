@@ -112,7 +112,7 @@ konec a tab umísti, kam chceš.**
 | idx | tab | panely v tracku | default view | co to je |
 |---|---|---|---|---|
 | 0 | **Progress** | 2: Projekty · Vzdělávání | 0 | Projekty s odškrtávacími kroky, vážený progres (3c). Druhá plocha = evidence vzdělávání pro ČAP (3d). |
-| 1 | **Tasks** | 1 (Chill náhled + kalendář; v něm i backlog view) | 0 | Kalendářní task manager s backlogy a repeaty (4). **Startovní sekce** (`curSection=1`). |
+| 1 | **Tasks** | 1 (Mix náhled + kalendář; v něm i backlog view) | 0 | Kalendářní task manager s backlogy a repeaty (4). **Startovní sekce** (`curSection=1`). |
 | 2 | **Habits** | 2: Check · Přehled | **1 (Přehled)** | Habit tracker, mřížka 90 dnů (3a). |
 | 3 | **Free** | 2: Check · Přehled | **1 (Přehled)** | Volnočasové aktivity se štítky, filtrem a hledáním (3b). |
 | 4 | **Move** | 5: Nálada · Spánek · Garmin · Běh · Otužování | 0 (Nálada) | Kolečka po týdnech (5). |
@@ -440,10 +440,10 @@ Od 20. 11. 2026. Bob musí ČAP jednou za 3 roky vykázat profesní rozvoj
 
 | backlog | role (jak s tím Bob pracuje) | technicky |
 |---|---|---|
-| **Chill** | Večerní radosti: nápady z Free přes „+“. Top 5 je vidět **nad kalendářem**, takže je má Bob pořád na očích. | Náhled na Check stránce. **První rychlá volba.** ✓ na nedatovaném ne-repeat úkolu ho **smaže** (do Done se nearchivuje). Fallback všude (neplatný backlog → Chill). |
+| **Chill** | Večerní radosti: nápady z Free přes „+“. Do 22. 11. 2026 byl jeho top 5 nad kalendářem, teď je tam Mix. | **Druhá rychlá volba.** ✓ na nedatovaném ne-repeat úkolu ho **smaže** (do Done se nearchivuje). Fallback všude (neplatný backlog → Chill). |
 | **Wip** | „Work in process“: rozdělané věci. Bob jim dává datum nebo opakování, takže žijou v kalendáři. | **Default backlog nového úkolu** (FAB i kalendář). Schválně **není v rychlých volbách**, jen v dropdownu. |
 | **Done** | Archiv splněných. | ✓ ne-repeat úkolu → `backlog="Done"`, `date=null`, `done=true`. Jen v dropdownu, v sheetu se vybrat nedá. |
-| **Mix** | **Agregátor priorit:** co hoří napříč vlastními backlogy. | Virtuální, nic v něm nebydlí. Viz 4b. **Druhá rychlá volba.** |
+| **Mix** | **Agregátor priorit:** co hoří napříč vlastními backlogy. | Virtuální, nic v něm nebydlí. Viz 4b. **První rychlá volba** a top 7 je **nad kalendářem** (od 22. 11. 2026). |
 
 Historie názvů: **1. 10. 2026** se přejmenovaly systémové backlogy (starý
 Wip → **Chill**, starý Future → **Wip**, migrace `blV<2`). **9. 10. 2026** přibyl
@@ -481,7 +481,7 @@ Jedna scroll-plocha, shora dolů:
    - Vlevo je **mini dropdown**, jen šipka (`.wip-sel--mini`, `data-notext`).
      Otevře picker s multi-výběrem.
    - Vedle je **vodorovně scrollovatelný řádek rychlých voleb** (`#blogQuickRow`,
-     `renderBlogQuick()`): **CHILL · MIX ·** a pak prefixy.
+     `renderBlogQuick()`): **MIX · CHILL ·** a pak prefixy.
    - **Prefix** = první dvě písmena názvu vlastního backlogu, když jsou obě
      velká (`isUpperLetter`). Systémové backlogy se nepočítají.
    - Prefixy se řadí podle **`state.backlogOrder`** (skupina bere nejnižší
@@ -491,9 +491,11 @@ Jedna scroll-plocha, shora dolů:
      (case-sensitive, `applyTaskBacklogMulti`).
    - Rychlé volby jsou jen na hlavní stránce (v backlog view by se vedle
      „‹ Zpět“ na mobilu nevešly).
-2. **Náhled Chill:** nedatované úkoly z Chill, priorita DESC a createdAt ASC,
-   **max 5** (`WIP_PREVIEW_MIN = 5`). Odkaz „+ N dalších“ **není**, zbytek je
-   vidět v backlog view. Řádky mají jen ✓.
+2. **Náhled Mix** (od 22. 11. 2026, dřív Chill): `backlogTasks("Mix")`,
+   takže platí práh `mixMinPrio` ze slideru v pohledu Mix (na Check stránce
+   slider není). Priorita DESC a createdAt ASC, **max 7**
+   (`WIP_PREVIEW_MIN = 7`). Odkaz „+ N dalších“ **není**, zbytek je vidět
+   v backlog view. Řádky mají ✓ a štítek domovského backlogu jako v Mixu.
 3. **Kalendář:** sloupec dnů s hlavičkami („Dnes · Po 30. čvn“, „Zítra · …“,
    „Včera · …“, „… (N dní zpět)“). Úkol = řádek. Ukazuje úkoly ze **všech**
    backlogů. **Propadlé úkoly zůstávají pod svým původním datem** (žádný
