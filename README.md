@@ -495,7 +495,8 @@ Jedna scroll-plocha, shora dolů:
    takže platí práh `mixMinPrio` ze slideru v pohledu Mix (na Check stránce
    slider není). Priorita DESC a createdAt ASC, **max 7**
    (`WIP_PREVIEW_MIN = 7`). Odkaz „+ N dalších“ **není**, zbytek je vidět
-   v backlog view. Řádky mají ✓ a štítek domovského backlogu jako v Mixu.
+   v backlog view. Řádky mají jen ✓, **bez štítku backlogu** (Bob chce místo
+   pro název; štítek je jen uvnitř Mixu).
 3. **Kalendář:** sloupec dnů s hlavičkami („Dnes · Po 30. čvn“, „Zítra · …“,
    „Včera · …“, „… (N dní zpět)“). Úkol = řádek. Ukazuje úkoly ze **všech**
    backlogů. **Propadlé úkoly zůstávají pod svým původním datem** (žádný

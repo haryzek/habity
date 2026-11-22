@@ -3192,9 +3192,10 @@ function renderCheckDefault(){
   var wip = backlogTasks("Mix");
   var preview = document.getElementById("wipPreview");
   preview.innerHTML = "";
-  // ukaž max WIP_PREVIEW_MIN (7); zbytek je v backlog view Mix. Řádky se štítkem backlogu jako v Mixu.
+  // ukaž max WIP_PREVIEW_MIN (7); zbytek je v backlog view Mix. Bez štítku backlogu
+  // (Bob chce místo pro název; štítek zůstává jen uvnitř Mixu).
   var shown = (wip.length<=WIP_PREVIEW_MIN) ? wip : wip.slice(0, WIP_PREVIEW_MIN);
-  shown.forEach(function(t){ preview.appendChild(makeUtaskRow(t,"backlog",true)); });
+  shown.forEach(function(t){ preview.appendChild(makeUtaskRow(t,"backlog")); });
 
   // kalendář
   var cal = document.getElementById("calList");
