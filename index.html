@@ -1450,17 +1450,26 @@ var LIT_TAG_RENAME = {
 var LIT_SKUPINY_SEED = ["Otázky","Litánie","Udělat","Výzvy"];
 // témata (modrá), která v Litániích musí existovat vždy – doplní se na konec,
 // pokud chybí (bez ohledu na velikost písmen). „terapie" + Otázky = terapeutické otázky.
-// Chybějící seed jde hned ZA předchozí seed (psychopraxe za terapii), první na konec.
+// Chybějící seed jde hned ZA svou kotvu z LIT_SEED_AFTER (když v kolekci je),
+// jinak za předchozí seed, jinak na konec. Velikost prvního písmene převezme
+// od kotvy; bez kotvy velké, když všechna existující témata začínají velkým
+// (Otázky mají „Budoucnost, Kultura…“, Litánie mix → zůstane malé).
 var LIT_TEMATA_SEED = ["terapie","psychopraxe"];
+var OT_TEMATA_SEED = ["psychopraxe"];
+var LIT_SEED_AFTER = { "psychopraxe":"terapie" };
 function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
 function litEnsureTags(arr, seed){
   var low = arr.map(function(t){ return t.toLowerCase(); });
+  var allUp = arr.length>0 && arr.every(function(t){ return isUpperLetter(t.charAt(0)); });
   var prev = -1;
   (seed||[]).forEach(function(t){
     var i = low.indexOf(t.toLowerCase());
     if(i===-1){
-      i = prev>=0 ? prev+1 : arr.length;
-      arr.splice(i, 0, t); low.splice(i, 0, t.toLowerCase());
+      var a = LIT_SEED_AFTER[t] ? low.indexOf(LIT_SEED_AFTER[t].toLowerCase()) : -1;
+      var up = a>=0 ? isUpperLetter(arr[a].charAt(0)) : allUp;
+      var name = up ? t.charAt(0).toUpperCase()+t.slice(1) : t;
+      i = a>=0 ? a+1 : (prev>=0 ? prev+1 : arr.length);
+      arr.splice(i, 0, name); low.splice(i, 0, name.toLowerCase());
     }
     prev = i;
   });
@@ -1486,7 +1495,7 @@ var LIT_COLS = {
   // Kategorie z xlsx = první sada tagů (temata); casti/skupiny zatím prázdné (doplní se).
   ot: {
     key:"ot", base:"otBase", overlay:"otOverlay", nw:"otNew", filter:"otFilter",
-    temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[],
+    temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[], seedTemata:OT_TEMATA_SEED,
     prioMax:10, prioDef:6, idPrefix:"uq",
     dom:{ search:"otSearch", favQuick:"otFavQuick", filterBar:"otFilterBar", count:"otCount", list:"otList", empty:"otEmpty" },
     lab:{ one:"Otázky", ph:"Text otázky…", del:"Vyhodit otázku", deleted:"Otázka vyhozena.", loading:"Zatím žádné otázky." }

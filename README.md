@@ -858,8 +858,8 @@ motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
 
 | klíč | plocha | priorita | id nových | tagy |
 |---|---|---|---|---|
-| `lit` | **Litánie** (view 0) | 1–5, default 2 | `ul…` | temata (modré, vždy včetně **„terapie“**) · casti (červené, IFS figury) · skupiny (zelené, seed Otázky/Litánie/Udělat/Výzvy) |
-| `ot` | **Otázky** (view 1) | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx · casti/skupiny prázdné · bez seedů |
+| `lit` | **Litánie** (view 0) | 1–5, default 2 | `ul…` | temata (modré, vždy včetně **„terapie“ a „psychopraxe“**) · casti (červené, IFS figury) · skupiny (zelené, seed Otázky/Litánie/Udělat/Výzvy) |
+| `ot` | **Otázky** (view 1) | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx + seed **„Psychopraxe“** (`OT_TEMATA_SEED`) · casti/skupiny prázdné |
 
 **Klíče ve `state` na kolekci** (`litColBlank` / `litColNormalize`):
 - `<k>Base`: základ z importu.
@@ -877,12 +877,15 @@ motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
   `litRenArr` (např. Postoje → Litánie, Don-Omnipotent → Don).
 - **`LIT_SKUPINY_SEED`** se aplikuje jen v prázdném stavu nebo při importu bez
   `skupiny`.
-- **`LIT_TEMATA_SEED = ["terapie","psychopraxe"]`** + `litEnsureTags`
-  (9. 10. 2026, „psychopraxe“ od 26. 11. 2026): seed témata se **doplní mezi
-  modrá témata Litánií**, kdykoli chybí (porovnává bez ohledu na velikost
-  písmen). První chybějící jde na konec, každý další **hned za předchozí seed**
-  (psychopraxe za terapii). Běží v `litColBlank`, každém `litColNormalize`
-  i v `litImport`. Otázky ho nemají.
+- **Seedy modrých témat** + `litEnsureTags` (terapie 9. 10. 2026,
+  psychopraxe 26. 11. 2026): Litánie `LIT_TEMATA_SEED = ["terapie","psychopraxe"]`,
+  Otázky `OT_TEMATA_SEED = ["psychopraxe"]`. Chybějící seed se doplní
+  (porovnává bez ohledu na velikost písmen) **hned za kotvu**
+  z `LIT_SEED_AFTER` (`psychopraxe → terapie`), když v kolekci je, jinak za
+  předchozí seed, jinak na konec. Velké první písmeno převezme od kotvy, bez
+  kotvy je velké, když všechna témata kolekce začínají velkým (Otázky →
+  „Psychopraxe“). Běží v `litColBlank`, každém `litColNormalize`
+  i v `litImport`.
 
 **Import (`litImport(c,d)`):** formát
 `{polozky|litanie:[…], temata:[], casti:[], skupiny:[]}`. Naplní base a
