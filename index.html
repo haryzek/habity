@@ -1449,14 +1449,15 @@ var LIT_TAG_RENAME = {
 };
 var LIT_SKUPINY_SEED = ["Otázky","Litánie","Udělat","Výzvy"];
 // témata (modrá), která v Litániích musí existovat vždy – doplní se na konec,
-// pokud chybí (bez ohledu na velikost písmen). „terapie" + Otázky = terapeutické otázky.
+// pokud chybí (bez ohledu na velikost písmen).
 // Chybějící seed jde hned ZA svou kotvu z LIT_SEED_AFTER (když v kolekci je),
 // jinak za předchozí seed, jinak na konec. Velikost prvního písmene převezme
 // od kotvy; bez kotvy velké, když všechna existující témata začínají velkým
 // (Otázky mají „Budoucnost, Kultura…“, Litánie mix → zůstane malé).
-var LIT_TEMATA_SEED = ["terapie","psychopraxe"];
-var OT_TEMATA_SEED = ["psychopraxe"];
-var LIT_SEED_AFTER = { "psychopraxe":"terapie" };
+// 26. 11. 2026: „terapie“ přejmenovaná na „identita“ (jen Litánie, LIT_COLS.lit.tagRename).
+// Psychopraxe v Otázkách byla omyl → OT dropTemata ji uklidí.
+var LIT_TEMATA_SEED = ["identita","psychopraxe"];
+var LIT_SEED_AFTER = { "psychopraxe":"identita" };
 function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
 function litEnsureTags(arr, seed){
   var low = arr.map(function(t){ return t.toLowerCase(); });
@@ -1475,9 +1476,14 @@ function litEnsureTags(arr, seed){
   });
   return arr;
 }
-function litRenArr(a){
+// extra = přejmenování jen pro jednu kolekci (c.tagRename), po globálním LIT_TAG_RENAME
+function litRenArr(a, extra){
   var out = [], seen = {};
-  (a||[]).forEach(function(t){ var r = litRen(t); if(!seen[r]){ seen[r]=1; out.push(r); } });
+  (a||[]).forEach(function(t){
+    var r = litRen(t);
+    if(extra && extra.hasOwnProperty(r)) r = extra[r];
+    if(!seen[r]){ seen[r]=1; out.push(r); }
+  });
   return out;
 }
 // Kolekce „vět s tagy" sdílející jeden motor (seznam, filtr, search, sheet).
@@ -1487,6 +1493,7 @@ var LIT_COLS = {
   lit: {
     key:"lit", base:"litBase", overlay:"litOverlay", nw:"litNew", filter:"litFilter",
     temata:"litTemata", casti:"litCasti", skupiny:"litSkupiny", seedSkupiny:LIT_SKUPINY_SEED, seedTemata:LIT_TEMATA_SEED,
+    tagRename:{ "terapie":"identita", "Terapie":"Identita" },
     prioMax:5, prioDef:2, idPrefix:"ul",
     dom:{ search:"litSearch", favQuick:"litFavQuick", filterBar:"litFilterBar", count:"litCount", list:"litList", empty:"litEmpty" },
     lab:{ one:"Litánie", ph:"Text litánie…", del:"Vyhodit litánii", deleted:"Litánie vyhozena.", loading:"Načítám litánie…" }
@@ -1495,7 +1502,7 @@ var LIT_COLS = {
   // Kategorie z xlsx = první sada tagů (temata); casti/skupiny zatím prázdné (doplní se).
   ot: {
     key:"ot", base:"otBase", overlay:"otOverlay", nw:"otNew", filter:"otFilter",
-    temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[], seedTemata:OT_TEMATA_SEED,
+    temata:"otTemata", casti:"otCasti", skupiny:"otSkupiny", seedSkupiny:[], dropTemata:["psychopraxe"],
     prioMax:10, prioDef:6, idPrefix:"uq",
     dom:{ search:"otSearch", favQuick:"otFavQuick", filterBar:"otFilterBar", count:"otCount", list:"otList", empty:"otEmpty" },
     lab:{ one:"Otázky", ph:"Text otázky…", del:"Vyhodit otázku", deleted:"Otázka vyhozena.", loading:"Zatím žádné otázky." }
@@ -1510,7 +1517,7 @@ function litColBlank(c){
 }
 function litColNormalize(o, s, c){
   var PM = c.prioMax;
-  function strArr(a){ return litRenArr(Array.isArray(a) ? a.filter(function(t){ return typeof t==="string"; }) : []); }
+  function strArr(a){ return litRenArr(Array.isArray(a) ? a.filter(function(t){ return typeof t==="string"; }) : [], c.tagRename); }
   function prio(v, def){ return (typeof v==="number" && v>=1 && v<=PM) ? Math.round(v) : def; }
   if(Array.isArray(o[c.base])){
     s[c.base] = o[c.base].filter(function(x){ return x && typeof x==="object" && typeof x.text==="string"; })
@@ -1555,6 +1562,17 @@ function litColNormalize(o, s, c){
     f.fav = !!lf.fav; f.noTags = !!lf.noTags; f.expanded = !!lf.expanded;
     if(typeof lf.search==="string") f.search = lf.search.slice(0,100);
   }
+  // úklid omylem naseedovaných témat (c.dropTemata): smaž z definic, jen když je
+  // žádná věta ani filtr nepoužívá — ručně přidaný a použitý tag tak přežije
+  (c.dropTemata||[]).forEach(function(t){
+    var lt = t.toLowerCase();
+    function has(arr){ return (arr||[]).some(function(x){ return x.toLowerCase()===lt; }); }
+    var used = has(f.temata) ||
+      s[c.base].some(function(x){ return has(x.temata); }) ||
+      s[c.nw].some(function(x){ return has(x.temata); }) ||
+      Object.keys(s[c.overlay]).some(function(id){ return has(s[c.overlay][id].temata); });
+    if(!used) s[c.temata] = s[c.temata].filter(function(x){ return x.toLowerCase()!==lt; });
+  });
 }
 function litNewId(c){ return c.idPrefix+Date.now()+Math.random().toString(36).slice(2,6); }
 
@@ -5158,17 +5176,17 @@ function litImport(c, d){
       return {
         id: String(x.id),
         text: String(x.text),
-        temata: litRenArr(Array.isArray(x.temata) ? x.temata.slice() : []),
-        casti: litRenArr(Array.isArray(x.casti) ? x.casti.slice() : []),
-        skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.slice() : []),
+        temata: litRenArr(Array.isArray(x.temata) ? x.temata.slice() : [], c.tagRename),
+        casti: litRenArr(Array.isArray(x.casti) ? x.casti.slice() : [], c.tagRename),
+        skupiny: litRenArr(Array.isArray(x.skupiny) ? x.skupiny.slice() : [], c.tagRename),
         priorita: (typeof x.priorita==="number" && x.priorita>=1 && x.priorita<=c.prioMax) ? Math.round(x.priorita) : c.prioDef,
         oblibena: !!x.oblibena,
         aktivni: x.aktivni!==false
       };
     });
-  state[c.temata] = litEnsureTags(litRenArr(Array.isArray(d.temata) ? d.temata.slice() : []), c.seedTemata);
-  state[c.casti]  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : []);
-  state[c.skupiny] = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : (c.seedSkupiny||[]).slice());
+  state[c.temata] = litEnsureTags(litRenArr(Array.isArray(d.temata) ? d.temata.slice() : [], c.tagRename), c.seedTemata);
+  state[c.casti]  = litRenArr(Array.isArray(d.casti)  ? d.casti.slice()  : [], c.tagRename);
+  state[c.skupiny] = litRenArr(Array.isArray(d.skupiny) ? d.skupiny.slice() : (c.seedSkupiny||[]).slice(), c.tagRename);
   save();
   litLoadFromState(c);
   return state[c.base].length;

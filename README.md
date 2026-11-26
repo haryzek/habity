@@ -286,7 +286,7 @@ neudržuje a odkazuje sem. Platí tohle:
 
   // ----- KOLEKCE VĚT (LIT_COLS, sekce 6) — SOUKROMÉ, nikdy online. <k> = "lit" | "ot" -----
   litBase:    [ {id:String, text, temata:[], casti:[], skupiny:[], priorita, oblibena, aktivni} ],
-  litTemata:  ["…", "terapie", "psychopraxe"],             // obě vždy zajištěné (LIT_TEMATA_SEED)
+  litTemata:  ["…", "identita", "psychopraxe"],            // obě vždy zajištěné (LIT_TEMATA_SEED)
   litCasti:   [ … ],
   litSkupiny: ["Otázky","Litánie","Udělat","Výzvy", …],    // seed jen v prázdném stavu / importu
   litOverlay: { [id]: {text?,temata?,casti?,skupiny?,priorita?,oblibena?,aktivni?} },
@@ -858,8 +858,8 @@ motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
 
 | klíč | plocha | priorita | id nových | tagy |
 |---|---|---|---|---|
-| `lit` | **Litánie** (view 0) | 1–5, default 2 | `ul…` | temata (modré, vždy včetně **„terapie“ a „psychopraxe“**) · casti (červené, IFS figury) · skupiny (zelené, seed Otázky/Litánie/Udělat/Výzvy) |
-| `ot` | **Otázky** (view 1) | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx + seed **„Psychopraxe“** (`OT_TEMATA_SEED`) · casti/skupiny prázdné |
+| `lit` | **Litánie** (view 0) | 1–5, default 2 | `ul…` | temata (modré, vždy včetně **„identita“ (dřív terapie) a „psychopraxe“**) · casti (červené, IFS figury) · skupiny (zelené, seed Otázky/Litánie/Udělat/Výzvy) |
+| `ot` | **Otázky** (view 1) | **1–10**, default 6 (skóre z xlsx) | `uq…` | temata = 11 kategorií z xlsx · casti/skupiny prázdné · bez seedů |
 
 **Klíče ve `state` na kolekci** (`litColBlank` / `litColNormalize`):
 - `<k>Base`: základ z importu.
@@ -877,15 +877,20 @@ motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
   `litRenArr` (např. Postoje → Litánie, Don-Omnipotent → Don).
 - **`LIT_SKUPINY_SEED`** se aplikuje jen v prázdném stavu nebo při importu bez
   `skupiny`.
-- **Seedy modrých témat** + `litEnsureTags` (terapie 9. 10. 2026,
-  psychopraxe 26. 11. 2026): Litánie `LIT_TEMATA_SEED = ["terapie","psychopraxe"]`,
-  Otázky `OT_TEMATA_SEED = ["psychopraxe"]`. Chybějící seed se doplní
-  (porovnává bez ohledu na velikost písmen) **hned za kotvu**
-  z `LIT_SEED_AFTER` (`psychopraxe → terapie`), když v kolekci je, jinak za
+- **`c.tagRename`** je přejmenování **jen pro jednu kolekci** (po globálním
+  `LIT_TAG_RENAME`, druhý parametr `litRenArr`). Litánie mají
+  `terapie → identita` (26. 11. 2026), platí pro definice, věty, overlay,
+  vlastní věty, filtr i import.
+- **Seedy modrých témat** + `litEnsureTags` (od 9. 10. 2026): Litánie
+  `LIT_TEMATA_SEED = ["identita","psychopraxe"]`, Otázky žádné. Chybějící seed
+  se doplní (porovnává bez ohledu na velikost písmen) **hned za kotvu**
+  z `LIT_SEED_AFTER` (`psychopraxe → identita`), když v kolekci je, jinak za
   předchozí seed, jinak na konec. Velké první písmeno převezme od kotvy, bez
-  kotvy je velké, když všechna témata kolekce začínají velkým (Otázky →
-  „Psychopraxe“). Běží v `litColBlank`, každém `litColNormalize`
-  i v `litImport`.
+  kotvy je velké, když všechna témata kolekce začínají velkým. Běží
+  v `litColBlank`, každém `litColNormalize` i v `litImport`.
+- **`c.dropTemata`** uklidí omylem naseedovaná témata: Otázky mají
+  `["psychopraxe"]` (26. 11. 2026 tam omylem byla chvíli seedovaná). Smaže se
+  z definic jen tehdy, když ho nepoužívá žádná věta ani filtr.
 
 **Import (`litImport(c,d)`):** formát
 `{polozky|litanie:[…], temata:[], casti:[], skupiny:[]}`. Naplní base a
@@ -915,8 +920,8 @@ nastaví placeholder, text tlačítka pro smazání a max slideru podle kolekce.
   (1..prioMax), toggle „Bez tagů“, Reset a sbalení (i klikem mimo).
   - **Sémantika: OR uvnitř skupiny, AND mezi skupinami**, plus ★, bez tagů,
     priorita a fuzzy hledání.
-  - **Use-case:** v Litániích „terapie“ (modrá) + „Otázky“ (zelená) =
-    terapeutické otázky. Pozor, tohle „Otázky“ je zelený tag uvnitř Litánií,
+  - **Use-case:** v Litániích „identita“ (modrá, dřív „terapie“) + „Otázky“
+    (zelená) = terapeutické otázky. Pozor, tohle „Otázky“ je zelený tag uvnitř Litánií,
     ne plocha Otázky.
   - Odznak počítá tagy, prioMin>1, ★ a bez tagů, hledání ne. Reset hledání
     nemaže.
@@ -993,7 +998,9 @@ novou zruší (`cancel()`).
 - Běh, Nálada, Spánek.
 - Litánie a Otázky.
 - Mix agregátor a slider (headless testy, 9. 10. 2026).
-- Seed „terapie“.
+- Seed „terapie“ (dnes „identita“).
+- Přejmenování terapie → identita, seed psychopraxe a úklid Otázek
+  (26. 11. 2026, `normalize` v prohlížeči).
 
 **Opraveno po auditu 11. 10. 2026:**
 - `»` u propadlého úkolu.
