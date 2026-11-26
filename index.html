@@ -1450,11 +1450,20 @@ var LIT_TAG_RENAME = {
 var LIT_SKUPINY_SEED = ["Otázky","Litánie","Udělat","Výzvy"];
 // témata (modrá), která v Litániích musí existovat vždy – doplní se na konec,
 // pokud chybí (bez ohledu na velikost písmen). „terapie" + Otázky = terapeutické otázky.
-var LIT_TEMATA_SEED = ["terapie"];
+// Chybějící seed jde hned ZA předchozí seed (psychopraxe za terapii), první na konec.
+var LIT_TEMATA_SEED = ["terapie","psychopraxe"];
 function litRen(t){ return LIT_TAG_RENAME.hasOwnProperty(t) ? LIT_TAG_RENAME[t] : t; }
 function litEnsureTags(arr, seed){
   var low = arr.map(function(t){ return t.toLowerCase(); });
-  (seed||[]).forEach(function(t){ if(low.indexOf(t.toLowerCase())===-1){ arr.push(t); low.push(t.toLowerCase()); } });
+  var prev = -1;
+  (seed||[]).forEach(function(t){
+    var i = low.indexOf(t.toLowerCase());
+    if(i===-1){
+      i = prev>=0 ? prev+1 : arr.length;
+      arr.splice(i, 0, t); low.splice(i, 0, t.toLowerCase());
+    }
+    prev = i;
+  });
   return arr;
 }
 function litRenArr(a){

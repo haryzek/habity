@@ -286,7 +286,7 @@ neudržuje a odkazuje sem. Platí tohle:
 
   // ----- KOLEKCE VĚT (LIT_COLS, sekce 6) — SOUKROMÉ, nikdy online. <k> = "lit" | "ot" -----
   litBase:    [ {id:String, text, temata:[], casti:[], skupiny:[], priorita, oblibena, aktivni} ],
-  litTemata:  ["…", "terapie"],                            // "terapie" vždy zajištěná (LIT_TEMATA_SEED)
+  litTemata:  ["…", "terapie", "psychopraxe"],             // obě vždy zajištěné (LIT_TEMATA_SEED)
   litCasti:   [ … ],
   litSkupiny: ["Otázky","Litánie","Udělat","Výzvy", …],    // seed jen v prázdném stavu / importu
   litOverlay: { [id]: {text?,temata?,casti?,skupiny?,priorita?,oblibena?,aktivni?} },
@@ -877,10 +877,12 @@ motoru berou `c` jako první argument (`litEffective(c)`, `renderLitList(c)`,
   `litRenArr` (např. Postoje → Litánie, Don-Omnipotent → Don).
 - **`LIT_SKUPINY_SEED`** se aplikuje jen v prázdném stavu nebo při importu bez
   `skupiny`.
-- **`LIT_TEMATA_SEED = ["terapie"]`** + `litEnsureTags` (9. 10. 2026):
-  „terapie“ se **doplní na konec modrých témat Litánií**, kdykoli chybí (porovnává
-  bez ohledu na velikost písmen). Běží v `litColBlank`, každém
-  `litColNormalize` i v `litImport`. Otázky ho nemají.
+- **`LIT_TEMATA_SEED = ["terapie","psychopraxe"]`** + `litEnsureTags`
+  (9. 10. 2026, „psychopraxe“ od 26. 11. 2026): seed témata se **doplní mezi
+  modrá témata Litánií**, kdykoli chybí (porovnává bez ohledu na velikost
+  písmen). První chybějící jde na konec, každý další **hned za předchozí seed**
+  (psychopraxe za terapii). Běží v `litColBlank`, každém `litColNormalize`
+  i v `litImport`. Otázky ho nemají.
 
 **Import (`litImport(c,d)`):** formát
 `{polozky|litanie:[…], temata:[], casti:[], skupiny:[]}`. Naplní base a
